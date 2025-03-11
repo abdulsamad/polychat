@@ -47,7 +47,7 @@ const useCustomEditor = () => {
           switch (ev.key?.toLowerCase()) {
             case 'enter':
               {
-                if (ev.metaKey) {
+                if (!ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
                   ev.preventDefault();
 
                   // TODO: Fix directly accessing DOM
@@ -55,6 +55,7 @@ const useCustomEditor = () => {
                 }
               }
               break;
+
             case 'arrowup': {
               //
               break;
