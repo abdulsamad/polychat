@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, Suspense, type MouseEvent } from 'react';
+import { useCallback, Suspense } from 'react';
 import { useNavigate } from 'react-router';
 import { useAtom } from 'jotai';
 import {
@@ -18,9 +18,8 @@ import { useTheme } from 'next-themes';
 
 import { languages } from 'utils';
 
-import { threadAtom, currentThreadIdAtom, type IThreads, configAtom } from '@/store';
+import { threadAtom, currentThreadIdAtom, configAtom } from '@/store';
 import { getName } from '@/utils';
-import { getThreads, lforage, threadsKey } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -47,52 +46,17 @@ import ThreadsList from './ThreadsList';
 
 const AppSidebar = () => {
   const [config, setConfig] = useAtom(configAtom);
-  const { open, setOpen, setOpenMobile, isMobile } = useSidebar();
-  const [currentThreadId, setCurrentThreadId] = useAtom(currentThreadIdAtom);
+  const setCurrentThreadId = useSetAtom(currentThreadIdAtom);
   const setThread = useSetAtom(threadAtom);
-  const [threads, setThreads] = useState<IThreads>([]);
 
   const navigate = useNavigate();
   const clerk = useClerk();
   const { user } = useUser();
   const { signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { setOpen, setOpenMobile, isMobile } = useSidebar();
+
   const { language } = config;
-
-  const fetchThreads = useCallback(async () => {
-    // Retrieve saved threads
-    const threads = await getThreads();
-    setThreads(threads);
-  }, []);
-
-  useEffect(() => {
-    // Fetch latest threads
-    fetchThreads();
-  }, [fetchThreads]);
-
-  useEffect(() => {
-    if (open) {
-      fetchThreads();
-    }
-  }, [fetchThreads, open]);
-
-  const deleteChats = useCallback(
-    async (ev: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>, threadId: string) => {
-      ev.stopPropagation();
-
-      if (currentThreadId === threadId) {
-        setThread([] as any, true as any);
-      }
-
-      const threads: IThreads | null = await lforage.getItem(threadsKey);
-      const filterThreads = threads?.filter(({ id }) => id !== threadId);
-      await lforage.setItem(threadsKey, filterThreads);
-
-      // Reset
-      fetchThreads();
-    },
-    [currentThreadId, fetchThreads, setThread]
-  );
 
   const addNewChat = useCallback(() => {
     setOpenMobile(false);
@@ -130,8 +94,8 @@ const AppSidebar = () => {
         </SidebarHeader>
         <SidebarContent>
           <div className="h-full w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto box-border">
-            <Suspense fallback={'Loading......'}>
-              <ThreadsList deleteChats={deleteChats} threads={threads} />
+            <Suspense fallback={<div className="text-center py-2">Loading...</div>}>
+              <ThreadsList />
             </Suspense>
           </div>
         </SidebarContent>
