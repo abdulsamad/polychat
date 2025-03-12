@@ -1,6 +1,5 @@
 import { MetaFunction, Outlet } from 'react-router';
 import { Provider } from 'jotai';
-import { rootAuthLoader } from '@clerk/react-router/ssr.server';
 import { ClerkProvider } from '@clerk/react-router';
 import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 
@@ -27,18 +26,11 @@ export const links: Route.LinksFunction = () => [
   },
 ];
 
-export async function loader(args: Route.LoaderArgs) {
-  return rootAuthLoader(args);
-}
-
 export const HydrateFallback = Loading;
 
-const App = ({ loaderData }: Route.ComponentProps) => {
+const App = ({}: Route.ComponentProps) => {
   return (
-    <ClerkProvider
-      loaderData={loaderData}
-      signUpFallbackRedirectUrl="/"
-      signInFallbackRedirectUrl="/">
+    <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
       <VercelAnalytics />
       <Provider>
         <Outlet />

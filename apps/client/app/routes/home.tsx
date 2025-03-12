@@ -2,16 +2,16 @@ import { Suspense, useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, RedirectToSignIn } from '@clerk/react-router';
 
-import { threadAtom, currentThreadIdAtom, type IThreads } from '@/store';
+import { threadAtom, currentThreadIdAtom } from '@/store';
 import { getThreads } from '@/utils/lforage';
 import { chatSaveEffect, configAtom } from '@/store';
 import Text from '@/components/Inputs/Text';
 import Voice from '@/components/Inputs/Voice';
 import Thread from '@/components/Thread';
+import Loading from '@/loading';
 import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 
 import type { Route } from './+types/home';
-import Loading from '@/loading';
 
 export const meta = ({}: Route.MetaArgs) => {
   return [
