@@ -1,12 +1,17 @@
-const Loading = () => (
+import clsx from 'clsx';
+
+interface LoadingProps {
+  className?: React.HtmlHTMLAttributes<HTMLDivElement>['className'];
+}
+
+const Loading = ({ className }: LoadingProps) => (
   <div
-    className="h-full w-screen flex items-center justify-center"
-    aria-label="Loading. Please wait..."
-    aria-hidden="true">
-    <span className="loading loading-ball loading-xs"></span>
-    <span className="loading loading-ball loading-sm"></span>
-    <span className="loading loading-ball loading-md"></span>
-    <span className="loading loading-ball loading-lg"></span>
+    className={clsx('h-[calc(100svh)] w-full flex items-center justify-center', className)}
+    aria-label="Loading. Please wait...">
+    <div className="relative">
+      <div className="h-24 w-24 rounded-full border-t-8 border-b-8 border-gray-200 dark:border-gray-900"></div>
+      <div className="absolute top-0 left-0 h-24 w-24 rounded-full border-t-8 border-b-8 border-purple-500 animate-spin"></div>
+    </div>
   </div>
 );
 

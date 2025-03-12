@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, RedirectToSignIn } from '@clerk/react-router';
 
@@ -57,14 +57,14 @@ const Home = ({ params, loaderData }: Route.ComponentProps) => {
   }
 
   return (
-    <Suspense>
+    <>
       <Thread />
       <section className="flex flex-col justify-end">
         <div className="flex flex-col">
           {!textInput && IS_SPEECH_RECOGNITION_SUPPORTED() ? <Voice /> : <Text />}
         </div>
       </section>
-    </Suspense>
+    </>
   );
 };
 
