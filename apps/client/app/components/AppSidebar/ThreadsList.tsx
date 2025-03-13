@@ -122,7 +122,8 @@ const ThreadsList = () => {
                               isActive ? 'bg-[rgba(255, 255, 255, 0.85)]' : '',
                               isTransitioning ? 'transitioning' : '',
                             ].join(' ')
-                          }>
+                          }
+                          viewTransition>
                           <p className="truncate w-fit text-foreground text-left">
                             {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
                           </p>
