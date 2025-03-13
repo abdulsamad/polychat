@@ -89,7 +89,13 @@ const ThreadsList = () => {
     [currentThreadId, setThread, fetchThreads]
   );
 
-  if (!isPending && !threads.length) return <p className="text-center py-2">No threads</p>;
+  if (!isPending && !threads.length) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-center py-2 text-muted-foreground">No threads</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2 overflow-hidden">
