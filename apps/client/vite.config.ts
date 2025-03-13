@@ -16,6 +16,7 @@ export default defineConfig({
       devOptions: {
         enabled: true,
       },
+      includeAssets: ['favicon.ico'],
       manifest: {
         name: 'PolyChat - The AI Chat App',
         short_name: 'PolyChat',

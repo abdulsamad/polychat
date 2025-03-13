@@ -14,6 +14,7 @@ export const meta: MetaFunction = () => [
   {
     charset: 'utf-8',
     viewport: 'width=device-width,initial-scale=1',
+    title: 'PolyChat - The AI Chat App',
   },
 ];
 
@@ -24,6 +25,9 @@ export const links: Route.LinksFunction = () => [
     rel: 'stylesheet',
     href: 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap',
   },
+  { rel: 'icon', href: '/favicon.ico' },
+  { rel: 'theme-color', href: '#AD46FF' },
+  { rel: 'manifest', href: '/manifest.webmanifest' },
 ];
 
 export const HydrateFallback = Loading;
