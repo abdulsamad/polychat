@@ -130,7 +130,11 @@ const ThreadsList = () => {
                         </NavLink>
                       </SidebarMenuButton>
                       <DeleteAlert onDelete={(ev) => deleteChats(ev, id)}>
-                        <Button className="h-7 w-6" variant="destructive" size="icon">
+                        <Button
+                          className="h-7 w-6"
+                          variant="destructive"
+                          size="icon"
+                          onClick={(ev) => ev.stopPropagation()}>
                           <TrashIcon className="h-3.5 w-3.5" />
                         </Button>
                       </DeleteAlert>

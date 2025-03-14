@@ -14,7 +14,7 @@ import {
 interface DeleteAlertProps {
   children: React.ReactNode;
   onDelete: (ev: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
-  onCancel?: () => void;
+  onCancel?: (ev: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
 
 const DeleteAlert = ({ children, onDelete, onCancel }: DeleteAlertProps) => (
@@ -29,7 +29,14 @@ const DeleteAlert = ({ children, onDelete, onCancel }: DeleteAlertProps) => (
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel asChild>
-          <Button onClick={onCancel}>Cancel</Button>
+          <Button
+            variant="secondary"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              if (onCancel) onCancel(ev);
+            }}>
+            Cancel
+          </Button>
         </AlertDialogCancel>
         <AlertDialogAction asChild>
           <Button

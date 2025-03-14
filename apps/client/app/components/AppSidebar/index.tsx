@@ -1,4 +1,4 @@
-import { useCallback, Suspense } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAtom } from 'jotai';
 import {
@@ -10,6 +10,7 @@ import {
   UserRoundPenIcon,
   CheckIcon,
   ArrowUpRightIcon,
+  ChevronDown,
 } from 'lucide-react';
 import { useSetAtom } from 'jotai';
 import { useClerk, useAuth, useUser } from '@clerk/react-router';
@@ -94,9 +95,7 @@ const AppSidebar = () => {
         </SidebarHeader>
         <SidebarContent>
           <div className="h-full w-full flex flex-col justify-between overflow-x-hidden overflow-y-auto box-border">
-            <Suspense fallback={<div className="text-center py-2">Loading...</div>}>
-              <ThreadsList />
-            </Suspense>
+            <ThreadsList />
           </div>
         </SidebarContent>
         <SidebarFooter className="px-2 py-4">
@@ -106,7 +105,7 @@ const AppSidebar = () => {
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group/sidebar-footer">
                     <Avatar className="h-8 w-8 rounded-lg">
                       <AvatarImage src={user?.imageUrl} alt={getName(user)} />
                       <AvatarFallback className="rounded-lg">CN</AvatarFallback>
@@ -117,7 +116,7 @@ const AppSidebar = () => {
                         {user?.emailAddresses[0].emailAddress}
                       </span>
                     </div>
-                    <ChevronsUpDownIcon className="ml-auto size-4" />
+                    <ChevronDown className="ml-auto size-4 group-has-data-[state=open]:rotate-z-180 transition-transform duration-300" />
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
