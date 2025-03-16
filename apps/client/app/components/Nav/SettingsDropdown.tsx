@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { useAtom } from 'jotai';
 import { SettingsIcon } from 'lucide-react';
 
-import { variations, supportedImageModels, supportedTextModels } from 'utils';
+import { variations, supportedImageModels, imageSizes, supportedTextModels } from 'utils';
 
-import { configAtom } from '@/store';
-import { IS_SPEECH_RECOGNITION_SUPPORTED, IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
+import { configAtom, threadAtom } from '@/store';
+import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -16,7 +16,6 @@ import {
   SelectGroup,
   SelectLabel,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -25,28 +24,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { imageSizes } from 'utils';
-
 const SettingsDropdown = () => {
   const [config, setConfig] = useAtom(configAtom);
+  const [thread, setThread] = useAtom(threadAtom);
 
-  const { model, variation, imageSize, textInput, speakResults, style, quality } = config;
-  const hasImageModels = supportedImageModels.length;
-  const isImageModelSelected = supportedImageModels.map(({ name }) => name).includes(model);
-  const isDallE3Selected = model === 'dall-e-3';
+  const { imageSize, style, quality } = config;
 
   const updateSetting = useCallback(
     (name: string, value: string) => {
-      setConfig({ ...config, [name]: value });
+      if (!thread) return null;
+
+      setThread({ ...thread, settings: { ...thread.settings, [name]: value } });
     },
-    [config, setConfig]
+    [config, setConfig, thread, setThread]
   );
 
   const updateCheckSetting = useCallback(
     (name: string, checked: boolean) => {
-      setConfig({ ...config, [name]: checked });
+      if (!thread) return null;
+
+      setThread({ ...thread, settings: { ...thread.settings, [name]: checked } });
     },
-    [config, setConfig]
+    [config, setConfig, thread, setThread]
   );
 
   const setImageSizeValue = useCallback(() => {
@@ -57,7 +56,7 @@ const SettingsDropdown = () => {
     }
 
     return imageSize;
-  }, [imageSize, model, updateSetting]);
+  }, [imageSize, updateSetting]);
 
   const getGroupedItemsByCategory = useCallback((items: typeof variations) => {
     return Object.entries(
@@ -72,6 +71,15 @@ const SettingsDropdown = () => {
     );
   }, []);
 
+  if (!thread) return null;
+
+  const {
+    settings: { model, variation, isContextAware, isTextToSpeechEnabled },
+  } = thread!;
+  const hasImageModels = supportedImageModels.length;
+  const isImageModelSelected = supportedImageModels.map(({ name }) => name).includes(model);
+  const isDallE3Selected = model === 'dall-e-3';
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -80,8 +88,8 @@ const SettingsDropdown = () => {
           <span className="sr-only">Toggle thread dropdown</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="rounded-xl max-w-72" align="end">
-        <ul className="space-y-5 lg:space-y-8 p-4">
+      <DropdownMenuContent className="rounded-xl w-72" align="end">
+        <ul className="space-y-5 lg:space-y-6 p-4">
           <li>
             <div className="flex flex-col space-y-2">
               <label className="ml-1">Model</label>
@@ -152,32 +160,53 @@ const SettingsDropdown = () => {
             </div>
           </li>
           {!isImageModelSelected && (
-            <li>
-              <div className="flex flex-col space-y-2">
-                <label className="ml-1">Variation</label>
-                <Select
-                  value={variation}
-                  onValueChange={(value) => updateSetting('variation', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Variation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getGroupedItemsByCategory(variations).map(([category, items]) => (
-                      <SelectGroup key={category}>
-                        <SelectLabel className="text-muted-foreground capitalize">
-                          {category}
-                        </SelectLabel>
-                        {items.map(({ code, text }) => (
-                          <SelectItem key={code} value={code}>
-                            {text}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </li>
+            <>
+              <li>
+                <div className="flex flex-col space-y-2">
+                  <label className="ml-1">Variation</label>
+                  <Select
+                    value={variation}
+                    onValueChange={(value) => updateSetting('variation', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Variation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getGroupedItemsByCategory(variations).map(([category, items]) => (
+                        <SelectGroup key={category}>
+                          <SelectLabel className="text-muted-foreground capitalize">
+                            {category}
+                          </SelectLabel>
+                          {items.map(({ code, text }) => (
+                            <SelectItem key={code} value={code}>
+                              {text}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </li>
+              <li>
+                <div className="flex justify-center space-x-4">
+                  <Checkbox
+                    id="is-context-aware"
+                    checked={isContextAware}
+                    className="dark:border-white"
+                    onCheckedChange={(value) =>
+                      updateCheckSetting('isContextAware', value as boolean)
+                    }
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="is-context-aware"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Is Context Aware
+                    </label>
+                  </div>
+                </div>
+              </li>
+            </>
           )}
           {isImageModelSelected && (
             <li>
@@ -234,39 +263,21 @@ const SettingsDropdown = () => {
               </li>
             </>
           )}
-          {IS_SPEECH_RECOGNITION_SUPPORTED() && (
-            <li>
-              <div className="flex flex-col items-center justify-center space-y-3.5">
-                <h3 className="text-md">Input Type</h3>
-                <p className="text-slate-700 text-center dark:text-slate-300 text-xs italic">
-                  How you want to interact with GPT - <br />
-                  {textInput
-                    ? `type messages for more precise input`
-                    : `use your voice for hands-free
-                  conversation`}
-                </p>
-                <div className="flex items-center space-x-3 text-sm">
-                  <span>Voice</span>
-                  <Switch
-                    checked={textInput}
-                    onCheckedChange={(value) => updateCheckSetting('textInput', value)}
-                  />
-                  <span>Text</span>
-                </div>
-              </div>
-            </li>
-          )}
-          {IS_SPEECH_SYNTHESIS_SUPPORTED() && !textInput && (
+
+          {IS_SPEECH_SYNTHESIS_SUPPORTED() && (
             <li>
               <div className="flex justify-center space-x-2">
                 <Checkbox
-                  id="terms1"
-                  checked={speakResults}
-                  onCheckedChange={(value) => updateCheckSetting('speakResults', value as boolean)}
+                  id="is-text-to-speech-enabled"
+                  checked={isTextToSpeechEnabled}
+                  className="dark:border-white"
+                  onCheckedChange={(value) =>
+                    updateCheckSetting('isTextToSpeechEnabled', value as boolean)
+                  }
                 />
                 <div className="grid gap-1.5 leading-none">
                   <label
-                    htmlFor="terms1"
+                    htmlFor="is-text-to-speech-enabled"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     Speak Results
                   </label>

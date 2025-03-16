@@ -9,7 +9,7 @@ import useSound from 'use-sound';
 
 import { supportedImageModels } from 'utils';
 
-import { threadLoadingAtom, threadAtom, configAtom } from '@/store/index';
+import { threadAtom, messagesAtom, threadLoadingAtom, configAtom } from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 
 const THROTTLE_UPDATE_TIME_MS = 750;
@@ -21,9 +21,10 @@ interface handleChatResponseProps {
 }
 
 const useHandleChatResponse = () => {
-  const addChat = useSetAtom(threadAtom);
+  const { imageSize, language, quality, style } = useAtomValue(configAtom);
+  const thread = useAtomValue(threadAtom);
+  const addChat = useSetAtom(messagesAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
-  const { variation, model, imageSize, language, quality, style } = useAtomValue(configAtom);
   const [isPending, startTransition] = useTransition();
 
   const { user } = useUser();
@@ -36,9 +37,12 @@ const useHandleChatResponse = () => {
     onImageMessageComplete,
   }: handleChatResponseProps) => {
     try {
-      if (supportedImageModels.map(({ name }) => name).includes(model)) {
+      if (!thread) throw new Error('Thread not created');
+
+      if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
         const { b64_json, image } = await getGeneratedImage({
           prompt,
+          model: thread.settings.model,
           size: imageSize,
           user,
           quality,
@@ -49,16 +53,19 @@ const useHandleChatResponse = () => {
         startTransition(() => {
           addChat({
             id: crypto.randomUUID(),
-            type: 'assistant',
-            image: {
+            content: `data:image/png;base64,${b64_json}`,
+            image_url: {
               url: `data:image/png;base64,${b64_json}`,
               alt: image.data[0]?.revised_prompt,
+              size: imageSize,
             },
-            variation,
-            timestamp: getTime(new Date()),
-            format: 'image',
-            size: imageSize,
-            model,
+            role: 'assistant',
+            type: 'image_url',
+            metadata: {
+              model: thread.settings.model,
+              variation: thread.settings.variation,
+              timestamp: getTime(new Date()),
+            },
           });
 
           setIsChatResponseLoading(false);
@@ -71,6 +78,8 @@ const useHandleChatResponse = () => {
       } else {
         const stream = await getGeneratedText({
           prompt,
+          model: thread.settings.model,
+          variation: thread.settings.variation,
           language,
           user,
           getToken,
@@ -93,12 +102,14 @@ const useHandleChatResponse = () => {
           startTransition(() => {
             addChat({
               id: uid,
-              type: 'assistant',
-              message: text,
-              variation,
-              timestamp,
-              format: 'text',
-              model,
+              content: text,
+              metadata: {
+                model: thread.settings.model,
+                timestamp,
+                variation: thread.settings.variation,
+              },
+              role: 'assistant',
+              type: 'text',
             });
           });
         }, THROTTLE_UPDATE_TIME_MS);
@@ -120,12 +131,14 @@ const useHandleChatResponse = () => {
             startTransition(() => {
               addChat({
                 id: uid,
-                type: 'assistant',
-                message: content,
-                variation,
-                timestamp,
-                format: 'text',
-                model,
+                content,
+                metadata: {
+                  model: thread.settings.model,
+                  variation: thread.settings.variation,
+                  timestamp,
+                },
+                role: 'assistant',
+                type: 'text',
               });
 
               // Feedback

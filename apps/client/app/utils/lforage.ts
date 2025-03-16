@@ -1,6 +1,6 @@
 import localforage from 'localforage';
 
-import { IThreads } from '@/store';
+import { IMessage, IThreads } from '@/store';
 
 export const settingsKey = 'config';
 
@@ -20,6 +20,8 @@ export const getConfig = (setting: string) => {
 
 export const threadsKey = 'threads';
 
+export const messagesKey = 'messages';
+
 export const lforage = localforage.createInstance({
   name: 'polychat',
   description: 'A chat application',
@@ -29,4 +31,9 @@ export const lforage = localforage.createInstance({
 export const getThreads = async (): Promise<IThreads> => {
   const threads = (await lforage.getItem(threadsKey)) as IThreads;
   return threads;
+};
+
+export const getMessages = async <T extends IMessage[]>(): Promise<{ [key: string]: T }> => {
+  const messages = (await lforage.getItem(messagesKey)) as { [key: string]: T };
+  return messages;
 };

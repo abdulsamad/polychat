@@ -4,16 +4,16 @@ import { getTime } from 'date-fns';
 import { toast } from 'sonner';
 import { useUser } from '@clerk/react-router';
 
-import { threadLoadingAtom, threadAtom, configAtom } from '@/store';
+import { threadLoadingAtom, threadAtom, configAtom, messagesAtom } from '@/store';
 import { speechLog, speechGrammer, IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 
 import useHandleChatResponse from './useHandleChatResponse';
 
 const useSpeech = () => {
-  const addChat = useSetAtom(threadAtom);
+  const { imageSize, language, quality, style } = useAtomValue(configAtom);
+  const thread = useAtomValue(threadAtom);
+  const addChat = useSetAtom(messagesAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
-  const { model, variation, imageSize, language, speakResults, quality, style } =
-    useAtomValue(configAtom);
   const [isListening, setIsListening] = useState(false);
 
   const recognition = useRef<SpeechRecognition | null>(null);
@@ -62,6 +62,8 @@ const useSpeech = () => {
   const onSpeechResult = useCallback(
     async (ev: SpeechRecognitionEvent) => {
       try {
+        if (!thread) throw new Error('Thread not created');
+
         const results = ev.results;
         const last = --Object.keys(results).length;
 
@@ -71,12 +73,14 @@ const useSpeech = () => {
 
         addChat({
           id: crypto.randomUUID(),
-          type: 'user',
-          message: transcript,
-          variation: null,
-          timestamp: getTime(new Date()),
-          format: 'text',
-          model,
+          role: 'user',
+          content: transcript,
+          metadata: {
+            model: thread.settings.model,
+            variation: null,
+            timestamp: getTime(new Date()),
+          },
+          type: 'text',
         });
 
         setIsChatResponseLoading(true);
@@ -85,7 +89,8 @@ const useSpeech = () => {
         await handleChatResponse({
           prompt: transcript,
           onTextMessageComplete: (content) => {
-            if (speakResults) speakText(content, recognition.current?.lang || 'en-US');
+            if (thread.settings.isTextToSpeechEnabled)
+              speakText(content, recognition.current?.lang || 'en-US');
           },
         });
 
@@ -98,16 +103,14 @@ const useSpeech = () => {
     },
     [
       addChat,
-      model,
       setIsChatResponseLoading,
       stopRecognition,
       imageSize,
       user,
       quality,
       style,
-      variation,
-      speakResults,
       speakText,
+      thread?.settings,
     ]
   );
 

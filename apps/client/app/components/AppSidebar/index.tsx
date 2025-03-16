@@ -19,7 +19,7 @@ import { useTheme } from 'next-themes';
 
 import { languages } from 'utils';
 
-import { threadAtom, currentThreadIdAtom, configAtom } from '@/store';
+import { threadAtom, configAtom, getDefaultThread, messagesAtom } from '@/store';
 import { getName } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,26 +47,28 @@ import ThreadsList from './ThreadsList';
 
 const AppSidebar = () => {
   const [config, setConfig] = useAtom(configAtom);
-  const setCurrentThreadId = useSetAtom(currentThreadIdAtom);
   const setThread = useSetAtom(threadAtom);
+  const setMessages = useSetAtom(messagesAtom);
 
   const navigate = useNavigate();
   const clerk = useClerk();
   const { user } = useUser();
   const { signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { setOpen, setOpenMobile, isMobile } = useSidebar();
+  const { setOpenMobile, isMobile } = useSidebar();
 
   const { language } = config;
 
   const addNewChat = useCallback(() => {
     setOpenMobile(false);
 
-    setThread([] as any, true as any);
-    setCurrentThreadId(crypto.randomUUID());
+    const blankThread = getDefaultThread();
 
-    navigate('/');
-  }, [setThread, setCurrentThreadId, setOpen]);
+    setMessages([] as any, true as any);
+    setThread(blankThread);
+
+    navigate(`/${blankThread.id}`);
+  }, [setThread, setMessages, navigate, setOpenMobile]);
 
   const updateSetting = useCallback(
     (name: string, value: string) => {

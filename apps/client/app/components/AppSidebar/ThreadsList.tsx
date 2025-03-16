@@ -6,14 +6,14 @@ import {
   type HTMLAttributes,
   type MouseEvent,
 } from 'react';
-import { NavLink } from 'react-router';
-import { useAtom, useSetAtom } from 'jotai';
+import { NavLink, useParams } from 'react-router';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { TrashIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
-import { currentThreadIdAtom, IThreads, threadAtom } from '@/store';
-import { getThreads, lforage, threadsKey } from '@/utils/lforage';
+import { getDefaultThread, IThreads, messagesAtom, threadAtom } from '@/store';
+import { getMessages, getThreads, lforage, messagesKey, threadsKey } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -29,23 +29,28 @@ import {
 import DeleteAlert from './DeleteAlert';
 
 const ThreadsList = () => {
-  const [currentThreadId, setCurrentThreadId] = useAtom(currentThreadIdAtom);
+  const thread = useAtomValue(threadAtom);
   const setThread = useSetAtom(threadAtom);
+  const setMessages = useSetAtom(messagesAtom);
   const [threads, setThreads] = useState<IThreads>([]);
   const [isPending, startTransition] = useTransition();
 
+  const params = useParams();
   const { open, setOpenMobile } = useSidebar();
 
   const fetchThreads = useCallback(() => {
     startTransition(async () => {
       const newThreads = await getThreads();
-      setThreads(newThreads || []);
+
+      if (!newThreads) return;
+
+      setThreads(newThreads);
     });
   }, []);
 
   useEffect(() => {
     fetchThreads();
-  }, []);
+  }, [thread]);
 
   useEffect(() => {
     // Refetch threads when sidebar opens
@@ -58,17 +63,28 @@ const ThreadsList = () => {
     async (ev: MouseEvent<HTMLButtonElement>, threadId: string) => {
       ev.stopPropagation();
 
-      if (currentThreadId === threadId) {
-        setThread([] as any, true as any);
+      if (params.threadId === threadId) {
+        // Reset the thread
+        const blankThread = getDefaultThread();
+        setThread(blankThread);
+        setMessages([] as any, true as any);
       }
 
-      const storedThreads: IThreads | null = await lforage.getItem(threadsKey);
-      const filteredThreads = storedThreads?.filter(({ id }) => id !== threadId);
-      await lforage.setItem(threadsKey, filteredThreads);
+      const messages = await getMessages();
+
+      const { [threadId]: removedThread, ...remainingMessages } = messages;
+
+      await lforage.setItem(messagesKey, remainingMessages);
+      const threads = await getThreads();
+
+      await lforage.setItem(
+        threadsKey,
+        threads.filter(({ id }) => id !== threadId)
+      );
 
       fetchThreads();
     },
-    [currentThreadId, setThread, fetchThreads]
+    [setThread, fetchThreads]
   );
 
   if (!isPending && !threads.length) {
@@ -94,9 +110,10 @@ const ThreadsList = () => {
                     </div>
                   </SidebarMenuItem>
                 ))
-              : threads.map(({ id, timestamp, name }) => {
+              : threads.map(({ id, metadata: { name, timestamp } }) => {
                   type ButtonClassNames = HTMLAttributes<HTMLButtonElement>['className'];
-                  const isSelected = id === currentThreadId;
+
+                  const isSelected = id === params.threadId;
                   const rootClasses: ButtonClassNames = isSelected
                     ? `relative before:content-[''] before:absolute before:-left-0 before:top-1/2 before:-translate-y-1/2 before:w-24 before:h-24 before:rounded-[10px] before:bg-purple-500 before:rotate-45 before:-translate-x-[105px]`
                     : '';
@@ -108,10 +125,7 @@ const ThreadsList = () => {
                         'flex w-full px-4 rounded-none cursor-default hover:bg-transparent',
                         rootClasses
                       )}
-                      onClick={() => {
-                        setOpenMobile(false);
-                        setCurrentThreadId(id);
-                      }}>
+                      onClick={() => setOpenMobile(false)}>
                       <SidebarMenuButton>
                         <NavLink
                           to={`/${id}`}

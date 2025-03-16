@@ -1,5 +1,6 @@
 import { useAtomValue } from 'jotai';
 import { Mic, Loader2 } from 'lucide-react';
+import clsx from 'clsx';
 
 import { threadLoadingAtom } from '@/store';
 import useSpeech from '@/hooks/useSpeech';
@@ -20,7 +21,10 @@ const Voice = () => {
         variant="link"
         title={isListening ? 'Stop Voice Recognition' : 'Start Voice Recognition'}
         size="icon"
-        className={`bg-primary rounded-3xl flex items-center justify-center text-accent shadow-md hover:text-gray-300 group hover:shadow-slate-700 ${toggleListeningClasses}`}
+        className={clsx(
+          'bg-primary rounded-3xl flex items-center justify-center text-accent shadow-md hover:text-gray-300 group hover:shadow-slate-700',
+          toggleListeningClasses
+        )}
         onClick={isListening ? stopRecognition : startRecognition}>
         {isChatResponseLoading ? (
           <Loader2 className="animate-spin" />

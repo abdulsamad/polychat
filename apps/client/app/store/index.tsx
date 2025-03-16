@@ -1,4 +1,4 @@
-import { atom, type WritableAtom } from 'jotai';
+import { atom, type WritableAtom, type SetStateAction } from 'jotai';
 import { atomEffect } from 'jotai-effect';
 import { atomWithStorage } from 'jotai/utils';
 import { getTime, format } from 'date-fns';
@@ -10,7 +10,14 @@ import type {
   ImageSizeType,
 } from 'utils';
 
-import { settingsKey, threadsKey, lforage } from '@/utils/lforage';
+import {
+  settingsKey,
+  threadsKey,
+  lforage,
+  getThreads,
+  messagesKey,
+  getMessages,
+} from '@/utils/lforage';
 
 // Editor
 
@@ -20,43 +27,39 @@ export const editorAtom = atom('');
 
 export const threadLoadingAtom = atom(false);
 
-export const currentThreadIdAtom = atom(crypto.randomUUID());
-
 export interface IMessageCommons {
-  id: string;
-  type: 'assistant' | 'user';
-  variation: null | variationsType;
-  timestamp: number;
-  model: enabledModelsType;
+  id: ReturnType<typeof crypto.randomUUID>;
+  role: 'assistant' | 'user';
+  content: string; // URL or Text
+  metadata: {
+    variation: null | variationsType; // null is for self
+    timestamp: number;
+    model: enabledModelsType;
+  };
 }
 
 export interface ITextMessage {
-  message: string;
-  format: 'text';
+  type: 'text';
 }
 
 export interface IImageMessage {
-  image: {
-    url: string;
-    alt: string;
-  };
-  size: string;
-  format: 'image';
+  type: 'image_url';
+  image_url: { url: string; alt: string; size: string };
 }
 
 export type IMessage = IMessageCommons & (ITextMessage | IImageMessage);
 
-export const threadAtom: WritableAtom<IMessage[], IMessage[], void> = atom(
+export const messagesAtom: WritableAtom<IMessage[], IMessage[], void> = atom(
   [],
   (get, set, update, reset) => {
     // Reset current chat
     if (reset) {
-      set(threadAtom, update);
+      set(messagesAtom, update);
       return;
     }
 
     // Add chat normally
-    const state = get(threadAtom);
+    const state = get(messagesAtom);
     const threadIndex = state.findIndex((chat) => chat.id === update.id);
 
     if (threadIndex !== -1) {
@@ -65,60 +68,142 @@ export const threadAtom: WritableAtom<IMessage[], IMessage[], void> = atom(
       newState[threadIndex] = {
         ...update, // Use the entire update object instead of just concatenating messages
       };
-      set(threadAtom, newState as unknown as IMessage);
+      set(messagesAtom, newState as unknown as IMessage);
     } else {
-      set(threadAtom, [...state, update] as unknown as IMessage);
+      set(messagesAtom, [...state, update] as unknown as IMessage);
     }
   }
 );
 
-// Offline storage (Chats & Threads)
-
-export interface IThread {
-  id: ReturnType<typeof crypto.randomUUID>;
-  thread: IMessage[];
-  timestamp: number;
-  name: string;
+// Base Configuration for all models
+export interface IBaseModelConfig {
+  maxTokens?: number;
 }
 
-export type IThreads = IThread[];
+// Base types for different model categories
+interface IBaseImageModelConfig extends IBaseModelConfig {
+  size: ImageSizeType;
+}
 
-export const chatSaveEffect = atomEffect((get, set) => {
+// Model-specific configurations
+interface IDallE3Config extends IBaseImageModelConfig {
+  quality: 'standard' | 'hd';
+  style: 'vivid' | 'natural';
+}
+
+interface IStableDiffusionConfig extends IBaseImageModelConfig {
+  samplingMethod: 'DDIM' | 'PLMS' | 'K_EULER';
+  guidanceScale: number;
+}
+
+export type ModelConfigMap = {
+  [K in enabledModelsType]: K extends 'dall-e-3'
+    ? IDallE3Config
+    : K extends 'stable-diffusion'
+      ? IStableDiffusionConfig
+      : IBaseModelConfig;
+};
+
+export type ModelConfig<T extends enabledModelsType> = ModelConfigMap[T];
+
+// Thread Settings interface
+export interface IThreadSettings<T extends enabledModelsType> {
+  model: T;
+  variation: variationsType;
+  isContextAware: boolean;
+  isTextToSpeechEnabled: boolean;
+  modelConfig: ModelConfig<T>;
+}
+
+export interface IThread<T extends enabledModelsType> {
+  id: ReturnType<typeof crypto.randomUUID>;
+  settings: IThreadSettings<T>;
+  metadata: {
+    name: string;
+    timestamp: number;
+    status: 'idle' | 'streaming' | 'saving';
+    version: number;
+  };
+  queue?: {
+    pending: IMessage[];
+    failed: Array<{ message: IMessage; error: string }>;
+  };
+}
+
+export const getDefaultThread = (): IThread<enabledModelsType> => ({
+  id: crypto.randomUUID(),
+  settings: {
+    model: 'gemini-1.5-flash',
+    variation: 'normal',
+    isContextAware: false,
+    isTextToSpeechEnabled: false,
+    modelConfig: {
+      maxTokens: 3000,
+    },
+  },
+  metadata: {
+    name: `Chat (${format(new Date(), 'hh:mm - dd/MM/yy')})`,
+    timestamp: getTime(new Date()),
+    status: 'idle',
+    version: 1,
+  },
+  queue: {
+    pending: [],
+    failed: [],
+  },
+});
+
+export const threadAtom: WritableAtom<
+  IThread<enabledModelsType> | null,
+  [SetStateAction<IThread<enabledModelsType> | null>],
+  void
+> = atom<IThread<enabledModelsType> | null>(null);
+
+export type IThreads = IThread<enabledModelsType>[];
+
+// Offline storage (Threads & Messages)
+
+export const threadSaveEffect = atomEffect((get, set) => {
   (async () => {
-    const thread = get(threadAtom);
-    const threadId = get(currentThreadIdAtom);
-    const chatsItem: IThread = {
-      id: threadId,
-      thread,
-      timestamp: getTime(new Date()),
-      name: `Chat (${format(new Date(), 'hh:mm - dd/MM/yy')})`,
-    };
+    try {
+      const thread = get(threadAtom);
 
-    let updatedThreads;
+      if (!thread) return null;
 
-    // Return if chats doesn't exist
-    if (!thread.length || !threadId) return null;
+      const threads = await getThreads();
 
-    const threads: IThreads | null = await lforage.getItem(threadsKey);
+      if (!threads?.length) {
+        await lforage.setItem(threadsKey, [thread]);
+      } else {
+        const existingThreadIndex = threads.findIndex((t) => t.id === thread.id);
 
-    if (!threads) {
-      updatedThreads = [chatsItem];
-      await lforage.setItem(threadsKey, updatedThreads);
-      return;
+        if (existingThreadIndex >= 0) {
+          threads[existingThreadIndex] = thread;
+          await lforage.setItem(threadsKey, threads);
+        } else {
+          await lforage.setItem(threadsKey, [thread, ...threads]);
+        }
+      }
+    } catch (err) {
+      console.error(err);
     }
+  })();
+});
 
-    if (!Array.isArray(threads)) return null;
+export const messageSaveEffect = atomEffect((get, set) => {
+  (async () => {
+    try {
+      const messages = get(messagesAtom);
+      const thread = get(threadAtom);
 
-    const threadExists = threads.some(({ id }) => id === threadId);
+      if (!messages?.length || !thread) return null;
 
-    if (threadExists) {
-      updatedThreads = threads.map((thread) => (thread.id === threadId ? chatsItem : thread));
-    } else {
-      updatedThreads = [chatsItem, ...threads];
+      const allMessages = await getMessages();
+
+      await lforage.setItem(messagesKey, { ...allMessages, [thread.id]: messages });
+    } catch (err) {
+      console.error(err);
     }
-
-    // Save threads
-    await lforage.setItem(threadsKey, updatedThreads);
   })();
 });
 
@@ -153,8 +238,6 @@ export const chatSaveEffect = atomEffect((get, set) => {
 // Config
 
 export interface IConfig {
-  model: enabledModelsType;
-  variation: variationsType;
   language: supportedLanguagesType;
   imageSize: ImageSizeType;
   textInput: boolean;
@@ -164,8 +247,6 @@ export interface IConfig {
 }
 
 export const configAtom = atomWithStorage<IConfig>(settingsKey, {
-  model: 'gemini-1.5-flash',
-  variation: 'normal',
   language: 'en-IN',
   imageSize: '1024x1024',
   textInput: true,

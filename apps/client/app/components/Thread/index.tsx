@@ -2,7 +2,7 @@ import { type HTMLAttributes, useCallback, useEffect } from 'react';
 import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
 
-import { threadLoadingAtom, threadAtom, configAtom } from '@/store';
+import { threadLoadingAtom, messagesAtom, configAtom } from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
@@ -20,7 +20,7 @@ export type UserInfo = Record<
 >;
 
 const Chats = () => {
-  const chats = useAtomValue(threadAtom);
+  const chats = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
   const { textInput } = useAtomValue(configAtom);
 
@@ -57,14 +57,16 @@ const Chats = () => {
     [user]
   );
 
+  const hasMessages = chats.length;
+
   return (
     <section className="max-w-full">
       <ScrollArea className="h-[calc(100svh-142px)] px-6 lg:px-8 box-border">
-        {chats.length ? (
+        {hasMessages ? (
           <>
             {chats.map((chat, index) => {
-              const { variation, type } = chat;
-              return <Message key={index} {...userInfo(variation)[type]} {...chat} />;
+              const { role, metadata } = chat;
+              return <Message key={index} {...userInfo(metadata.variation)[role]} {...chat} />;
             })}
             {isChatResponseLoading && <Typing />}
           </>

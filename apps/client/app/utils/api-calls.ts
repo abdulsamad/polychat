@@ -1,9 +1,9 @@
 import axios from 'axios';
 import { useAuth, useUser } from '@clerk/react-router';
 
-import { IConfig } from '@/store/index';
+import { enabledModelsType, variationsType } from 'utils';
 
-import { getConfig } from './lforage';
+import { IConfig } from '@/store/index';
 
 const baseURL = import.meta.env.VITE_API_ENDPOINT;
 const axiosInstance = axios.create({ baseURL });
@@ -13,6 +13,8 @@ type ErrorType = { success: boolean; err: string };
 
 interface IGetGeneratedText {
   prompt: string;
+  model: enabledModelsType;
+  variation: variationsType;
   language?: string;
   user: ReturnType<typeof useUser>['user'];
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
@@ -25,6 +27,8 @@ interface IGetGeneratedText {
  */
 export const getGeneratedText = async ({
   prompt,
+  model,
+  variation,
   language,
   user,
   getToken,
@@ -37,8 +41,8 @@ export const getGeneratedText = async ({
     body: JSON.stringify({
       prompt,
       language,
-      variation: getConfig('variation'),
-      model: getConfig('model'),
+      variation,
+      model,
       user,
     }),
   });
@@ -62,6 +66,7 @@ export const getGeneratedText = async ({
 
 interface IGetGeneratedImage {
   prompt: string;
+  model: enabledModelsType;
   user: ReturnType<typeof useUser>['user'];
   quality: IConfig['quality'];
   style: IConfig['style'];
@@ -71,6 +76,7 @@ interface IGetGeneratedImage {
 
 export const getGeneratedImage = async ({
   prompt,
+  model,
   user,
   quality,
   style,
@@ -81,7 +87,7 @@ export const getGeneratedImage = async ({
 
   const res = await axiosInstance.post(
     '/image',
-    { prompt, user, model: getConfig('model'), quality, style, size },
+    { prompt, user, model, quality, style, size },
     { headers: { Authorization: `Bearer ${token}` } }
   );
 

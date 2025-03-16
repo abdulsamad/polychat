@@ -7,35 +7,25 @@ import { getTime } from 'date-fns';
 import { toast } from 'sonner';
 import { useUser } from '@clerk/react-router';
 
-import { threadLoadingAtom, threadAtom, configAtom, editorAtom } from '@/store/index';
+import { threadLoadingAtom, threadAtom, messagesAtom, configAtom, editorAtom } from '@/store/index';
 
 import useHandleChatResponse from './useHandleChatResponse';
 
 const extensions = [
   StarterKit.configure({
     history: false,
-    heading: {
-      levels: [1, 2, 3, 4, 5, 6],
-      HTMLAttributes: {
-        class: 'heading',
-      },
-    },
-    paragraph: {
-      HTMLAttributes: {
-        class: 'paragraph',
-      },
-    },
+    heading: { levels: [1, 2, 3, 4, 5, 6], HTMLAttributes: { class: 'heading' } },
+    paragraph: { HTMLAttributes: { class: 'paragraph' } },
   }),
-  Placeholder.configure({
-    placeholder: 'Ask any thing or discuss...',
-  }),
+  Placeholder.configure({ placeholder: 'Ask any thing or discuss...' }),
 ];
 
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
-  const addChat = useSetAtom(threadAtom);
+  const addChat = useSetAtom(messagesAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
-  const { variation, model, imageSize, language, quality, style } = useAtomValue(configAtom);
+  const thread = useAtomValue(threadAtom);
+  const { imageSize, language, quality, style } = useAtomValue(configAtom);
 
   const editor = useEditor({
     extensions,
@@ -85,16 +75,20 @@ const useCustomEditor = () => {
 
   const handleSubmit = useCallback(async () => {
     try {
+      if (!thread) throw new Error('Thread not created');
+
       if (!editor?.getText()?.trim()) return null;
 
       addChat({
         id: crypto.randomUUID(),
-        type: 'user',
-        message: editor?.getText(),
-        variation: null,
-        timestamp: getTime(new Date()),
-        format: 'text',
-        model,
+        role: 'user',
+        content: editor?.getText(),
+        metadata: {
+          model: thread.settings.model,
+          variation: null,
+          timestamp: getTime(new Date()),
+        },
+        type: 'text',
       });
 
       setIsChatResponseLoading(true);
@@ -113,15 +107,14 @@ const useCustomEditor = () => {
   }, [
     editor,
     addChat,
-    model,
     setIsChatResponseLoading,
     setEditorState,
     imageSize,
     user,
     quality,
     style,
-    variation,
     language,
+    thread?.settings,
   ]);
 
   return { editor, handleSubmit };

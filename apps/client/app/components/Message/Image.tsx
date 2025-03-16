@@ -15,7 +15,11 @@ import CopyToClipboard from '@/components/Message/CopyToClipboard';
 
 import 'react-image-gallery/styles/css/image-gallery.css';
 
-const Image = ({ image: { url, alt }, size }: Omit<IImageMessage, 'format'>) => {
+interface ImageProps {
+  image: IImageMessage['image_url'];
+}
+
+const Image = ({ image: { url, alt, size } }: ImageProps) => {
   const elemRef = useRef<HTMLDivElement>(null);
 
   const width = useMemo(() => parseInt(size.split('x')[0]), [size]);

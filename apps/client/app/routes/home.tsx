@@ -2,51 +2,79 @@ import { useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, RedirectToSignIn } from '@clerk/react-router';
 
-import { threadAtom, currentThreadIdAtom } from '@/store';
-import { getThreads } from '@/utils/lforage';
-import { chatSaveEffect, configAtom } from '@/store';
+import {
+  getDefaultThread,
+  messagesAtom,
+  messageSaveEffect,
+  threadAtom,
+  threadSaveEffect,
+  configAtom,
+} from '@/store';
+import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
+import { getMessages, getThreads } from '@/utils/lforage';
 import Text from '@/components/Inputs/Text';
 import Voice from '@/components/Inputs/Voice';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
-import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 
 import type { Route } from './+types/home';
 
-export const meta = ({}: Route.MetaArgs) => {
-  return [
-    { title: 'PolyChat - The AI Chat App' },
-    { name: 'description', content: 'Welcome to PolyChat!' },
-  ];
+export const meta = ({}: Route.MetaArgs) => [
+  { title: 'PolyChat - The AI Chat App' },
+  { name: 'description', content: 'Welcome to PolyChat!' },
+];
+
+export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderArgs) => {
+  try {
+    const threads = await getThreads();
+    const messages = await getMessages();
+
+    if (!threadId) {
+      // Look for an existing empty thread
+      const emptyThread = threads?.find((thread) => !messages?.[thread.id]?.length);
+
+      // If no empty thread exists, return null (will create new thread in component)
+      return { threadData: emptyThread || null };
+    }
+
+    return {
+      threadData: threads?.find(({ id }) => id === threadId) || null,
+    };
+  } catch (err) {
+    return { threadData: null };
+  }
 };
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const threads = await getThreads();
-  const threadData = threads?.find(({ id }) => id === params.threadId);
-  return { threadData };
-}
-
-const Home = ({ params, loaderData }: Route.ComponentProps) => {
+const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
   const { textInput } = useAtomValue(configAtom);
-  const setCurrentThreadId = useSetAtom(currentThreadIdAtom);
   const setThread = useSetAtom(threadAtom);
+  const setMessages = useSetAtom(messagesAtom);
 
   const { isSignedIn, isLoaded } = useAuth();
 
-  const threadId = params.threadId;
   const { threadData } = loaderData;
 
-  // Subscribe to chat side effects
-  useAtom(chatSaveEffect);
+  // Subscribe to thread, message side effects to save changes locally
+  useAtom(threadSaveEffect);
+  useAtom(messageSaveEffect);
 
   useEffect(() => {
-    if (!threadId) return;
+    (async () => {
+      // If we have threadData, use it, otherwise create a new thread
+      const newThread = threadData ?? getDefaultThread();
 
-    if (threadData) {
-      setCurrentThreadId(threadData.id);
-      setThread(threadData.thread as any, true as any);
-    }
-  }, [setThread, setCurrentThreadId, threadId]);
+      // Clear messages when switching threads or creating a new thread
+      setMessages([] as any, true as any);
+      setThread(newThread);
+
+      if (threadId) {
+        const messages = await getMessages();
+        if (messages?.[threadId]?.length) {
+          setMessages(messages[threadId] as any, true as any);
+        }
+      }
+    })();
+  }, [setThread, threadData, threadId]);
 
   if (!isLoaded) {
     return <Loading />;

@@ -8,9 +8,8 @@ import Image from './Image';
 import Text from './Text';
 
 interface ExtraProps extends IMessageCommons {
-  message?: ITextMessage['message'];
-  image?: IImageMessage['image'];
-  size?: IImageMessage['size'];
+  message?: ITextMessage;
+  image?: IImageMessage['image_url'];
 }
 
 type MessageProps = ExtraProps & UserInfo['user' | 'assistant'] & (ITextMessage | IImageMessage);
@@ -19,16 +18,14 @@ const Message = ({
   name,
   messageClassNames,
   avatarImageSrc,
-  timestamp,
-  format,
   type,
-  message,
+  content,
   image,
-  size,
-  model,
+  role,
+  metadata: { model },
 }: MessageProps) => {
-  const isImage = format === 'image';
-  const isUser = type === 'user';
+  const isImage = type === 'image_url';
+  const isUser = role === 'user';
 
   // Contional classes
   const modelNameMargin = isUser ? 'mr-[85px]' : 'ml-[75px]';
@@ -59,10 +56,10 @@ const Message = ({
             </div>
           )}
           {/* Image or Message */}
-          {isImage && image && size ? (
-            <Image key={image.url} image={image} size={size} />
+          {isImage && image && image.size ? (
+            <Image key={image.url} image={image} />
           ) : (
-            <Text isUser={isUser} messageClassNames={messageClassNames} message={message} />
+            <Text isUser={isUser} messageClassNames={messageClassNames} message={content} />
           )}
         </div>
         {/* Time */}
