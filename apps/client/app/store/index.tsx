@@ -184,6 +184,10 @@ export const threadSaveEffect = atomEffect((get, set) => {
           await lforage.setItem(threadsKey, [thread, ...threads]);
         }
       }
+
+      return () => {
+        // cleanup
+      };
     } catch (err) {
       console.error(err);
     }
@@ -193,14 +197,21 @@ export const threadSaveEffect = atomEffect((get, set) => {
 export const messageSaveEffect = atomEffect((get, set) => {
   (async () => {
     try {
-      const messages = get(messagesAtom);
       const thread = get(threadAtom);
+      const messages = get(messagesAtom);
 
-      if (!messages?.length || !thread) return null;
+      if (!thread || !messages?.length) return null;
 
       const allMessages = await getMessages();
 
-      await lforage.setItem(messagesKey, { ...allMessages, [thread.id]: messages });
+      await lforage.setItem(messagesKey, {
+        ...allMessages,
+        [thread.id]: get(messagesAtom),
+      });
+
+      return () => {
+        // cleanup
+      };
     } catch (err) {
       console.error(err);
     }

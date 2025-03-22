@@ -19,7 +19,7 @@ import { useTheme } from 'next-themes';
 
 import { languages } from 'utils';
 
-import { threadAtom, configAtom, getDefaultThread, messagesAtom } from '@/store';
+import { threadAtom, configAtom, messagesAtom } from '@/store';
 import { getName } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,12 +62,7 @@ const AppSidebar = () => {
   const addNewChat = useCallback(() => {
     setOpenMobile(false);
 
-    const blankThread = getDefaultThread();
-
-    setMessages([] as any, true as any);
-    setThread(blankThread);
-
-    navigate(`/${blankThread.id}`);
+    navigate('/');
   }, [setThread, setMessages, navigate, setOpenMobile]);
 
   const updateSetting = useCallback(
