@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { variations } from 'utils';
 
 import useCustomEditor from '@/hooks/useCustomEditor';
-import { configAtom } from '@/store';
+import { threadAtom } from '@/store';
 import { Button } from '@/components/ui/button';
 
 interface IEmpty {
@@ -14,7 +14,8 @@ interface IEmpty {
 }
 
 const Empty = ({ name, textInput }: IEmpty) => {
-  const { variation } = useAtomValue(configAtom);
+  const thread = useAtomValue(threadAtom);
+  const variation = thread?.settings.variation;
 
   const { editor, handleSubmit } = useCustomEditor();
 
@@ -52,7 +53,7 @@ const Empty = ({ name, textInput }: IEmpty) => {
   );
 
   return (
-    <div className="flex justify-center items-center min-h-[250px] bg-base-200">
+    <div className="flex gradient justify-center items-center min-h-[250px] bg-base-200">
       <div className="text-center">
         <div className="max-w-screen mx-auto mt-16">
           <h1 className="text-2xl lg:text-4xl font-bold capitalize break-all">
