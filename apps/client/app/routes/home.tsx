@@ -33,15 +33,16 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
       // Look for an existing empty thread
       const emptyThread = threads?.find((thread) => !messages?.[thread.id]?.length);
 
-      // If no empty thread exists, return null (will create new thread in component)
-      return { threadData: emptyThread || null };
+      // If no empty thread exists, create a new one
+      return { threadData: emptyThread || getDefaultThread(), messageData: [] };
     }
 
     return {
       threadData: threads?.find(({ id }) => id === threadId) || null,
+      messageData: messages[threadId] || [],
     };
   } catch (err) {
-    return { threadData: null };
+    return { threadData: getDefaultThread(), messageData: [] };
   }
 };
 
@@ -52,28 +53,15 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
 
   const { isSignedIn, isLoaded } = useAuth();
 
-  const { threadData } = loaderData;
+  const { threadData, messageData } = loaderData;
 
   // Subscribe to thread, message side effects to save changes locally
-  useAtom(threadSaveEffect);
-  useAtom(messageSaveEffect);
+  useAtom(threadSaveEffect, { delay: 1000 });
+  useAtom(messageSaveEffect, { delay: 1000 });
 
   useEffect(() => {
-    (async () => {
-      // If we have threadData, use it, otherwise create a new thread
-      const newThread = threadData ?? getDefaultThread();
-
-      // Clear messages when switching threads or creating a new thread
-      setMessages([] as any, true as any);
-      setThread(newThread);
-
-      if (threadId) {
-        const messages = await getMessages();
-        if (messages?.[threadId]?.length) {
-          setMessages(messages[threadId] as any, true as any);
-        }
-      }
-    })();
+    setThread(threadData);
+    setMessages(messageData as any, true as any);
   }, [setThread, threadData, threadId]);
 
   if (!isLoaded) {
