@@ -25,7 +25,7 @@ const useSpeech = () => {
     if (!recognition.current) return null;
 
     try {
-      // await navigator.mediaDevices.getUserMedia({ audio: true });
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
       recognition.current.start();
       setIsListening(true);

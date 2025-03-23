@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { TrashIcon } from 'lucide-react';
+import { TrashIcon, MessageCircleIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -122,7 +122,7 @@ const ThreadsList = () => {
                     <SidebarMenuItem
                       key={id}
                       className={clsx(
-                        'flex w-full px-4 rounded-none cursor-default hover:bg-transparent',
+                        'flex w-full px-4 rounded-none cursor-default hover:bg-transparent group/sidebar-item',
                         rootClasses
                       )}
                       onClick={() => setOpenMobile(false)}>
@@ -138,14 +138,14 @@ const ThreadsList = () => {
                             ].join(' ')
                           }
                           viewTransition>
-                          <p className="truncate w-fit text-foreground text-left">
+                          <p className="truncate w-fit text-foreground text-left inline-flex items-center justify-center gap-2">
                             {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
                           </p>
                         </NavLink>
                       </SidebarMenuButton>
                       <DeleteAlert onDelete={(ev) => deleteChats(ev, id)}>
                         <Button
-                          className="h-7 w-6"
+                          className="h-7 w-6 invisible group-hover/sidebar-item:visible transition-all duration-200 ease-elastic-out translate-x-2 opacity-0 group-hover/sidebar-item:translate-x-0 group-hover/sidebar-item:opacity-100"
                           variant="destructive"
                           size="icon"
                           onClick={(ev) => ev.stopPropagation()}>

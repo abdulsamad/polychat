@@ -251,7 +251,6 @@ export const messageSaveEffect = atomEffect((get, set) => {
 export interface IConfig {
   language: supportedLanguagesType;
   imageSize: ImageSizeType;
-  speakResults: boolean;
   quality: 'standard' | 'hd';
   style: 'vivid' | 'natural';
 }
@@ -259,7 +258,6 @@ export interface IConfig {
 export const configAtom = atomWithStorage<IConfig>(settingsKey, {
   language: 'en-IN',
   imageSize: '1024x1024',
-  speakResults: false,
   quality: 'standard',
   style: 'vivid',
 });
