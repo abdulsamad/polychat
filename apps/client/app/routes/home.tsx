@@ -71,7 +71,7 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
   return (
     <>
       <section>
-        <Thread className="h-[calc(100svh-162px)]" />
+        <Thread className="h-[calc(100svh-152px)]" />
       </section>
       <section className="flex flex-col p-5">
         <Input />
