@@ -10,10 +10,9 @@ import { Button } from '@/components/ui/button';
 
 interface IEmpty {
   name: string;
-  textInput: boolean;
 }
 
-const Empty = ({ name, textInput }: IEmpty) => {
+const Empty = ({ name }: IEmpty) => {
   const thread = useAtomValue(threadAtom);
   const variation = thread?.settings.variation;
 
@@ -66,9 +65,7 @@ const Empty = ({ name, textInput }: IEmpty) => {
             Hi <span className="capitalize">{name || 'there'}, </span>
           </h1>
           <h2 className="py-6 italic break-words [text-wrap:pretty] max-w-md mx-auto">
-            {textInput
-              ? `Type in the input box in the bottom and start chatting. You can also change settings from the hamburger menu in the top left corner.`
-              : `Tap the mic button in the bottom right corner and start speaking. You can also change settings from the hamburger menu in the top left corner.`}
+            {`Type in the input box in the bottom and start chatting. You can also change settings from the hamburger menu in the top left corner.`}
           </h2>
         </div>
         {description && hints?.length && (

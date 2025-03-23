@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { useAuth, RedirectToSignIn } from '@clerk/react-router';
 
 import {
@@ -8,12 +8,9 @@ import {
   messageSaveEffect,
   threadAtom,
   threadSaveEffect,
-  configAtom,
 } from '@/store';
-import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 import { getMessages, getThreads } from '@/utils/lforage';
-import Text from '@/components/Inputs/Text';
-import Voice from '@/components/Inputs/Voice';
+import Input from '@/components/Input';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
 
@@ -47,7 +44,6 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
 };
 
 const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
-  const { textInput } = useAtomValue(configAtom);
   const setThread = useSetAtom(threadAtom);
   const setMessages = useSetAtom(messagesAtom);
 
@@ -74,11 +70,11 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
 
   return (
     <>
-      <Thread />
-      <section className="flex flex-col justify-end">
-        <div className="flex flex-col">
-          {!textInput && IS_SPEECH_RECOGNITION_SUPPORTED() ? <Voice /> : <Text />}
-        </div>
+      <section>
+        <Thread className="h-[calc(100svh-162px)]" />
+      </section>
+      <section className="flex flex-col p-5">
+        <Input />
       </section>
     </>
   );

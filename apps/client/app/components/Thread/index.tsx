@@ -1,8 +1,9 @@
-import { type HTMLAttributes, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, type HTMLAttributes } from 'react';
 import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
+import clsx from 'clsx';
 
-import { threadLoadingAtom, messagesAtom, configAtom } from '@/store';
+import { threadLoadingAtom, messagesAtom } from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
@@ -19,10 +20,13 @@ export type UserInfo = Record<
   }
 >;
 
-const Chats = () => {
-  const chats = useAtomValue(messagesAtom);
+interface ThreadProps {
+  className?: HTMLAttributes<HTMLDivElement>['className'];
+}
+
+const Thread = ({ className }: ThreadProps) => {
+  const messages = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
-  const { textInput } = useAtomValue(configAtom);
 
   const { user } = useUser();
 
@@ -37,7 +41,7 @@ const Chats = () => {
         block: 'end',
       });
     }, 200);
-  }, [chats]);
+  }, [messages]);
 
   const userInfo = useCallback(
     (variation: string | null): UserInfo => ({
@@ -57,25 +61,23 @@ const Chats = () => {
     [user]
   );
 
-  const hasMessages = chats.length;
+  const hasMessages = messages.length;
 
   return (
-    <section className="max-w-full">
-      <ScrollArea className="h-[calc(100svh-142px)] px-6 lg:px-8 box-border">
-        {hasMessages ? (
-          <>
-            {chats.map((chat, index) => {
-              const { role, metadata } = chat;
-              return <Message key={index} {...userInfo(metadata.variation)[role]} {...chat} />;
-            })}
-            {isChatResponseLoading && <Typing />}
-          </>
-        ) : (
-          <Empty name={getName(user)} textInput={textInput} />
-        )}
-      </ScrollArea>
-    </section>
+    <ScrollArea className={clsx('px-6 lg:px-8 box-border', className)}>
+      {hasMessages ? (
+        <>
+          {messages.map((chat, index) => {
+            const { role, metadata } = chat;
+            return <Message key={index} {...userInfo(metadata.variation)[role]} {...chat} />;
+          })}
+          {isChatResponseLoading && <Typing />}
+        </>
+      ) : (
+        <Empty name={getName(user)} />
+      )}
+    </ScrollArea>
   );
 };
 
-export default Chats;
+export default Thread;

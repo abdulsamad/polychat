@@ -22,8 +22,8 @@ const extensions = [
 
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
+  const [isChatLoading, setIsChatResponseLoading] = useAtom(threadLoadingAtom);
   const addChat = useSetAtom(messagesAtom);
-  const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const thread = useAtomValue(threadAtom);
   const { imageSize, language, quality, style } = useAtomValue(configAtom);
 
@@ -37,12 +37,11 @@ const useCustomEditor = () => {
           switch (ev.key?.toLowerCase()) {
             case 'enter':
               {
-                if (!ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
-                  ev.preventDefault();
+                ev.preventDefault();
 
-                  // TODO: Fix directly accessing DOM
-                  document.getElementById('text-submit-btn')?.click();
-                }
+                if (isChatLoading) return;
+
+                handleSubmit();
               }
               break;
 
