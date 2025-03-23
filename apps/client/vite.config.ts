@@ -3,6 +3,7 @@ import { reactRouter } from '@react-router/dev/vite';
 import { reactRouterDevTools } from 'react-router-devtools';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { VitePWA } from 'vite-plugin-pwa';
+import mkcert from 'vite-plugin-mkcert';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
@@ -75,6 +76,7 @@ export default defineConfig({
         prefer_related_applications: false,
       },
     }),
+    // mkcert(),
   ],
   optimizeDeps: {
     include: ['react-syntax-highlighter/dist/cjs/styles/prism'],
