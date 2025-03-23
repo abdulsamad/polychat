@@ -37,11 +37,13 @@ const useCustomEditor = () => {
           switch (ev.key?.toLowerCase()) {
             case 'enter':
               {
-                ev.preventDefault();
+                if (!ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
+                  ev.preventDefault();
 
-                if (isChatLoading) return;
+                  if (isChatLoading) return;
 
-                handleSubmit();
+                  handleSubmit();
+                }
               }
               break;
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { EditorContent } from '@tiptap/react';
 import { useAtomValue } from 'jotai';
 import { SendHorizonal } from 'lucide-react';
@@ -12,22 +13,24 @@ const Text = () => {
   const { editor, handleSubmit } = useCustomTiptapEditor();
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
 
+  const hasText = useMemo(() => editor?.getText(), [editor?.getText()]);
+
   return (
     <div className="flex gap-5 items-center">
-      <div className="flex-1 px-4 border-2 rounded-[99px] h-[50px] overflow-x-auto bg-slate-850 [scrollbar-width:none]">
-        <EditorContent editor={editor} />
-      </div>
+      <EditorContent
+        editor={editor}
+        className="rounded-4xl px-3 py-2 [scrollbar-width:none] border-gray-500 border min-h-[20px] max-h-[60px] w-full"
+      />
       <div className="flex items-center">
-        {IS_SPEECH_RECOGNITION_SUPPORTED() ? (
+        {!hasText && IS_SPEECH_RECOGNITION_SUPPORTED() ? (
           <Voice />
         ) : (
           <Button
-            size="lg"
             id="text-submit-btn"
-            className="text-accent bg-primary rounded-3xl px-3 hover:text-gray-400 hover:shadow-xl"
+            className="text-accent bg-primary rounded-3xl hover:text-gray-400 hover:shadow-xl"
             onClick={handleSubmit}
             disabled={isChatResponseLoading}>
-            <SendHorizonal />
+            <SendHorizonal className="size-4" />
             <span className="sr-only">Send</span>
           </Button>
         )}
