@@ -11,14 +11,30 @@ const axiosInstance = axios.create({ baseURL });
 type GetTokenOptions = Parameters<ReturnType<typeof useAuth>['getToken']>[0];
 type ErrorType = { success: boolean; err: string };
 
-interface IGetGeneratedText {
-  prompt: string;
+interface IMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface IGetGeneratedTextBase {
   model: enabledModelsType;
   variation: variationsType;
   language?: string;
   user: ReturnType<typeof useUser>['user'];
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
 }
+
+interface IGetGeneratedTextWithMessages extends IGetGeneratedTextBase {
+  messages: IMessage[];
+  prompt?: never;
+}
+
+interface IGetGeneratedTextWithPrompt extends IGetGeneratedTextBase {
+  prompt: string;
+  messages?: never;
+}
+
+type IGetGeneratedText = IGetGeneratedTextWithMessages | IGetGeneratedTextWithPrompt;
 
 /**
  * Streams the generated text from the API
@@ -27,6 +43,7 @@ interface IGetGeneratedText {
  */
 export const getGeneratedText = async ({
   prompt,
+  messages,
   model,
   variation,
   language,
@@ -40,6 +57,7 @@ export const getGeneratedText = async ({
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
+      messages,
       language,
       variation,
       model,

@@ -1,5 +1,5 @@
 import { useTransition } from 'react';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getTime } from 'date-fns';
 import { useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
@@ -23,7 +23,7 @@ interface handleChatResponseProps {
 const useHandleChatResponse = () => {
   const { imageSize, language, quality, style } = useAtomValue(configAtom);
   const thread = useAtomValue(threadAtom);
-  const addChat = useSetAtom(messagesAtom);
+  const [messages, setMessages] = useAtom(messagesAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const [isPending, startTransition] = useTransition();
 
@@ -51,7 +51,7 @@ const useHandleChatResponse = () => {
         });
 
         startTransition(() => {
-          addChat({
+          setMessages({
             id: crypto.randomUUID(),
             content: `data:image/png;base64,${b64_json}`,
             image_url: {
@@ -77,7 +77,14 @@ const useHandleChatResponse = () => {
         if (onImageMessageComplete) onImageMessageComplete();
       } else {
         const stream = await getGeneratedText({
-          prompt,
+          ...(thread.settings.isContextAware
+            ? {
+                messages: messages.map(({ role, content }) => ({
+                  role,
+                  content,
+                })),
+              }
+            : { prompt }),
           model: thread.settings.model,
           variation: thread.settings.variation,
           language,
@@ -100,7 +107,7 @@ const useHandleChatResponse = () => {
         // Create throttled update function
         const throttledUpdate = throttle((text: string) => {
           startTransition(() => {
-            addChat({
+            setMessages({
               id: uid,
               content: text,
               metadata: {
@@ -129,7 +136,7 @@ const useHandleChatResponse = () => {
             throttledUpdate.cancel();
 
             startTransition(() => {
-              addChat({
+              setMessages({
                 id: uid,
                 content,
                 metadata: {

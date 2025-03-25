@@ -13,11 +13,11 @@ const chat = async (c: Context<AppContext>) => {
   const { signal } = controller;
 
   try {
-    const { prompt, language, variation, model } = await c.req.json();
+    const { prompt, messages, language, variation, model } = await c.req.json();
 
-    if (!prompt) {
-      console.warn('[CHAT] Missing prompt in request');
-      return c.json({ success: false, err: 'Prompt not found' }, 400);
+    if (!prompt && !messages) {
+      console.warn('[CHAT] Missing prompt or messages in request');
+      return c.json({ success: false, err: 'Prompt or messages not found' }, 400);
     }
 
     console.info(
@@ -26,7 +26,9 @@ const chat = async (c: Context<AppContext>) => {
         `Model: ${model}, ` +
         `Language: ${language}, ` +
         `Variation: ${variation}, ` +
-        `Prompt length: ${prompt.length}`
+        messages
+        ? `Messsages length: ${messages?.length}`
+        : `Prompt length: ${prompt?.length}`
     );
 
     const modelInstance = modelFactory.createModel(model);
@@ -36,7 +38,7 @@ const chat = async (c: Context<AppContext>) => {
       model: modelInstance,
       messages: [
         { role: 'system', content: config.prompt },
-        { role: 'user', content: prompt },
+        ...(messages || [{ role: 'user', content: prompt }]),
       ],
       temperature: config.temperature,
       seed: config.seed,
@@ -60,7 +62,7 @@ const chat = async (c: Context<AppContext>) => {
           `[CHAT] Request completed - ` +
             `Duration: ${duration}ms, ` +
             `User: ${user.id} ` +
-            `Total tokens: ${usage.totalTokens}` +
+            `Total tokens: ${usage.totalTokens} ` +
             `Finish Reason: ${finishReason}`
         );
       },
