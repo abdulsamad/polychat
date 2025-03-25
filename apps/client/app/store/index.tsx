@@ -133,7 +133,7 @@ export interface IThread<T extends enabledModelsType> {
 export const getDefaultThread = (): IThread<enabledModelsType> => ({
   id: crypto.randomUUID(),
   settings: {
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.0-flash',
     variation: 'normal',
     isContextAware: false,
     isTextToSpeechEnabled: false,
