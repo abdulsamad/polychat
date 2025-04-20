@@ -43,16 +43,12 @@ const useSpeech = () => {
   }, []);
 
   const speakText = useCallback((text: string, language: string) => {
-    // Check if the browser supports the Web Speech API
     if ('speechSynthesis' in window) {
-      // Create a SpeechSynthesisUtterance object
       const utterance = new SpeechSynthesisUtterance();
 
-      // Set the utterance text and language
       utterance.text = text;
       utterance.lang = language;
 
-      // Speak the utterance
       speechSynthesis.speak(utterance);
     } else {
       console.error('SpeechSynthesis API not supported');
