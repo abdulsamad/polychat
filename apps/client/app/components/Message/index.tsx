@@ -69,7 +69,7 @@ const Message = ({
             isUser ? 'justify-end' : 'justify-start',
             isImage ? 'mb-1' : modelNameMargin
           )}>
-          {model}
+          {model as string}
         </div>
       </div>
     </motion.div>
