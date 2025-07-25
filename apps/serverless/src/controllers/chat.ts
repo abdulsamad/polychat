@@ -21,14 +21,7 @@ const chat = async (c: Context<AppContext>) => {
     }
 
     console.info(
-      `[CHAT] New request - ` +
-        `User: ${user.id}, ` +
-        `Model: ${model}, ` +
-        `Language: ${language}, ` +
-        `Variation: ${variation}, ` +
-        messages
-        ? `Messsages length: ${messages?.length}`
-        : `Prompt length: ${prompt?.length}`
+      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Variation: ${variation}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length}`}`
     );
 
     const modelInstance = modelFactory.createModel(model);
@@ -59,11 +52,7 @@ const chat = async (c: Context<AppContext>) => {
         const duration = Date.now() - startTime;
 
         console.info(
-          `[CHAT] Request completed - ` +
-            `Duration: ${duration}ms, ` +
-            `User: ${user.id} ` +
-            `Total tokens: ${usage.totalTokens} ` +
-            `Finish Reason: ${finishReason}`
+          `[CHAT] Request completed - Duration: ${duration}ms, User: ${user.id} Total tokens: ${usage?.totalTokens} Finish Reason: ${finishReason}`
         );
       },
     });
