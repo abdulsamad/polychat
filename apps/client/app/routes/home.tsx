@@ -1,6 +1,7 @@
 import { useEffect, Suspense } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
 import { useAuth, RedirectToSignIn } from '@clerk/react-router';
+import { useNavigate } from 'react-router';
 
 import {
   getDefaultThread,
@@ -23,18 +24,15 @@ export const meta = ({}: Route.MetaArgs) => [
 
 export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderArgs) => {
   try {
-    const threads = await getThreads();
-    const messages = await getMessages();
+    const threads = (await getThreads()) || [];
+    const messages = (await getMessages()) || {};
 
     if (!threadId) {
-      // Look for an existing empty thread
-      const emptyThread = threads?.find((thread) => Boolean(!messages?.[thread.id]?.length));
-
-      // If no empty thread exists, create a new one
+      const emptyThread = threads.find((thread) => !messages[thread.id]?.length);
       return { threadData: emptyThread || getDefaultThread(), messageData: [] };
     }
 
-    const threadData = threads?.find(({ id }) => id === threadId) || null;
+    const threadData = threads.find(({ id }) => id === threadId) || null;
     const messageData = messages[threadId] || [];
 
     return { threadData, messageData };
@@ -49,16 +47,28 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
 
   const { isSignedIn, isLoaded } = useAuth();
 
-  const { threadData, messageData } = loaderData;
-
   // Subscribe to thread, message side effects to save changes locally
   useAtom(threadSaveEffect, { delay: 1000 });
   useAtom(messageSaveEffect, { delay: 1000 });
 
+  const navigate = useNavigate();
+
   useEffect(() => {
-    setThread(threadData);
-    setMessages(messageData as any, true as any);
-  }, [setThread, threadData, threadId]);
+    const { threadData } = loaderData;
+
+    if (!threadData) return;
+
+    // Only set thread if we have threadId or it's a new thread
+    if (threadId || threadData.id) {
+      setThread(threadData);
+      setMessages(loaderData.messageData as any, true as any);
+    } else {
+      // For new threads, navigate after setting state
+      setThread(threadData);
+      setMessages([] as any, true as any);
+      navigate(`/${threadData.id}`, { replace: true });
+    }
+  }, [loaderData, threadId]);
 
   if (!isLoaded) {
     return <Loading />;
