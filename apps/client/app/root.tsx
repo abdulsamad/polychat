@@ -1,7 +1,6 @@
 import { MetaFunction, Outlet } from 'react-router';
 import { Provider } from 'jotai';
 import { ClerkProvider } from '@clerk/react-router';
-import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 
 import type { Route } from './+types/root';
 import ErrorBoundary from './error';
@@ -33,7 +32,6 @@ export const HydrateFallback = Loading;
 const App = ({}: Route.ComponentProps) => {
   return (
     <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
-      <VercelAnalytics />
       <Provider>
         <Outlet />
       </Provider>
