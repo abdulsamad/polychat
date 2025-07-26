@@ -16,6 +16,7 @@ import { useSetAtom } from 'jotai';
 import { useClerk, useAuth, useUser } from '@clerk/react-router';
 import clsx from 'clsx';
 import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
 
 import { languages } from 'utils';
 
@@ -47,8 +48,8 @@ import ThreadsList from './ThreadsList';
 
 const AppSidebar = () => {
   const [config, setConfig] = useAtom(configAtom);
+  const [message, setMessages] = useAtom(messagesAtom);
   const setThread = useSetAtom(threadAtom);
-  const setMessages = useSetAtom(messagesAtom);
 
   const navigate = useNavigate();
   const clerk = useClerk();
@@ -61,6 +62,14 @@ const AppSidebar = () => {
 
   const addNewChat = useCallback(() => {
     setOpenMobile(false);
+
+    if (message.length === 0) {
+      toast.info('You are already in a new chat. Start typing your message!', {
+        dismissible: true,
+        closeButton: true,
+      });
+      return;
+    }
 
     navigate('/');
   }, [setThread, setMessages, navigate, setOpenMobile]);
