@@ -28,7 +28,7 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
 
     if (!threadId) {
       // Look for an existing empty thread
-      const emptyThread = threads?.find((thread) => !messages?.[thread.id]?.length);
+      const emptyThread = threads?.find((thread) => Boolean(!messages?.[thread.id]?.length));
 
       // If no empty thread exists, create a new one
       return { threadData: emptyThread || getDefaultThread(), messageData: [] };

@@ -12,6 +12,7 @@ import { TrashIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
+import type { Route } from '@/react-router/types/root';
 import { getDefaultThread, IThreads, messagesAtom, threadAtom } from '@/store';
 import { getMessages, getThreads, lforage, messagesKey, threadsKey } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ const ThreadsList = () => {
   const setMessages = useSetAtom(messagesAtom);
   const [threads, setThreads] = useState<IThreads>([]);
   const [isPending, startTransition] = useTransition();
-  const params = useParams();
+  const params = useParams<Route.ClientLoaderArgs['params']>();
 
   const { open, setOpenMobile } = useSidebar();
 
@@ -128,6 +129,11 @@ const ThreadsList = () => {
                       <SidebarMenuButton>
                         <NavLink
                           to={`/${id}`}
+                          onClick={(ev) => {
+                            if (isSelected) {
+                              ev.preventDefault();
+                            }
+                          }}
                           preventScrollReset
                           className={({ isActive, isPending, isTransitioning }) =>
                             [
