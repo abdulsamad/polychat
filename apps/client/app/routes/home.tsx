@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
 import { useAuth, RedirectToSignIn } from '@clerk/react-router';
 
@@ -34,10 +34,10 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
       return { threadData: emptyThread || getDefaultThread(), messageData: [] };
     }
 
-    return {
-      threadData: threads?.find(({ id }) => id === threadId) || null,
-      messageData: messages[threadId] || [],
-    };
+    const threadData = threads?.find(({ id }) => id === threadId) || null;
+    const messageData = messages[threadId] || [];
+
+    return { threadData, messageData };
   } catch (err) {
     return { threadData: getDefaultThread(), messageData: [] };
   }
@@ -69,14 +69,14 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
   }
 
   return (
-    <>
+    <Suspense fallback={<Loading />}>
       <section>
         <Thread className="h-[calc(100svh-152px)]" />
       </section>
       <section className="flex flex-col p-5">
         <Input />
       </section>
-    </>
+    </Suspense>
   );
 };
 

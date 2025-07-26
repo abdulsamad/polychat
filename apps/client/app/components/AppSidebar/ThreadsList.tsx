@@ -7,7 +7,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { NavLink, useParams } from 'react-router';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { TrashIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
@@ -29,13 +29,12 @@ import {
 import DeleteAlert from './DeleteAlert';
 
 const ThreadsList = () => {
-  const thread = useAtomValue(threadAtom);
-  const setThread = useSetAtom(threadAtom);
+  const [thread, setThread] = useAtom(threadAtom);
   const setMessages = useSetAtom(messagesAtom);
   const [threads, setThreads] = useState<IThreads>([]);
   const [isPending, startTransition] = useTransition();
-
   const params = useParams();
+
   const { open, setOpenMobile } = useSidebar();
 
   const fetchThreads = useCallback(() => {
@@ -129,6 +128,7 @@ const ThreadsList = () => {
                       <SidebarMenuButton>
                         <NavLink
                           to={`/${id}`}
+                          preventScrollReset
                           className={({ isActive, isPending, isTransitioning }) =>
                             [
                               'flex items-center justify-between gap-2 w-full p-2 rounded-[8px]',
