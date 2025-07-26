@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { TrashIcon, MessageCircleIcon } from 'lucide-react';
+import { TrashIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
