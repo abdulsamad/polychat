@@ -42,11 +42,10 @@ export const supportedModels: SupportedModel[] = [
     disabled: false,
     provider: 'google',
   },
-  // { name: 'gpt-4.1', text: 'GPT-4.1', type: 'text', disabled: false, provider: 'openai' },
+  { name: 'gpt-4.1', text: 'GPT-4.1', type: 'text', disabled: true, provider: 'openai' },
   { name: 'gpt-4.1-mini', text: 'GPT-4.1 mini', type: 'text', disabled: false, provider: 'openai' },
   { name: 'gpt-4o', text: 'GPT-4o', type: 'text', disabled: false, provider: 'openai' },
   { name: 'gpt-4o-mini', text: 'GPT-4o mini', type: 'text', disabled: false, provider: 'openai' },
-  // { name: 'gpt-o1-mini', text: 'GPT o1 Mini', type: 'text', disabled: true, provider: 'openai' },
   // {
   //   name: 'deepseek-chat',
   //   text: 'DeepSeek Chat',

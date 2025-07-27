@@ -4,6 +4,7 @@ import { logger } from 'hono/logger';
 import { type JWTPayload } from 'jose';
 
 import chat from '@controllers/chat';
+import image from '@controllers/image';
 import { authMiddleware } from '@middlewares/index';
 
 import type { User } from '@types';
@@ -27,5 +28,6 @@ app.use(logger());
 app.use(authMiddleware);
 
 app.post('/chat', chat);
+app.post('/image', image);
 
 export const handler = streamHandle(app);

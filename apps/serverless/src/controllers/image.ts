@@ -17,14 +17,7 @@ const image = async (c: Context<AppContext>) => {
     }
 
     console.info(
-      `[IMAGE] New request - ` +
-        `User: ${user.id}, ` +
-        `Model: ${model}, ` +
-        `Size: ${size}, ` +
-        `Quality: ${quality}, ` +
-        `Style: ${style}, ` +
-        `Prompt length: ${prompt.length}, ` +
-        `Number of images: ${n}`
+      `[IMAGE] New request - User: ${user.id}, Model: ${model}, Size: ${size}, Quality: ${quality}, Style: ${style}, Prompt length: ${prompt.length}, Number of images: ${n}`
     );
 
     const { image } = await generateImage({
@@ -44,18 +37,14 @@ const image = async (c: Context<AppContext>) => {
 
     const b64_json = image.base64;
     const duration = Date.now() - startTime;
-
     console.info(
-      `[IMAGE] Request completed - ` +
-        `User: ${user.id}, ` +
-        `Duration: ${duration}ms, ` +
-        `Response size: ${b64_json.length} chars`
+      `[IMAGE] Request completed - User: ${user.id}, Duration: ${duration}ms, Response size: ${b64_json.length} chars`
     );
 
     return c.json({ success: true, b64_json, image });
   } catch (err) {
     if (APICallError.isInstance(err)) {
-      console.error(`[IMAGE] API Error - ` + `User: ${user.id}, ` + `Error: ${err.message}`);
+      console.error(`[IMAGE] API Error - User: ${user.id}, Error: ${err.message}`);
       return c.json({ success: false, err: err.message }, 500);
     }
 
