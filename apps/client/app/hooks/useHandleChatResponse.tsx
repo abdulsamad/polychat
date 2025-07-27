@@ -9,7 +9,7 @@ import useSound from 'use-sound';
 
 import { supportedImageModels } from 'utils';
 
-import { threadAtom, messagesAtom, threadLoadingAtom, configAtom } from '@/store';
+import { threadAtom, messagesAtom, threadLoadingAtom, configAtom, IMessage } from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 
 const THROTTLE_UPDATE_TIME_MS = 750;
@@ -79,10 +79,10 @@ const useHandleChatResponse = () => {
         const stream = await getGeneratedText({
           ...(thread.settings.isContextAware
             ? {
-                messages: messages.map(({ role, content }) => ({
-                  role,
-                  content,
-                })),
+                messages: [
+                  ...messages.map(({ role, content }) => ({ role, content })),
+                  { role: 'user', content: prompt },
+                ] as Array<Pick<IMessage, 'role' | 'content'>>,
               }
             : { prompt }),
           model: thread.settings.model,

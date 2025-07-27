@@ -187,7 +187,7 @@ const SettingsDropdown = () => {
                   </Select>
                 </div>
               </li>
-              {/* <li>
+              <li>
                 <div className="flex justify-center space-x-4">
                   <Checkbox
                     id="is-context-aware"
@@ -205,7 +205,7 @@ const SettingsDropdown = () => {
                     </label>
                   </div>
                 </div>
-              </li> */}
+              </li>
             </>
           )}
           {isImageModelSelected && (
