@@ -104,9 +104,10 @@ const ThreadsList = () => {
             {isPending
               ? Array.from({ length: 5 }).map((_, i) => (
                   <SidebarMenuItem key={i} className="flex w-full px-4">
-                    <div className="w-full animate-pulse flex items-center gap-2 p-2 rounded-[8px] bg-gray-800">
-                      <div className="h-4 w-3/4 bg-gray-600 rounded-md"></div>
-                      <div className="h-4 w-4 bg-gray-600 rounded-full"></div>
+                    <div className="w-full animate-pulse flex items-center gap-3 p-2 rounded-lg bg-muted">
+                      <div className="flex-1">
+                        <div className="h-3 w-full   rounded-md bg-muted-foreground/10 dark:bg-muted-foreground/20"></div>
+                      </div>
                     </div>
                   </SidebarMenuItem>
                 ))
