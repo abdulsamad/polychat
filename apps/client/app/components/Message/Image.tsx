@@ -42,7 +42,9 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
   return (
     <div ref={elemRef} className="group max-w-[400px]">
       <figure>
-        <div className="relative inline-block max-w-[75vw] min-w-[400px]" style={{ width }}>
+        <div
+          className="relative inline-block max-w-[70vw] min-w-[400px] [&_img]:rounded-2xl [&_img]:shadow-xl"
+          style={{ width }}>
           <ImageGallery
             thumbnailPosition="left"
             items={[

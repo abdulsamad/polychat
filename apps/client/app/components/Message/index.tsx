@@ -9,7 +9,7 @@ import Text from './Text';
 
 interface ExtraProps extends IMessageCommons {
   message?: ITextMessage;
-  image?: IImageMessage['image_url'];
+  image_url?: IImageMessage['image_url'];
 }
 
 type MessageProps = ExtraProps & UserInfo['user' | 'assistant'] & (ITextMessage | IImageMessage);
@@ -20,7 +20,7 @@ const Message = ({
   avatarImageSrc,
   type,
   content,
-  image,
+  image_url: image,
   role,
   metadata: { model },
 }: MessageProps) => {
@@ -69,7 +69,7 @@ const Message = ({
             isUser ? 'justify-end' : 'justify-start',
             isImage ? 'mb-1' : modelNameMargin
           )}>
-          {model as string}
+          {model}
         </div>
       </div>
     </motion.div>

@@ -27,7 +27,6 @@ interface ThreadProps {
 const Thread = ({ className }: ThreadProps) => {
   const messages = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
-
   const { user } = useUser();
 
   useEffect(() => {
@@ -60,7 +59,7 @@ const Thread = ({ className }: ThreadProps) => {
     }),
     [user]
   );
-
+  ``;
   const hasMessages = messages.length;
 
   return (

@@ -86,7 +86,7 @@ export const supportedModels: SupportedModel[] = [
     disabled: false,
     provider: 'mistral',
   },
-  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: true, provider: 'openai' },
+  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: false, provider: 'openai' },
 ] as const;
 
 export const supportedTextModels = supportedModels.filter(({ type }) => type === 'text');

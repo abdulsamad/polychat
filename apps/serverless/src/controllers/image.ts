@@ -30,7 +30,6 @@ const image = async (c: Context<AppContext>) => {
         openai: {
           style,
           quality,
-          b64_json: true,
         },
       },
     });

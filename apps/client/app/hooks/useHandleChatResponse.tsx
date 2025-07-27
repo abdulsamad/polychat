@@ -40,7 +40,7 @@ const useHandleChatResponse = () => {
       if (!thread) throw new Error('Thread not created');
 
       if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
-        const { b64_json, image } = await getGeneratedImage({
+        const { b64_json } = await getGeneratedImage({
           prompt,
           model: thread.settings.model,
           size: imageSize,
@@ -53,10 +53,11 @@ const useHandleChatResponse = () => {
         startTransition(() => {
           setMessages({
             id: crypto.randomUUID(),
-            content: `data:image/png;base64,${b64_json}`,
+            // content: `data:image/png;base64,${b64_json}`,
+            content: ``,
             image_url: {
               url: `data:image/png;base64,${b64_json}`,
-              alt: image.data[0]?.revised_prompt,
+              alt: prompt,
               size: imageSize,
             },
             role: 'assistant',
