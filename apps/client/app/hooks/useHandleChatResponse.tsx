@@ -53,7 +53,6 @@ const useHandleChatResponse = () => {
         startTransition(() => {
           setMessages({
             id: crypto.randomUUID(),
-            // content: `data:image/png;base64,${b64_json}`,
             content: ``,
             image_url: {
               url: `data:image/png;base64,${b64_json}`,
@@ -81,7 +80,9 @@ const useHandleChatResponse = () => {
           ...(thread.settings.isContextAware
             ? {
                 messages: [
-                  ...messages.map(({ role, content }) => ({ role, content })),
+                  ...messages
+                    .filter(({ type }) => type === 'text')
+                    .map(({ role, content }) => ({ role, content })),
                   { role: 'user', content: prompt },
                 ] as Array<Pick<IMessage, 'role' | 'content'>>,
               }
