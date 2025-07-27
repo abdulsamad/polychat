@@ -72,7 +72,7 @@ const AppSidebar = () => {
     }
 
     navigate('/');
-  }, [setThread, setMessages, navigate, setOpenMobile]);
+  }, [setThread, setMessages, navigate, setOpenMobile, message]);
 
   const updateSetting = useCallback(
     (name: string, value: string) => {
