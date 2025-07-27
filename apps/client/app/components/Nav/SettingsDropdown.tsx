@@ -264,7 +264,7 @@ const SettingsDropdown = () => {
             </>
           )}
 
-          {IS_SPEECH_SYNTHESIS_SUPPORTED() && (
+          {IS_SPEECH_SYNTHESIS_SUPPORTED() && !isImageModelSelected && (
             <li>
               <div className="flex justify-center space-x-2">
                 <Checkbox
