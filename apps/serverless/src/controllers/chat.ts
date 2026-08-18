@@ -29,10 +29,8 @@ const chat = async (c: Context<AppContext>) => {
 
     const result = streamText({
       model: modelInstance,
-      messages: [
-        { role: 'system', content: config.prompt },
-        ...(messages || [{ role: 'user', content: prompt }]),
-      ],
+      instructions: config.prompt,
+      messages: messages || [{ role: 'user', content: prompt }],
       temperature: config.temperature,
       seed: config.seed,
       tools: config.tools,
