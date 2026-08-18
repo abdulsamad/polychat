@@ -14,17 +14,10 @@ export type SupportedModel = {
 
 export const supportedModels = [
   {
-    name: 'gemini-3.5-pro',
-    text: 'Gemini 3.5 Pro',
+    name: 'gemini-3.7-flash',
+    text: 'Gemini 3.7 Flash',
     type: 'text',
     isSpecial: true,
-    disabled: false,
-    provider: 'google',
-  },
-  {
-    name: 'gemini-3.5-flash-lite',
-    text: 'Gemini 3.5 Flash Lite',
-    type: 'text',
     disabled: false,
     provider: 'google',
   },
@@ -36,8 +29,8 @@ export const supportedModels = [
     provider: 'google',
   },
   {
-    name: 'gemini-3.1-flash-lite',
-    text: 'Gemini 3.1 Flash Lite',
+    name: 'gemini-3.5-flash-lite',
+    text: 'Gemini 3.5 Flash Lite',
     type: 'text',
     disabled: false,
     provider: 'google',
