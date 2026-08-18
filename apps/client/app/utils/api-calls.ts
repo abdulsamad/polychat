@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useAuth, useUser } from '@clerk/react-router';
+import { useAuth } from '@clerk/react-router';
 
 import { enabledModelsType, variationsType } from 'utils';
 
@@ -20,7 +20,6 @@ interface IGetGeneratedTextBase {
   model: enabledModelsType;
   variation: variationsType;
   language?: string;
-  user: ReturnType<typeof useUser>['user'];
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
 }
 
@@ -38,7 +37,7 @@ type IGetGeneratedText = IGetGeneratedTextWithMessages | IGetGeneratedTextWithPr
 
 /**
  * Streams the generated text from the API
- * @param {prompt, language, user}
+ * @param {prompt, language}
  * @returns {Stream}
  */
 export const getGeneratedText = async ({
@@ -47,7 +46,6 @@ export const getGeneratedText = async ({
   model,
   variation,
   language,
-  user,
   getToken,
 }: IGetGeneratedText): Promise<ReadableStream<string> | ErrorType> => {
   const token = await getToken();
@@ -61,7 +59,6 @@ export const getGeneratedText = async ({
       language,
       variation,
       model,
-      user,
     }),
   });
 
@@ -85,7 +82,6 @@ export const getGeneratedText = async ({
 interface IGetGeneratedImage {
   prompt: string;
   model: enabledModelsType;
-  user: ReturnType<typeof useUser>['user'];
   quality: IConfig['quality'];
   style: IConfig['style'];
   size?: string;
@@ -95,7 +91,6 @@ interface IGetGeneratedImage {
 export const getGeneratedImage = async ({
   prompt,
   model,
-  user,
   quality,
   style,
   size,
@@ -105,7 +100,7 @@ export const getGeneratedImage = async ({
 
   const res = await axiosInstance.post(
     '/image',
-    { prompt, user, model, quality, style, size },
+    { prompt, model, quality, style, size },
     { headers: { Authorization: `Bearer ${token}` } }
   );
 

@@ -1,7 +1,7 @@
 import { useTransition } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getTime } from 'date-fns';
-import { useAuth, useUser } from '@clerk/react-router';
+import { useAuth } from '@clerk/react-router';
 import { toast } from 'sonner';
 import axios from 'axios';
 import { throttle } from 'es-toolkit';
@@ -27,7 +27,6 @@ const useHandleChatResponse = () => {
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const [isPending, startTransition] = useTransition();
 
-  const { user } = useUser();
   const { getToken } = useAuth();
   const [play] = useSound('notification.mp3');
 
@@ -44,7 +43,6 @@ const useHandleChatResponse = () => {
           prompt,
           model: thread.settings.model,
           size: imageSize,
-          user,
           quality,
           style,
           getToken,
@@ -90,7 +88,6 @@ const useHandleChatResponse = () => {
           model: thread.settings.model,
           variation: thread.settings.variation,
           language,
-          user,
           getToken,
         });
 

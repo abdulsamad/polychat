@@ -5,6 +5,10 @@ import { AppContext } from '@/index';
 
 // Clerk configuration
 const ISSUER_URL = process.env.CLERK_ISSUER_BASE_URL;
+if (!ISSUER_URL) {
+  throw new Error('CLERK_ISSUER_BASE_URL is required');
+}
+
 const JWKS_URI = `${ISSUER_URL}/.well-known/jwks.json`;
 
 // Create a Remote JWKS client
@@ -13,14 +17,17 @@ const JWKS = createRemoteJWKSet(new URL(JWKS_URI));
 // JWT Authentication Middleware
 export const authMiddleware = createMiddleware<AppContext>(async (c, next) => {
   const authHeader = c.req.header('Authorization');
-  const body = await c.req.json();
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     console.warn(`[AUTH] Missing or invalid Authorization header`);
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.slice('Bearer '.length).trim();
+  if (!token || token.includes(' ')) {
+    console.warn(`[AUTH] Missing or invalid bearer token`);
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
 
   try {
     console.info(`[AUTH] Verifying JWT token`);
@@ -30,10 +37,16 @@ export const authMiddleware = createMiddleware<AppContext>(async (c, next) => {
       algorithms: ['RS256'],
     });
 
-    c.set('user', body.user);
+    if (!payload.sub) {
+      console.warn(`[AUTH] Verified token is missing a subject`);
+      return c.json({ error: 'Invalid token' }, 401);
+    }
+
+    const user = { id: payload.sub };
+    c.set('user', user);
     c.set('payload', payload);
 
-    console.info(`[AUTH] Authentication successful - ` + `User: ${body.user.id}`);
+    console.info(`[AUTH] Authentication successful - User: ${user.id}`);
 
     await next();
   } catch (err) {

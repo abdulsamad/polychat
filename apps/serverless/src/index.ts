@@ -15,7 +15,7 @@ export type AppContext = {
     requestContext: ApiGatewayRequestContextV2;
   };
   Variables: {
-    user: User;
+    user: Pick<User, 'id'>;
     payload: JWTPayload;
   };
 };
