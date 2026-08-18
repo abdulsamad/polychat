@@ -1,4 +1,4 @@
-import { LanguageModelV1 } from 'ai';
+import { LanguageModel } from 'ai';
 
 import type { availableModelsType } from 'utils';
 
@@ -6,7 +6,7 @@ import { googleClient, openAiClient, anthropicClient, mistralClient, deepseekCli
 
 class ModelFactory {
   private static instance: ModelFactory;
-  private modelInstances: Map<string, LanguageModelV1> = new Map();
+  private modelInstances: Map<string, LanguageModel> = new Map();
 
   private constructor() {
     //
@@ -20,57 +20,42 @@ class ModelFactory {
     return ModelFactory.instance;
   }
 
-  public createModel(modelName: availableModelsType): LanguageModelV1 {
+  public createModel(modelName: availableModelsType): LanguageModel {
     const cacheKey = `${modelName}`;
 
     if (this.modelInstances.has(cacheKey)) {
       return this.modelInstances.get(cacheKey)!;
     }
 
-    let model: LanguageModelV1;
+    let model: LanguageModel;
 
     switch (true) {
       case modelName.startsWith('gemini'): {
-        model = googleClient(modelName, {
-          safetySettings: [
-            {
-              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-              threshold: 'BLOCK_ONLY_HIGH',
-            },
-          ],
-        });
+        model = googleClient(modelName);
 
         break;
       }
 
       case modelName.startsWith('gpt'): {
-        model = openAiClient(modelName, {
-          //
-        });
+        model = openAiClient(modelName);
 
         break;
       }
 
       case modelName.startsWith('claude'): {
-        model = anthropicClient(modelName, {
-          //
-        });
+        model = anthropicClient(modelName);
 
         break;
       }
 
       case modelName.startsWith('mistral'): {
-        model = mistralClient(modelName, {
-          //
-        });
+        model = mistralClient(modelName);
 
         break;
       }
 
       case modelName.startsWith('deepseek'): {
-        model = deepseekClient(modelName, {
-          //
-        });
+        model = deepseekClient(modelName);
 
         break;
       }

@@ -10,6 +10,8 @@ import type {
   ImageSizeType,
 } from 'utils';
 
+import { supportedModels } from 'utils';
+
 import {
   settingsKey,
   threadsKey,
@@ -98,10 +100,10 @@ interface IStableDiffusionConfig extends IBaseImageModelConfig {
 
 export type ModelConfigMap = {
   [K in enabledModelsType]: K extends 'dall-e-3'
-    ? IDallE3Config
-    : K extends 'stable-diffusion'
-      ? IStableDiffusionConfig
-      : IBaseModelConfig;
+  ? IDallE3Config
+  : K extends 'stable-diffusion'
+  ? IStableDiffusionConfig
+  : IBaseModelConfig;
 };
 
 export type ModelConfig<T extends enabledModelsType> = ModelConfigMap[T];
@@ -133,7 +135,7 @@ export interface IThread<T extends enabledModelsType> {
 export const getDefaultThread = (): IThread<enabledModelsType> => ({
   id: crypto.randomUUID(),
   settings: {
-    model: 'gemini-2.0-flash',
+    model: supportedModels[0].name,
     variation: 'normal',
     isContextAware: false,
     isTextToSpeechEnabled: false,

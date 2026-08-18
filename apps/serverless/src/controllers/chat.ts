@@ -37,12 +37,23 @@ const chat = async (c: Context<AppContext>) => {
       seed: config.seed,
       tools: config.tools,
       toolChoice: config.toolChoice,
-      toolCallStreaming: config.toolCallStreaming,
-      maxTokens: config.maxTokens,
+      maxOutputTokens: config.maxTokens,
       topP: config.topP,
       frequencyPenalty: config.frequencyPenalty,
       presencePenalty: config.presencePenalty,
       stopSequences: config.stopSequences,
+      providerOptions: model?.startsWith('gemini')
+        ? {
+            google: {
+              safetySettings: [
+                {
+                  category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                  threshold: 'BLOCK_ONLY_HIGH',
+                },
+              ],
+            },
+          }
+        : undefined,
       abortSignal: signal,
       onError: (event) => {
         console.error(`[CHAT] Stream error for user ${user.id}: ${event.error}`);

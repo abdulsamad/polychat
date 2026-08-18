@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { experimental_generateImage as generateImage, APICallError } from 'ai';
+import { generateImage, APICallError } from 'ai';
 
 import { openAiClient } from '@models/index';
 import { AppContext } from '@/index';
@@ -21,7 +21,7 @@ const image = async (c: Context<AppContext>) => {
     );
 
     const { image } = await generateImage({
-      model: openAiClient.image(model),
+      model: openAiClient.imageModel(model),
       prompt,
       n,
       size,

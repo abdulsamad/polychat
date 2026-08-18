@@ -12,7 +12,7 @@ export type SupportedModel = {
   provider: 'google' | 'openai' | 'anthropic' | 'mistral' | 'deepseek';
 };
 
-export const supportedModels: SupportedModel[] = [
+export const supportedModels = [
   {
     name: 'gemini-3.5-pro',
     text: 'Gemini 3.5 Pro',
@@ -91,11 +91,15 @@ export const supportedModels: SupportedModel[] = [
     provider: 'mistral',
   },
   { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: true, provider: 'openai' },
-] as const;
+] as const satisfies readonly SupportedModel[];
 
-export const supportedTextModels = supportedModels.filter(({ type }) => type === 'text');
+export const supportedTextModels: SupportedModel[] = supportedModels.filter(
+  ({ type }) => type === 'text'
+);
 
-export const supportedImageModels = supportedModels.filter(({ type }) => type === 'image');
+export const supportedImageModels: SupportedModel[] = supportedModels.filter(
+  ({ type }) => type === 'image'
+);
 
 export interface SystemPromptConfig {
   prompt: string;
