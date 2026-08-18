@@ -14,38 +14,42 @@ export type SupportedModel = {
 
 export const supportedModels: SupportedModel[] = [
   {
-    name: 'gemini-2.5-pro',
-    text: 'Gemini 2.5 Pro',
+    name: 'gemini-3.5-pro',
+    text: 'Gemini 3.5 Pro',
     type: 'text',
     isSpecial: true,
     disabled: false,
     provider: 'google',
   },
   {
-    name: 'gemini-2.5-flash-lite',
-    text: 'Gemini 2.5 Flash Lite',
+    name: 'gemini-3.5-flash-lite',
+    text: 'Gemini 3.5 Flash Lite',
     type: 'text',
     disabled: false,
     provider: 'google',
   },
   {
-    name: 'gemini-2.5-flash',
-    text: 'Gemini 2.5 Flash',
+    name: 'gemini-3.5-flash',
+    text: 'Gemini 3.5 Flash',
     type: 'text',
     disabled: false,
     provider: 'google',
   },
   {
-    name: 'gemini-2.0-flash',
-    text: 'Gemini 2.0 Flash',
+    name: 'gemini-3.1-flash-lite',
+    text: 'Gemini 3.1 Flash Lite',
     type: 'text',
     disabled: false,
     provider: 'google',
   },
-  { name: 'gpt-4.1', text: 'GPT-4.1', type: 'text', disabled: true, provider: 'openai' },
-  { name: 'gpt-4.1-mini', text: 'GPT-4.1 mini', type: 'text', disabled: false, provider: 'openai' },
-  { name: 'gpt-4o', text: 'GPT-4o', type: 'text', disabled: false, provider: 'openai' },
-  { name: 'gpt-4o-mini', text: 'GPT-4o mini', type: 'text', disabled: false, provider: 'openai' },
+  { name: 'gpt-5.6-luna', text: 'GPT-5.6 Luna', type: 'text', disabled: true, provider: 'openai' },
+  {
+    name: 'gpt-5.6-terra',
+    text: 'GPT-5.6 Terra',
+    type: 'text',
+    disabled: true,
+    provider: 'openai',
+  },
   // {
   //   name: 'deepseek-chat',
   //   text: 'DeepSeek Chat',
@@ -86,7 +90,7 @@ export const supportedModels: SupportedModel[] = [
     disabled: false,
     provider: 'mistral',
   },
-  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: false, provider: 'openai' },
+  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: true, provider: 'openai' },
 ] as const;
 
 export const supportedTextModels = supportedModels.filter(({ type }) => type === 'text');
