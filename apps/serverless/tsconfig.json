@@ -1,21 +1,20 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "ESNext",
     "rootDir": ".",
-    "baseUrl": "src",
     "paths": {
-      "@/index": ["."],
-      "@controllers/*": ["controllers/*"],
-      "@middlewares/*": ["middlewares/*"],
-      "@models/*": ["models/*"],
-      "@types": ["types"]
+      "@/index": ["./src/index.ts"],
+      "@controllers/*": ["./src/controllers/*"],
+      "@middlewares/*": ["./src/middlewares/*"],
+      "@models/*": ["./src/models/*"],
+      "@types": ["./src/types"]
     },
     "allowJs": true,
     "checkJs": true,
     "sourceMap": true,
     // "outFile": "index.ts",
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "outDir": "dist",
     "newLine": "lf",
     "esModuleInterop": true,
