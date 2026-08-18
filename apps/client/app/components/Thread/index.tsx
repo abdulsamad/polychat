@@ -48,7 +48,7 @@ const Thread = ({ className }: ThreadProps) => {
         name: getName(user),
         avatarImageSrc: user?.imageUrl!,
         messageClassNames:
-          'bg-primary text-secondary before:right-0 before:translate-x-[70%] before:border-l-primary',
+          'bg-primary text-primary-foreground before:right-0 before:translate-x-[70%] before:border-l-primary',
       },
       assistant: {
         name: variation?.split('-').join(' '),

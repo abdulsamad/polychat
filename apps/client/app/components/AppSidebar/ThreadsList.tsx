@@ -139,7 +139,7 @@ const ThreadsList = () => {
                           className={({ isActive, isPending, isTransitioning }) =>
                             [
                               'flex items-center justify-between gap-2 w-full p-2 rounded-[8px]',
-                              isPending ? 'bg-purple-300' : '',
+                              isPending ? 'bg-primary/20' : '',
                               isActive ? 'bg-[rgba(255, 255, 255, 0.85)]' : '',
                               isTransitioning ? 'transitioning' : '',
                             ].join(' ')

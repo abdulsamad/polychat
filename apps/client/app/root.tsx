@@ -12,6 +12,7 @@ import './app.css';
 export const meta: MetaFunction = () => [
   { charSet: 'utf-8' },
   { name: 'viewport', content: 'width=device-width,initial-scale=1' },
+  { name: 'color-scheme', content: 'light dark' },
   { title: 'PolyChat - The AI Chat App' },
 ];
 
