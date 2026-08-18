@@ -52,7 +52,7 @@ To start the local server and begin development:
 pnpm dev
 ```
 
-<!-- 
+<!--
 ## Demo
 <p align="center">
 <br/>

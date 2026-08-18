@@ -100,10 +100,10 @@ interface IStableDiffusionConfig extends IBaseImageModelConfig {
 
 export type ModelConfigMap = {
   [K in enabledModelsType]: K extends 'dall-e-3'
-  ? IDallE3Config
-  : K extends 'stable-diffusion'
-  ? IStableDiffusionConfig
-  : IBaseModelConfig;
+    ? IDallE3Config
+    : K extends 'stable-diffusion'
+      ? IStableDiffusionConfig
+      : IBaseModelConfig;
 };
 
 export type ModelConfig<T extends enabledModelsType> = ModelConfigMap[T];

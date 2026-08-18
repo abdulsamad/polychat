@@ -1,17 +1,17 @@
-import "react-router";
+import 'react-router';
 
-declare module "react-router" {
+declare module 'react-router' {
   interface Register {
     params: Params;
   }
 }
 
 type Params = {
-  "/": {};
-  "/:threadId?": {
-    "threadId"?: string;
+  '/': {};
+  '/:threadId?': {
+    threadId?: string;
   };
-  "/*": {
-    "*": string;
+  '/*': {
+    '*': string;
   };
 };

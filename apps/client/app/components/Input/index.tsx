@@ -27,7 +27,7 @@ const Text = () => {
         ) : (
           <Button
             id="text-submit-btn"
-        className="text-primary-foreground bg-primary rounded-3xl hover:text-primary-foreground hover:shadow-xl"
+            className="text-primary-foreground bg-primary rounded-3xl hover:text-primary-foreground hover:shadow-xl"
             onClick={handleSubmit}
             disabled={isChatResponseLoading}>
             <SendHorizonal className="size-4" />
