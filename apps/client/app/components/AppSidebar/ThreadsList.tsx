@@ -127,7 +127,7 @@ const ThreadsList = () => {
                         rootClasses
                       )}
                       onClick={() => setOpenMobile(false)}>
-                      <SidebarMenuButton>
+                      <SidebarMenuButton asChild>
                         <NavLink
                           to={`/${id}`}
                           onClick={(ev) => {

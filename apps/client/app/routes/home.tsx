@@ -29,7 +29,9 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
 
     if (!threadId) {
       const emptyThread = threads.find((thread) => !messages[thread.id]?.length);
-      return { threadData: emptyThread || getDefaultThread(), messageData: [] };
+      const threadData = emptyThread || getDefaultThread();
+
+      return { threadData, messageData: messages[threadData.id] || [] };
     }
 
     const threadData = threads.find(({ id }) => id === threadId) || null;
@@ -56,16 +58,18 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
   useEffect(() => {
     const { threadData } = loaderData;
 
-    if (!threadData) return;
-
-    // Only set thread if we have threadId or it's a new thread
-    if (threadId || threadData.id) {
-      setThread(threadData);
-      setMessages(loaderData.messageData as any, true as any);
-    } else {
-      // For new threads, navigate after setting state
-      setThread(threadData);
+    if (!threadData) {
+      setThread(getDefaultThread());
       setMessages([] as any, true as any);
+      navigate('/', { replace: true });
+      return;
+    }
+
+    setThread(threadData);
+    setMessages(loaderData.messageData as any, true as any);
+
+    // Give every active thread a canonical URL, including a newly-created thread.
+    if (!threadId) {
       navigate(`/${threadData.id}`, { replace: true });
     }
   }, [loaderData, threadId]);
