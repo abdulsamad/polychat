@@ -1,5 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+allowBuilds:
+  '@clerk/shared': false
+  esbuild: false
+minimumReleaseAgeExclude:
+  - '@ai-sdk/gateway@4.0.53'
+  - '@ai-sdk/google@4.0.45'
+  - ai@7.0.67
 
 # apps/** packages/** means "all subdirectories" resulting in next error. Once an app has built, your workspace declaration is picking up apps/docs/.next as a workspace.
