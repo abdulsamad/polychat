@@ -91,3 +91,8 @@ Before handing off a change:
 2. Run `git diff --check`.
 3. Review `git status --short` for generated or accidental files.
 4. Summarize changed files, validation results, and any remaining known issue.
+
+### Don't
+
+- do not use `div`s if we have a component already
+- do not add new heavy dependencies without approval
