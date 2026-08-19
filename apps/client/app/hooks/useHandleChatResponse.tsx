@@ -4,15 +4,12 @@ import { getTime } from 'date-fns';
 import { useAuth } from '@clerk/react-router';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { throttle } from 'es-toolkit';
 import useSound from 'use-sound';
 
 import { supportedImageModels } from 'utils';
 
 import { threadAtom, messagesAtom, threadLoadingAtom, configAtom, IMessage } from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
-
-const THROTTLE_UPDATE_TIME_MS = 750;
 
 interface handleChatResponseProps {
   prompt: string;
@@ -102,23 +99,30 @@ const useHandleChatResponse = () => {
         const uid = crypto.randomUUID();
         const timestamp = getTime(new Date());
         let content = '';
+        let animationFrameId: number | null = null;
 
-        // Create throttled update function
-        const throttledUpdate = throttle((text: string) => {
-          startTransition(() => {
-            setMessages({
-              id: uid,
-              content: text,
-              metadata: {
-                model: thread.settings.model,
-                timestamp,
-                variation: thread.settings.variation,
-              },
-              role: 'assistant',
-              type: 'text',
-            });
+        const updateMessage = () => {
+          animationFrameId = null;
+          setMessages({
+            id: uid,
+            content,
+            metadata: {
+              model: thread.settings.model,
+              timestamp,
+              variation: thread.settings.variation,
+            },
+            role: 'assistant',
+            type: 'text',
           });
-        }, THROTTLE_UPDATE_TIME_MS);
+        };
+
+        // Batch stream chunks to one render per browser frame instead of making
+        // the UI wait 750ms or rerender once for every network chunk.
+        const scheduleMessageUpdate = () => {
+          if (animationFrameId === null) {
+            animationFrameId = requestAnimationFrame(updateMessage);
+          }
+        };
 
         // Close Loader
         startTransition(() => {
@@ -130,33 +134,32 @@ const useHandleChatResponse = () => {
 
           // Stream is completed
           if (done) {
-            // Ensure final update is processed and cleanup
-            throttledUpdate.flush();
-            throttledUpdate.cancel();
+            if (animationFrameId !== null) {
+              cancelAnimationFrame(animationFrameId);
+              animationFrameId = null;
+            }
 
-            startTransition(() => {
-              setMessages({
-                id: uid,
-                content,
-                metadata: {
-                  model: thread.settings.model,
-                  variation: thread.settings.variation,
-                  timestamp,
-                },
-                role: 'assistant',
-                type: 'text',
-              });
-
-              // Feedback
-              navigator.vibrate(100);
-              play();
+            setMessages({
+              id: uid,
+              content,
+              metadata: {
+                model: thread.settings.model,
+                variation: thread.settings.variation,
+                timestamp,
+              },
+              role: 'assistant',
+              type: 'text',
             });
+
+            // Feedback
+            navigator.vibrate(100);
+            play();
             console.log('%cDONE', 'font-size:12px;font-weight:bold;color:aqua');
             break;
           }
 
           content += value;
-          throttledUpdate(content);
+          scheduleMessageUpdate();
         }
 
         if (onTextMessageComplete) onTextMessageComplete(content);

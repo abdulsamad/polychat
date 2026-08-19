@@ -33,11 +33,11 @@ const Message = ({
 
   return (
     <motion.div
-      // initial={isUser ? { translateY: '10px', scaleX: 0.5 } : { translateY: '-10px', scaleX: 0.5 }}
-      animate={{ translateY: 0, scaleX: 1 }}
+      initial={{ opacity: 0, translateY: 8 }}
+      animate={{ opacity: 1, translateY: 0 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
       className={clsx('chat relative flex my-4 scroll-mb-10', chatOrigin)}
       data-type={type}
-      // layout
     >
       <div className={`${isUser ? 'ml-auto' : ''}`}>
         <div

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, type HTMLAttributes } from 'react';
+import { useCallback, useEffect, useRef, type HTMLAttributes } from 'react';
 import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
 import clsx from 'clsx';
@@ -28,18 +28,38 @@ const Thread = ({ className }: ThreadProps) => {
   const messages = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
   const { user } = useUser();
+  const shouldStickToBottom = useRef(true);
+  const hasInitialScroll = useRef(false);
 
   useEffect(() => {
-    const thread = document.querySelectorAll('.chat');
+    const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
 
-    if (!thread.length) return;
+    if (!viewport) return;
 
-    setTimeout(() => {
-      thread[thread.length - 1].scrollIntoView({
-        behavior: 'instant',
-        block: 'end',
-      });
-    }, 200);
+    const updateScrollIntent = () => {
+      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      shouldStickToBottom.current = distanceFromBottom <= 96;
+    };
+
+    viewport.addEventListener('scroll', updateScrollIntent, { passive: true });
+    updateScrollIntent();
+
+    return () => viewport.removeEventListener('scroll', updateScrollIntent);
+  }, []);
+
+  useEffect(() => {
+    const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+
+    if (!viewport) return;
+
+    const animationFrame = requestAnimationFrame(() => {
+      if (!hasInitialScroll.current || shouldStickToBottom.current) {
+        viewport.scrollTop = viewport.scrollHeight;
+        hasInitialScroll.current = true;
+      }
+    });
+
+    return () => cancelAnimationFrame(animationFrame);
   }, [messages]);
 
   const userInfo = useCallback(
@@ -66,9 +86,9 @@ const Thread = ({ className }: ThreadProps) => {
     <ScrollArea className={clsx('px-6 lg:px-8 box-border', className)}>
       {hasMessages ? (
         <>
-          {messages.map((chat, index) => {
+          {messages.map((chat) => {
             const { role, metadata } = chat;
-            return <Message key={index} {...userInfo(metadata.variation)[role]} {...chat} />;
+            return <Message key={chat.id} {...userInfo(metadata.variation)[role]} {...chat} />;
           })}
           {isChatResponseLoading && <Typing />}
         </>
