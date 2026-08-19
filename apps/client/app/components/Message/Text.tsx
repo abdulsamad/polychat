@@ -1,6 +1,6 @@
 import { type HTMLAttributes } from 'react';
 import { toast } from 'sonner';
-import { CopyIcon, TerminalIcon } from 'lucide-react';
+import { CopyIcon, DownloadIcon, TerminalIcon } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
@@ -37,6 +37,20 @@ interface IText {
 const Text = ({ isUser, messageClassNames, message }: IText) => {
   const { resolvedTheme } = useTheme();
 
+  const downloadCode = (code: string, language: string) => {
+    const extension = language.toLowerCase().replace(/[^a-z0-9]/g, '') || 'txt';
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `code-snippet.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card
       className={clsx(
@@ -53,6 +67,7 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
               code(props) {
                 const { children, className, node, ...rest } = props;
                 const match = /language-(\w+)/.exec(className || '');
+                const code = String(children).replace(/\n$/, '');
 
                 return (
                   <>
@@ -60,15 +75,25 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
                       <div className="leading-relaxed ligatures [font-family:_Fira_Code]">
                         <div className="flex justify-end items-center">
                           <CopyToClipboard
-                            text={children!?.toString()}
+                            text={code}
                             onCopy={() => toast.success('Copied!')}>
                             <Button
                               title="Copy"
                               size="default"
-                              className="h-6 w-20 font-sans ml-auto mr-[11px] rounded-t-lg rounded-b-none transition-all duration-300 opacity-0 translate-y-1 group-hover/message:opacity-100 group-hover/message:translate-y-0">
+                              className="h-6 w-20 font-sans ml-auto mr-[11px] rounded-t-lg rounded-b-none transition-all duration-300 opacity-0 translate-y-1 group-hover/message:opacity-100 group-hover/message:translate-y-0 group-focus-within/message:opacity-100 group-focus-within/message:translate-y-0">
                               <span>Copy</span> <CopyIcon className="h-4 w-4" />
                             </Button>
                           </CopyToClipboard>
+                          <Button
+                            type="button"
+                            title="Download code"
+                            aria-label="Download code"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => downloadCode(code, match[1])}
+                            className="h-6 w-8 rounded-t-lg rounded-b-none mr-[11px] transition-all duration-300 opacity-0 translate-y-1 group-hover/message:opacity-100 group-hover/message:translate-y-0 group-focus-within/message:opacity-100 group-focus-within/message:translate-y-0">
+                            <DownloadIcon className="h-4 w-4" />
+                          </Button>
                         </div>
                         <div className="font-bold">
                           <SyntaxHighlighter
