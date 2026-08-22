@@ -8,5 +8,8 @@ minimumReleaseAgeExclude:
   - '@ai-sdk/gateway@4.0.53'
   - '@ai-sdk/google@4.0.45'
   - ai@7.0.67
+overrides:
+  prismjs: '>=1.30.0'
+  uuid: '>=11.1.1'
 
 # apps/** packages/** means "all subdirectories" resulting in next error. Once an app has built, your workspace declaration is picking up apps/docs/.next as a workspace.
