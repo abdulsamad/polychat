@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Local SAM template for PolyChat serverless API
+
+Resources:
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: dist/index.apiHandler
+      Runtime: nodejs22.x
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          PORT: "3001"
+          CLERK_ISSUER_BASE_URL: ""
+          GEMINI_API_KEY: ""
+          OPENAI_API_KEY: ""
+          ANTHROPIC_API_KEY: ""
+          MISTRAL_API_KEY: ""
+          DEEPSEEK_API_KEY: ""
+          FAL_API_KEY: ""
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY

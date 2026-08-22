@@ -1,5 +1,10 @@
 import { Hono } from 'hono';
-import { streamHandle, type LambdaEvent, ApiGatewayRequestContextV2 } from 'hono/aws-lambda';
+import {
+  handle,
+  streamHandle,
+  type LambdaEvent,
+  ApiGatewayRequestContextV2,
+} from 'hono/aws-lambda';
 import { logger } from 'hono/logger';
 import { type JWTPayload } from 'jose';
 
@@ -31,3 +36,7 @@ app.post('/chat', chat);
 app.post('/image', image);
 
 export const handler = streamHandle(app);
+
+// API Gateway/SAM local adapter. The production Function URL uses streaming;
+// API Gateway local emulation expects a standard Lambda proxy response.
+export const apiHandler = handle(app);
