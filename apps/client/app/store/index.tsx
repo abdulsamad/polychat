@@ -1,4 +1,4 @@
-import { atom, type WritableAtom, type SetStateAction } from 'jotai';
+import { atom } from 'jotai';
 import { atomEffect } from 'jotai-effect';
 import { atomWithStorage } from 'jotai/utils';
 import { getTime, format } from 'date-fns';
@@ -51,31 +51,28 @@ export interface IImageMessage {
 
 export type IMessage = IMessageCommons & (ITextMessage | IImageMessage);
 
-export const messagesAtom: WritableAtom<IMessage[], IMessage[], void> = atom(
-  [],
-  (get, set, update, reset) => {
-    // Reset current chat
-    if (reset) {
-      set(messagesAtom, update);
-      return;
-    }
+/** The active thread's messages. Mutations go through the action atoms below. */
+export const messagesAtom = atom<IMessage[]>([]);
 
-    // Add chat normally
-    const state = get(messagesAtom);
-    const threadIndex = state.findIndex((chat) => chat.id === update.id);
+/** Replace messages when the active route/thread changes. */
+export const replaceMessagesAtom = atom(null, (_get, set, messages: IMessage[]) => {
+  set(messagesAtom, messages);
+});
 
-    if (threadIndex !== -1) {
-      // Create a new array to trigger re-render
-      const newState = [...state];
-      newState[threadIndex] = {
-        ...update, // Use the entire update object instead of just concatenating messages
-      };
-      set(messagesAtom, newState as unknown as IMessage);
-    } else {
-      set(messagesAtom, [...state, update] as unknown as IMessage);
-    }
+/** Append a new message, or replace an existing message while it streams. */
+export const upsertMessageAtom = atom(null, (get, set, message: IMessage) => {
+  const messages = get(messagesAtom);
+  const index = messages.findIndex(({ id }) => id === message.id);
+
+  if (index === -1) {
+    set(messagesAtom, [...messages, message]);
+    return;
   }
-);
+
+  const nextMessages = messages.slice();
+  nextMessages[index] = message;
+  set(messagesAtom, nextMessages);
+});
 
 // Base Configuration for all models
 export interface IBaseModelConfig {
@@ -155,69 +152,65 @@ export const getDefaultThread = (): IThread<enabledModelsType> => ({
   },
 });
 
-export const threadAtom: WritableAtom<
-  IThread<enabledModelsType> | null,
-  [SetStateAction<IThread<enabledModelsType> | null>],
-  void
-> = atom<IThread<enabledModelsType> | null>(null);
+export const threadAtom = atom<IThread<enabledModelsType> | null>(null);
+
+export const updateThreadSettingsAtom = atom(
+  null,
+  (
+    get,
+    set,
+    update: Partial<IThreadSettings<enabledModelsType>>
+  ) => {
+    const thread = get(threadAtom);
+    if (!thread) return;
+
+    set(threadAtom, {
+      ...thread,
+      settings: { ...thread.settings, ...update },
+    });
+  }
+);
 
 export type IThreads = IThread<enabledModelsType>[];
 
 // Offline storage (Threads & Messages)
 
+// Serialize writes so a fast stream update cannot overwrite a newer snapshot
+// with the result of an older async read.
+let persistenceQueue = Promise.resolve();
+
+const enqueuePersistence = (write: () => Promise<void>) => {
+  persistenceQueue = persistenceQueue.then(write, write);
+  return persistenceQueue;
+};
+
 export const threadSaveEffect = atomEffect((get, set) => {
-  (async () => {
-    try {
-      const thread = get(threadAtom);
+  const thread = get(threadAtom);
+  if (!thread) return;
 
-      if (!thread) return null;
+  void enqueuePersistence(async () => {
+    const threads = (await getThreads()) || [];
+    const existingThreadIndex = threads.findIndex(({ id }) => id === thread.id);
 
-      const threads = await getThreads();
-
-      if (!threads?.length) {
-        await lforage.setItem(threadsKey, [thread]);
-      } else {
-        const existingThreadIndex = threads.findIndex((t) => t.id === thread.id);
-
-        if (existingThreadIndex >= 0) {
-          threads[existingThreadIndex] = thread;
-          await lforage.setItem(threadsKey, threads);
-        } else {
-          await lforage.setItem(threadsKey, [thread, ...threads]);
-        }
-      }
-
-      return () => {
-        // cleanup
-      };
-    } catch (err) {
-      console.error(err);
+    if (existingThreadIndex >= 0) {
+      threads[existingThreadIndex] = thread;
+    } else {
+      threads.unshift(thread);
     }
-  })();
+
+    await lforage.setItem(threadsKey, threads);
+  }).catch((err) => console.error('Failed to save thread', err));
 });
 
 export const messageSaveEffect = atomEffect((get, set) => {
-  (async () => {
-    try {
-      const thread = get(threadAtom);
-      const messages = get(messagesAtom);
+  const thread = get(threadAtom);
+  const messages = get(messagesAtom);
+  if (!thread) return;
 
-      if (!thread || !messages?.length) return null;
-
-      const allMessages = await getMessages();
-
-      await lforage.setItem(messagesKey, {
-        ...allMessages,
-        [thread.id]: get(messagesAtom),
-      });
-
-      return () => {
-        // cleanup
-      };
-    } catch (err) {
-      console.error(err);
-    }
-  })();
+  void enqueuePersistence(async () => {
+    const allMessages = (await getMessages()) || {};
+    await lforage.setItem(messagesKey, { ...allMessages, [thread.id]: messages });
+  }).catch((err) => console.error('Failed to save messages', err));
 });
 
 // Flags

@@ -4,7 +4,7 @@ import { getTime } from 'date-fns';
 import { toast } from 'sonner';
 import { useUser } from '@clerk/react-router';
 
-import { threadLoadingAtom, threadAtom, configAtom, messagesAtom } from '@/store';
+import { threadLoadingAtom, threadAtom, configAtom, upsertMessageAtom } from '@/store';
 import { speechLog, speechGrammer, IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 
 import useHandleChatResponse from './useHandleChatResponse';
@@ -12,7 +12,7 @@ import useHandleChatResponse from './useHandleChatResponse';
 const useSpeech = () => {
   const { imageSize, language, quality, style } = useAtomValue(configAtom);
   const thread = useAtomValue(threadAtom);
-  const addChat = useSetAtom(messagesAtom);
+  const addChat = useSetAtom(upsertMessageAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const [isListening, setIsListening] = useState(false);
 

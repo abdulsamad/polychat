@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import clsx from 'clsx';
 
 import type { Route } from '@/react-router/types/root';
-import { getDefaultThread, IThreads, messagesAtom, threadAtom } from '@/store';
+import { getDefaultThread, IThreads, replaceMessagesAtom, threadAtom } from '@/store';
 import { getMessages, getThreads, lforage, messagesKey, threadsKey } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -31,7 +31,7 @@ import DeleteAlert from './DeleteAlert';
 
 const ThreadsList = () => {
   const [thread, setThread] = useAtom(threadAtom);
-  const setMessages = useSetAtom(messagesAtom);
+  const replaceMessages = useSetAtom(replaceMessagesAtom);
   const [threads, setThreads] = useState<IThreads>([]);
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
@@ -67,15 +67,15 @@ const ThreadsList = () => {
         // Reset the thread
         const blankThread = getDefaultThread();
         setThread(blankThread);
-        setMessages([] as any, true as any);
+        replaceMessages([]);
       }
 
-      const messages = await getMessages();
+      const messages = (await getMessages()) || {};
 
       const { [threadId]: removedThread, ...remainingMessages } = messages;
 
       await lforage.setItem(messagesKey, remainingMessages);
-      const threads = await getThreads();
+      const threads = (await getThreads()) || [];
 
       await lforage.setItem(
         threadsKey,
@@ -84,7 +84,7 @@ const ThreadsList = () => {
 
       fetchThreads();
     },
-    [setThread, fetchThreads]
+    [setThread, replaceMessages, fetchThreads]
   );
 
   if (!isPending && !threads.length) {

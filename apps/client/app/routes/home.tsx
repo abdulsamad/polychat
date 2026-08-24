@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 
 import {
   getDefaultThread,
-  messagesAtom,
+  replaceMessagesAtom,
   messageSaveEffect,
   threadAtom,
   threadSaveEffect,
@@ -45,7 +45,7 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
 
 const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
-  const setMessages = useSetAtom(messagesAtom);
+  const replaceMessages = useSetAtom(replaceMessagesAtom);
 
   const { isSignedIn, isLoaded } = useAuth();
 
@@ -60,13 +60,13 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
 
     if (!threadData) {
       setThread(getDefaultThread());
-      setMessages([] as any, true as any);
+      replaceMessages([]);
       navigate('/', { replace: true });
       return;
     }
 
     setThread(threadData);
-    setMessages(loaderData.messageData as any, true as any);
+    replaceMessages(loaderData.messageData);
 
     // Give every active thread a canonical URL, including a newly-created thread.
     if (!threadId) {

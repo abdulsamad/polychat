@@ -7,7 +7,13 @@ import { getTime } from 'date-fns';
 import { toast } from 'sonner';
 import { useUser } from '@clerk/react-router';
 
-import { threadLoadingAtom, threadAtom, messagesAtom, configAtom, editorAtom } from '@/store/index';
+import {
+  threadLoadingAtom,
+  threadAtom,
+  upsertMessageAtom,
+  configAtom,
+  editorAtom,
+} from '@/store/index';
 
 import useHandleChatResponse from './useHandleChatResponse';
 
@@ -23,7 +29,7 @@ const extensions = [
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
   const [isChatLoading, setIsChatResponseLoading] = useAtom(threadLoadingAtom);
-  const addChat = useSetAtom(messagesAtom);
+  const addChat = useSetAtom(upsertMessageAtom);
   const thread = useAtomValue(threadAtom);
   const { imageSize, language, quality, style } = useAtomValue(configAtom);
 

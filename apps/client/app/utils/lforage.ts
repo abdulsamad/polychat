@@ -1,11 +1,11 @@
 import localforage from 'localforage';
 
-import { IMessage, IThreads } from '@/store';
+import type { IMessage, IThreads } from '@/store';
 
 export const settingsKey = 'config';
 
 export const getConfig = (setting: string) => {
-  if (!window) return null;
+  if (typeof window === 'undefined') return null;
 
   if (setting) {
     const settings = localStorage.getItem(settingsKey);
@@ -28,12 +28,12 @@ export const lforage = localforage.createInstance({
   version: 1.0,
 });
 
-export const getThreads = async (): Promise<IThreads> => {
+export const getThreads = async (): Promise<IThreads | null> => {
   const threads = (await lforage.getItem(threadsKey)) as IThreads;
   return threads;
 };
 
-export const getMessages = async <T extends IMessage[]>(): Promise<{ [key: string]: T }> => {
-  const messages = (await lforage.getItem(messagesKey)) as { [key: string]: T };
+export const getMessages = async (): Promise<Record<string, IMessage[]> | null> => {
+  const messages = (await lforage.getItem(messagesKey)) as Record<string, IMessage[]>;
   return messages;
 };

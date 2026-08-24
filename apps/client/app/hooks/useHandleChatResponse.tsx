@@ -8,7 +8,14 @@ import useSound from 'use-sound';
 
 import { supportedImageModels } from 'utils';
 
-import { threadAtom, messagesAtom, threadLoadingAtom, configAtom, IMessage } from '@/store';
+import {
+  threadAtom,
+  messagesAtom,
+  upsertMessageAtom,
+  threadLoadingAtom,
+  configAtom,
+  IMessage,
+} from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 
 interface handleChatResponseProps {
@@ -20,7 +27,8 @@ interface handleChatResponseProps {
 const useHandleChatResponse = () => {
   const { imageSize, language, quality, style } = useAtomValue(configAtom);
   const thread = useAtomValue(threadAtom);
-  const [messages, setMessages] = useAtom(messagesAtom);
+  const messages = useAtomValue(messagesAtom);
+  const upsertMessage = useSetAtom(upsertMessageAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const [isPending, startTransition] = useTransition();
 
@@ -46,7 +54,7 @@ const useHandleChatResponse = () => {
         });
 
         startTransition(() => {
-          setMessages({
+          upsertMessage({
             id: crypto.randomUUID(),
             content: ``,
             image_url: {
@@ -103,7 +111,7 @@ const useHandleChatResponse = () => {
 
         const updateMessage = () => {
           animationFrameId = null;
-          setMessages({
+          upsertMessage({
             id: uid,
             content,
             metadata: {
@@ -139,7 +147,7 @@ const useHandleChatResponse = () => {
               animationFrameId = null;
             }
 
-            setMessages({
+            upsertMessage({
               id: uid,
               content,
               metadata: {

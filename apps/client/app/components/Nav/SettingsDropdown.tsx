@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { SettingsIcon } from 'lucide-react';
 
 import { variations, supportedImageModels, imageSizes, supportedTextModels } from 'utils';
 
-import { configAtom, threadAtom } from '@/store';
+import { configAtom, threadAtom, updateThreadSettingsAtom } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +26,8 @@ import {
 
 const SettingsDropdown = () => {
   const [config, setConfig] = useAtom(configAtom);
-  const [thread, setThread] = useAtom(threadAtom);
+  const thread = useAtomValue(threadAtom);
+  const updateThreadSettings = useSetAtom(updateThreadSettingsAtom);
 
   const { imageSize, style, quality } = config;
 
@@ -34,18 +35,22 @@ const SettingsDropdown = () => {
     (name: string, value: string) => {
       if (!thread) return null;
 
-      setThread({ ...thread, settings: { ...thread.settings, [name]: value } });
+      if (name === 'model' || name === 'variation') {
+        updateThreadSettings({ [name]: value } as Parameters<typeof updateThreadSettings>[0]);
+      } else {
+        setConfig({ ...config, [name]: value } as typeof config);
+      }
     },
-    [config, setConfig, thread, setThread]
+    [config, setConfig, thread, updateThreadSettings]
   );
 
   const updateCheckSetting = useCallback(
     (name: string, checked: boolean) => {
       if (!thread) return null;
 
-      setThread({ ...thread, settings: { ...thread.settings, [name]: checked } });
+      updateThreadSettings({ [name]: checked });
     },
-    [config, setConfig, thread, setThread]
+    [thread, updateThreadSettings]
   );
 
   const setImageSizeValue = useCallback(() => {
