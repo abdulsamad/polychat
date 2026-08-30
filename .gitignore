@@ -42,6 +42,9 @@ next-env.d.ts
 # Turbo
 .turbo
 
+# Graphify
+graphify-out/
+
 # Yarn berry
 .pnp.*
 .yarn/*
