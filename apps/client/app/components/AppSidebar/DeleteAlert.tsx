@@ -12,14 +12,16 @@ import {
 } from '@/components/ui/alert-dialog';
 
 interface DeleteAlertProps {
-  children: React.ReactNode;
-  onDelete: (ev: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
-  onCancel?: (ev: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
+  children?: React.ReactNode;
+  onDelete: () => void;
+  onCancel?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-const DeleteAlert = ({ children, onDelete, onCancel }: DeleteAlertProps) => (
-  <AlertDialog>
-    <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+const DeleteAlert = ({ children, onDelete, onCancel, open, onOpenChange }: DeleteAlertProps) => (
+  <AlertDialog open={open} onOpenChange={onOpenChange}>
+    {children && <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -33,7 +35,7 @@ const DeleteAlert = ({ children, onDelete, onCancel }: DeleteAlertProps) => (
             variant="secondary"
             onClick={(ev) => {
               ev.stopPropagation();
-              if (onCancel) onCancel(ev);
+              onCancel?.();
             }}>
             Cancel
           </Button>
@@ -42,7 +44,10 @@ const DeleteAlert = ({ children, onDelete, onCancel }: DeleteAlertProps) => (
           <Button
             variant="destructive"
             className="bg-red-500 hover:bg-red-400 transition-transform ease-in-out duration-300 text-white hover:scale-95 active:scale-90"
-            onClick={onDelete}>
+            onClick={(ev) => {
+              ev.stopPropagation();
+              onDelete();
+            }}>
             Delete
           </Button>
         </AlertDialogAction>
