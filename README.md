@@ -1,28 +1,40 @@
-## PolyChat
+# PolyChat
 
-Welcome to PolyChat, where I'm just exploring LLMs! Below, you'll find information on technologies used, supported browsers, installation instructions, and how to set up the environment.
+PolyChat is a local-first AI chat application for exploring multiple language and image models. Conversations and generated images are stored in the browser, while authenticated API requests are handled by an AWS Lambda-compatible Hono service.
 
 ## Features
 
-- Voice input capability
-- Save chats (including images converted to base64) locally in IndexDB
+- Streamed AI conversations with Markdown, tables, lists, links, and syntax-highlighted code
+- Copy or download code blocks, including responses that provide a filename
+- Save chats and base64-encoded images locally in IndexedDB
 - Download generated images
+- Voice input in supported browsers
+- High-contrast light, dark, and system themes
+- Responsive layouts for desktop and mobile screens
+- A TipTap message composer that expands while typing, then becomes scrollable
 
 ## Technologies
 
-- Turborepo
-- TypeScript
-- React Router 7
-- shadcn
-- Jotai
-- Clerk
-- Node.js (TypeScript)
-- AWS Lambda
-- Vercel AI SDK
+- pnpm and Turborepo
+- TypeScript 7
+- React 19 and React Router 7
+- Tailwind CSS 4, shadcn, and Radix UI
+- TipTap and Jotai
+- Clerk authentication
+- Hono on Node.js 22 and AWS Lambda
+- Vercel AI SDK 7
+
+## Chat interface
+
+- Press `Enter` to send a message and `Shift+Enter` to insert a new line.
+- The composer expands to 4 lines on mobile and 6 lines on larger screens. Additional content scrolls inside the editor so the active caret stays visible without moving the entire page.
+- Long words, URLs, tables, code blocks, and images are contained within the message width on small screens.
+- Fenced code blocks expose copy and download actions. A language or filename supplied by the model is shown in the code header and used for the downloaded file.
+- Theme selection supports light, dark, and system preferences with accessible foreground and background contrast.
 
 ## Support
 
-Voice input is currently compatible only with Chrome and WebKit-based browsers. Please ensure you are using one of these browsers for the optimal experience.
+Voice input is currently compatible only with Chrome and WebKit-based browsers. The remaining chat features work in current evergreen browsers.
 
 ## Installation
 
@@ -34,14 +46,15 @@ To get started with PolyChat, follow these simple steps:
    git clone https://github.com/abdulsamad/polychat.git
    ```
 
-2. **Install Dependencies:**
+2. **Install dependencies:**
 
    ```bash
    cd polychat
    pnpm install
    ```
 
-3. **Environment Variables:**
+3. **Configure environment variables:**
+
    Create `apps/client/.env` and `apps/serverless/.env` from their respective `.env.example` files. Keep the real provider keys and Clerk values local; never commit them.
 
    For local frontend development, set:
@@ -60,11 +73,11 @@ Install the AWS SAM CLI and Docker Desktop first. Then start both the React fron
 pnpm dev
 ```
 
-This runs:
+This starts:
 
 - Frontend: <http://localhost:3000>
 - Local SAM/Lambda API: <http://localhost:3001>
-- Frontend API proxy: `/api/*` → `http://localhost:3001/*`
+- Frontend API proxy: `/api/*` to `http://localhost:3001/*`
 
 The SAM command bundles the serverless app and runs it in the Node.js 22 Lambda container. The local template is `apps/serverless/template.local.yaml`; it is intentionally ignored and is not used for production deployment.
 
@@ -81,6 +94,19 @@ To stop the development servers, press `Ctrl+C`. If a port is stuck:
 ```bash
 pnpm kill-ports
 ```
+
+## Validation
+
+Run the relevant checks from the repository root before submitting a change:
+
+```bash
+pnpm --filter client run typecheck
+pnpm client:build
+pnpm serverless:build
+git diff --check
+```
+
+The codebase knowledge graph is generated locally with `graphify update .`. Its output lives in `graphify-out/` and is intentionally ignored by Git.
 
 <!--
 ## Demo
