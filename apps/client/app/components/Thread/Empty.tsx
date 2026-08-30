@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 import { variations } from 'utils';
 
-import useCustomEditor from '@/hooks/useCustomEditor';
+import useSubmitMessage from '@/hooks/useSubmitMessage';
 import { threadAtom } from '@/store';
 import { Button } from '@/components/ui/button';
 
@@ -16,7 +16,7 @@ const Empty = ({ name }: IEmpty) => {
   const thread = useAtomValue(threadAtom);
   const variation = thread?.settings.variation;
 
-  const { editor, handleSubmit } = useCustomEditor();
+  const { isChatLoading, submitMessage } = useSubmitMessage();
 
   const hints = useMemo(
     () => variations.find(({ code }) => code === variation)?.hints,
@@ -29,17 +29,7 @@ const Empty = ({ name }: IEmpty) => {
 
   const handleOnClick = useCallback(
     async (prompt: string) => {
-      if (!editor) return;
-
-      const cursorPos = editor.state.selection.$head.pos;
-
-      editor?.commands?.clearContent();
-      editor?.commands.insertContent(prompt);
-
-      // Reset cursor position after inserting content
-      editor.chain().focus().setTextSelection(cursorPos).run();
-
-      const isSubmitSuccess = await handleSubmit();
+      const isSubmitSuccess = await submitMessage(prompt);
 
       if (!isSubmitSuccess) return;
 
@@ -48,14 +38,14 @@ const Empty = ({ name }: IEmpty) => {
         toast.success(`Cool! You've just got started`);
       }, 1000);
     },
-    [editor, handleSubmit]
+    [submitMessage]
   );
 
   return (
-    <div className="flex gradient justify-center items-center min-h-[250px] bg-base-200">
-      <div className="text-center">
-        <div className="max-w-screen mx-auto mt-16">
-          <h1 className="text-2xl lg:text-4xl font-bold capitalize break-all">
+    <div className="flex min-h-full items-center justify-center px-1 py-8 sm:px-4">
+      <div className="w-full max-w-3xl text-center">
+        <div className="mx-auto">
+          <h1 className="text-2xl font-semibold capitalize tracking-tight text-balance sm:text-3xl lg:text-4xl">
             <span
               role="img"
               className="animate-wave origin-[70%_70%] inline-block mr-2  "
@@ -64,22 +54,25 @@ const Empty = ({ name }: IEmpty) => {
             </span>
             Hi <span className="capitalize">{name || 'there'}, </span>
           </h1>
-          <h2 className="py-6 italic break-words [text-wrap:pretty] max-w-md mx-auto">
+          <h2 className="mx-auto max-w-lg py-5 text-sm leading-6 text-muted-foreground [text-wrap:pretty] sm:text-base">
             {`Type in the input box in the bottom and start chatting. You can also change settings from the hamburger menu in the top left corner.`}
           </h2>
         </div>
         {description && hints?.length && (
           <>
-            <blockquote className="mt-6 mb-3 italic">{description}</blockquote>
-            <h3 className="my-3 font-semibold">Query Hints:&nbsp;</h3>
-            <div className="grid gap-2 md:grid-cols-2">
+            <blockquote className="mx-auto mt-6 mb-3 max-w-2xl text-muted-foreground italic">
+              {description}
+            </blockquote>
+            <h3 className="my-3 font-semibold">Try a prompt</h3>
+            <div className="grid gap-2 sm:grid-cols-2">
               {hints.map((hint) => (
                 <Button
                   key={hint}
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => handleOnClick(hint)}
-                  className="bg-[rgba(_255,_255,_255,_0.25)] [box-shadow:0_8px_32px_0_rgba(_0,_0,_0,_0.1)] dark:[box-shadow:0_8px_32px_0_rgba(_31,_38,_135,_0.37)] backdrop-filter backdrop-blur-sm rounded-[10px] border border-solid border-[rgba(255,255,255,0.18)] cursor-default overflow-hidden h-fit">
-                  <p className="my-3 px-2 whitespace-break-spaces max-w-full text-ellipsis">
+                  disabled={isChatLoading}
+                  className="h-full min-w-0 rounded-xl bg-card/70 px-3 py-3 text-left shadow-sm hover:border-primary/50 hover:bg-accent/70">
+                  <p className="max-w-full whitespace-break-spaces [overflow-wrap:anywhere]">
                     {hint}
                   </p>
                 </Button>

@@ -1,21 +1,12 @@
-import { useCallback, useLayoutEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { getTime } from 'date-fns';
-import { toast } from 'sonner';
-import { useUser } from '@clerk/react-router';
+import { useAtom } from 'jotai';
 
-import {
-  threadLoadingAtom,
-  threadAtom,
-  upsertMessageAtom,
-  configAtom,
-  editorAtom,
-} from '@/store/index';
+import { editorAtom } from '@/store/index';
 
-import useHandleChatResponse from './useHandleChatResponse';
+import useSubmitMessage from './useSubmitMessage';
 
 const extensions = [
   StarterKit.configure({
@@ -23,41 +14,42 @@ const extensions = [
     heading: { levels: [1, 2, 3, 4, 5, 6], HTMLAttributes: { class: 'heading' } },
     paragraph: { HTMLAttributes: { class: 'paragraph' } },
   }),
-  Placeholder.configure({ placeholder: 'Ask any thing or discuss...' }),
+  Placeholder.configure({ placeholder: 'Ask anything or start a conversation...' }),
 ];
 
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
-  const [isChatLoading, setIsChatResponseLoading] = useAtom(threadLoadingAtom);
-  const addChat = useSetAtom(upsertMessageAtom);
-  const thread = useAtomValue(threadAtom);
-  const { imageSize, language, quality, style } = useAtomValue(configAtom);
+  const { isChatLoading, submitMessage } = useSubmitMessage();
 
   const editor = useEditor({
     extensions,
+    content: editorState,
     immediatelyRender: false,
     editorProps: {
-      attributes: { class: 'w-full h-[50px] p-3 box-border' },
+      attributes: {
+        'aria-label': 'Message',
+        'aria-describedby': 'composer-help',
+        'aria-multiline': 'true',
+        class: 'composer-editor',
+        role: 'textbox',
+      },
       handleDOMEvents: {
-        keydown: (view, ev) => {
-          switch (ev.key?.toLowerCase()) {
-            case 'enter':
-              {
-                if (!ev.ctrlKey && !ev.shiftKey && !ev.altKey) {
-                  ev.preventDefault();
+        keydown: (_view, event) => {
+          const shouldSubmit =
+            event.key === 'Enter' &&
+            !event.shiftKey &&
+            !event.ctrlKey &&
+            !event.altKey &&
+            !event.metaKey &&
+            !event.isComposing;
 
-                  if (isChatLoading) return;
+          if (!shouldSubmit) return false;
 
-                  handleSubmit();
-                }
-              }
-              break;
+          event.preventDefault();
 
-            case 'arrowup': {
-              //
-              break;
-            }
-          }
+          if (!isChatLoading) void handleSubmit();
+
+          return true;
         },
       },
     },
@@ -65,66 +57,34 @@ const useCustomEditor = () => {
       setEditorState(editor.getHTML());
     },
   });
-  const { user } = useUser();
-  const { handleChatResponse } = useHandleChatResponse();
-
-  useLayoutEffect(() => {
-    if (!editor) return;
-
-    const cursorPos = editor.state.selection.$head.pos;
-
-    editor?.commands?.clearContent();
-    editor?.commands.insertContent(editorState);
-
-    // Reset cursor position after inserting content
-    editor.chain().focus().setTextSelection(cursorPos).run();
-  }, [editorState, editor]);
 
   const handleSubmit = useCallback(async () => {
-    try {
-      if (!thread) throw new Error('Thread not created');
+    if (!editor) return false;
 
-      if (!editor?.getText()?.trim()) return null;
+    const prompt = editor.getText({ blockSeparator: '\n' }).trim();
+    if (!prompt) return false;
 
-      addChat({
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: editor?.getText(),
-        metadata: {
-          model: thread.settings.model,
-          variation: null,
-          timestamp: getTime(new Date()),
-        },
-        type: 'text',
-      });
+    const didSubmit = submitMessage(prompt);
+    if (!didSubmit) return false;
 
-      setIsChatResponseLoading(true);
-      setEditorState('');
+    editor.commands.clearContent(true);
+    setEditorState('');
+    editor.commands.focus('end');
 
-      await handleChatResponse({
-        prompt: editor.getText(),
-      });
+    return true;
+  }, [editor, setEditorState, submitMessage]);
 
-      return true;
-    } catch (err) {
-      toast.error('Something went Wrong!');
-    } finally {
-      setIsChatResponseLoading(false);
-    }
-  }, [
-    editor,
-    addChat,
-    setIsChatResponseLoading,
-    setEditorState,
-    imageSize,
-    user,
-    quality,
-    style,
-    language,
-    thread?.settings,
-  ]);
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
 
-  return { editor, handleSubmit };
+    const currentContent = editor.isEmpty ? '' : editor.getHTML();
+    if (currentContent === editorState) return;
+
+    editor.commands.setContent(editorState, false);
+    editor.commands.focus('end');
+  }, [editor, editorState]);
+
+  return { editor, handleSubmit, isChatLoading };
 };
 
 export default useCustomEditor;

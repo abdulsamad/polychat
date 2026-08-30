@@ -84,12 +84,16 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <section>
-        <Thread className="h-[calc(100svh-152px)]" />
-      </section>
-      <section className="flex flex-col p-5">
-        <Input />
-      </section>
+      <div className="flex h-full min-h-0 min-w-0 flex-col">
+        <section className="min-h-0 min-w-0 flex-1">
+          <Thread className="h-full" />
+        </section>
+        <section className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5 sm:pt-4">
+          <div className="mx-auto w-full max-w-4xl">
+            <Input />
+          </div>
+        </section>
+      </div>
     </Suspense>
   );
 };

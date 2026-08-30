@@ -1,19 +1,11 @@
 import { type HTMLAttributes } from 'react';
-import { toast } from 'sonner';
-import { CopyIcon, DownloadIcon, TerminalIcon } from 'lucide-react';
+import { TerminalIcon } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
-import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
-import {
-  synthwave84 as darkTheme,
-  oneLight as lightTheme,
-} from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { clsx } from 'clsx';
-import { useTheme } from 'next-themes';
 
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -24,9 +16,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import CopyToClipboard from '@/components/Message/CopyToClipboard';
-
-import '@fontsource/fira-code';
+import CodeBlock from '@/components/Message/CodeBlock';
 
 interface IText {
   isUser: boolean;
@@ -34,137 +24,169 @@ interface IText {
   message?: string;
 }
 
+interface MarkdownNode {
+  children?: MarkdownNode[];
+  data?: { meta?: unknown };
+  lang?: string | null;
+  meta?: string | null;
+  position?: { start: { line: number }; end: { line: number } };
+  type: string;
+  value?: string;
+}
+
+const filenamePattern = /^(?:[\w@.-]+[\\/])*[\w@.-]+\.[a-z0-9]{1,12}$/i;
+
+const remarkCodeFilenames = () => (tree: MarkdownNode) => {
+  if (!tree.children) return;
+
+  for (let index = 0; index < tree.children.length - 1; index += 1) {
+    const paragraph = tree.children[index];
+    const code = tree.children[index + 1];
+    const child = paragraph.type === 'paragraph' ? paragraph.children?.[0] : undefined;
+    const isStandaloneValue = paragraph.children?.length === 1 && child?.value;
+    const filename = isStandaloneValue ? child.value!.trim() : '';
+
+    if (
+      code.type !== 'code' ||
+      !['inlineCode', 'text'].includes(child?.type || '') ||
+      !filenamePattern.test(filename)
+    ) {
+      continue;
+    }
+
+    code.meta = `${code.meta || ''} filename=${JSON.stringify(filename)}`.trim();
+    tree.children.splice(index, 1);
+    index -= 1;
+  }
+};
+
+const getFilename = (meta?: string) => {
+  if (!meta) return undefined;
+
+  const namedMatch = /(?:filename|file|title)\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s]+))/i.exec(meta);
+  if (namedMatch) return namedMatch[1] || namedMatch[2] || namedMatch[3];
+
+  const bareValue = meta.trim();
+  return filenamePattern.test(bareValue) ? bareValue : undefined;
+};
+
 const Text = ({ isUser, messageClassNames, message }: IText) => {
-  const { resolvedTheme } = useTheme();
-
-  const downloadCode = (code: string, language: string) => {
-    const extension = language.toLowerCase().replace(/[^a-z0-9]/g, '') || 'txt';
-    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-
-    link.href = url;
-    link.download = `code-snippet.${extension}`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
+  let codeBlockIndex = 0;
 
   return (
     <Card
       className={clsx(
-        "message group/message relative inline-block py-1.5 px-3 rounded-xl before:content-[''] before:block before:h-0 before:w-0 before:border-y-8 before:border-y-transparent before:border-l-[14px] before:border-l-primary before:absolute before:top-1/2 before:-translate-y-1/2] [&_p:has(code)]:leading-8 [&_div:has(code)]:leading-8 [&_span:has(code)]:leading-8 max-w-[min(70%,_500px)]",
+        'message min-w-0 max-w-full gap-0 rounded-2xl px-3 py-2.5 [overflow-wrap:anywhere] sm:px-4 sm:py-3',
         messageClassNames
       )}>
       {isUser ? (
-        message
+        <p className="whitespace-pre-wrap text-[0.9375rem] leading-6 [overflow-wrap:anywhere]">
+          {message}
+        </p>
       ) : (
         <ErrorBoundary fallbackRender={fallbackRender}>
           <Markdown
-            remarkPlugins={[[remarkGfm]]}
+            remarkPlugins={[remarkGfm, remarkCodeFilenames]}
             components={{
               code(props) {
                 const { children, className, node, ...rest } = props;
-                const match = /language-(\w+)/.exec(className || '');
+                const match = /language-([^\s]+)/.exec(className || '');
                 const code = String(children).replace(/\n$/, '');
+                const meta = typeof node?.data?.meta === 'string' ? node.data.meta : undefined;
+                const spansMultipleLines = node?.position?.start.line !== node?.position?.end.line;
+                const isBlock = Boolean(match || meta || spansMultipleLines);
+
+                if (isBlock) {
+                  codeBlockIndex += 1;
+                  return (
+                    <CodeBlock
+                      code={code}
+                      filename={getFilename(meta)}
+                      index={codeBlockIndex}
+                      language={match?.[1] || 'text'}
+                    />
+                  );
+                }
 
                 return (
-                  <>
-                    {match ? (
-                      <div className="leading-relaxed ligatures [font-family:_Fira_Code]">
-                        <div className="flex justify-end items-center">
-                          <CopyToClipboard
-                            text={code}
-                            onCopy={() => toast.success('Copied!')}>
-                            <Button
-                              title="Copy"
-                              size="default"
-                              className="h-6 w-20 font-sans ml-auto mr-[11px] rounded-t-lg rounded-b-none transition-all duration-300 opacity-0 translate-y-1 group-hover/message:opacity-100 group-hover/message:translate-y-0 group-focus-within/message:opacity-100 group-focus-within/message:translate-y-0">
-                              <span>Copy</span> <CopyIcon className="h-4 w-4" />
-                            </Button>
-                          </CopyToClipboard>
-                          <Button
-                            type="button"
-                            title="Download code"
-                            aria-label="Download code"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => downloadCode(code, match[1])}
-                            className="h-6 w-8 rounded-t-lg rounded-b-none mr-[11px] transition-all duration-300 opacity-0 translate-y-1 group-hover/message:opacity-100 group-hover/message:translate-y-0 group-focus-within/message:opacity-100 group-focus-within/message:translate-y-0">
-                            <DownloadIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="font-bold">
-                          <SyntaxHighlighter
-                            {...rest}
-                            wrapLongLines
-                            PreTag="div"
-                            customStyle={{ margin: 0 }}
-                            language={match[1]}
-                            ref={undefined}
-                            style={resolvedTheme === 'dark' ? darkTheme : lightTheme}>
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        </div>
-                      </div>
-                    ) : (
-                      <SyntaxHighlighter
-                        {...rest}
-                        wrapLongLines
-                        PreTag="div"
-                        customStyle={{ margin: 0 }}
-                        language="bash"
-                        ref={undefined}
-                        style={resolvedTheme === 'dark' ? darkTheme : lightTheme}>
-                        {String(children?.toString().trim()).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    )}
-                  </>
+                  <code
+                    {...rest}
+                    className="rounded-md border border-border/70 bg-muted px-1.5 py-0.5 font-mono text-[0.85em] text-foreground [overflow-wrap:anywhere]">
+                    {children}
+                  </code>
                 );
               },
-              p: ({ children }) => <p className="leading-6">{children}</p>,
-              span: ({ children }) => <span>{children}</span>,
-              div: ({ children }) => <div className="my-2">{children}</div>,
+              pre: ({ children }) => <>{children}</>,
+              h1: ({ children }) => (
+                <h1 className="mt-6 mb-3 text-xl font-semibold tracking-tight text-balance first:mt-0 sm:text-2xl">
+                  {children}
+                </h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="mt-6 mb-3 text-lg font-semibold tracking-tight text-balance first:mt-0 sm:text-xl">
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="mt-5 mb-2 text-base font-semibold text-balance first:mt-0 sm:text-lg">
+                  {children}
+                </h3>
+              ),
+              p: ({ children }) => (
+                <p className="my-3 text-[0.9375rem] leading-7 [text-wrap:pretty] first:mt-0 last:mb-0 sm:text-base">
+                  {children}
+                </p>
+              ),
+              ul: ({ children }) => (
+                <ul className="my-3 list-disc space-y-1.5 pl-6 marker:text-primary">{children}</ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="my-3 list-decimal space-y-1.5 pl-6 marker:font-medium marker:text-muted-foreground">
+                  {children}
+                </ol>
+              ),
+              li: ({ children }) => <li className="pl-1 leading-7">{children}</li>,
+              blockquote: ({ children }) => (
+                <blockquote className="my-4 border-l-2 border-primary/70 bg-muted/60 px-4 py-2 text-muted-foreground italic">
+                  {children}
+                </blockquote>
+              ),
+              a: ({ children, href }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">
+                  {children}
+                </a>
+              ),
+              hr: () => <hr className="my-6 border-border" />,
               table: ({ children }) => (
-                <Table className="w-full border-collapse my-4 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/50">
+                <Table className="my-4 min-w-[32rem] border-collapse overflow-hidden rounded-lg border border-border bg-card">
                   {children}
                 </Table>
               ),
               thead: ({ children }) => (
-                <TableHeader className="bg-gradient-to-r from-purple-500 to-purple-900 text-slate-50 border-b border-gray-200 dark:border-gray-700">
+                <TableHeader className="border-b border-border bg-muted text-foreground">
                   {children}
                 </TableHeader>
               ),
               tbody: ({ children }) => (
-                <TableBody className="divide-y divide-gray-100 dark:divide-gray-800 bg-gradient-to-r from-slate-900 to-slate-700">
-                  {children}
-                </TableBody>
+                <TableBody className="divide-y divide-border bg-card">{children}</TableBody>
               ),
               tfoot: ({ children }) => (
-                <TableFooter className="bg-gray-50/80 dark:bg-gray-800/30 border-t border-gray-200 dark:border-gray-700">
-                  {children}
-                </TableFooter>
+                <TableFooter className="border-t border-border bg-muted/70">{children}</TableFooter>
               ),
               tr: ({ children }) => (
-                <TableRow className="hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors duration-200">
-                  {children}
-                </TableRow>
+                <TableRow className="transition-colors hover:bg-accent/50">{children}</TableRow>
               ),
               th: ({ children }) => (
-                <TableHead className="py-3 px-4 text-left font-semibold text-blue-900 dark:text-blue-100">
+                <TableHead className="px-4 py-3 text-left font-semibold text-foreground text-balance">
                   {children}
                 </TableHead>
               ),
               td: ({ children }) => (
-                <TableCell className="py-2.5 px-4 text-gray-800 dark:text-gray-200">
-                  {children}
-                </TableCell>
-              ),
-              pre: ({ children }) => (
-                <pre className="max-w-[calc(100vw-148px)] md:max-w-[calc(100vw-400px)] lg:max-w-[calc(100vw-450px)]">
-                  {children}
-                </pre>
+                <TableCell className="px-4 py-2.5 text-foreground">{children}</TableCell>
               ),
             }}>
             {message || ''}
@@ -175,16 +197,15 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
   );
 };
 
-const fallbackRender = ({ error }: FallbackProps) => (
-  <Alert>
+const fallbackRender = ({}: FallbackProps) => (
+  <Alert role="alert">
     <TerminalIcon className="h-4 w-4" />
     <AlertTitle>Error Rendering Message</AlertTitle>
     <AlertDescription>
       <p>Unable to display this message due to an error:</p>
-      {/* <pre style={{ color: 'red' }}>{error.message}</pre> */}
       <p className="text-sm text-muted-foreground mt-2">
         This could be due to invalid markdown formatting or unsupported content in the response. You
-        can still copy the raw message using the copy button.
+        can retry the request or refresh the chat.
       </p>
     </AlertDescription>
   </Alert>

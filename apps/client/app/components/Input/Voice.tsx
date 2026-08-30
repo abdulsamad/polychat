@@ -13,11 +13,12 @@ const Voice = () => {
 
   return (
     <Button
+      type="button"
       variant="link"
       title={isListening ? 'Stop Voice Recognition' : 'Start Voice Recognition'}
       size="icon"
       className={clsx(
-        'bg-primary rounded-3xl flex items-center justify-center text-primary-foreground shadow-md hover:text-primary-foreground group hover:shadow-primary/30 size-10',
+        'group flex size-10 items-center justify-center rounded-full bg-primary p-0 text-primary-foreground shadow-md hover:text-primary-foreground hover:shadow-primary/30 sm:size-11',
         isListening &&
           'text-sky-200 border-2  border-sky-200 shadow-[0_0_1px_#fff,inset_0_0_1px_#fff,0_0_2px_#08f,0_0_6px_#08f,0_0_15px_#08f]'
       )}

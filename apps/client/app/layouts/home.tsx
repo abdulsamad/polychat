@@ -8,9 +8,9 @@ const Home = () => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="h-svh w-full overflow-hidden">
+      <main className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <Nav />
-        <div>
+        <div className="min-h-0 min-w-0 flex-1">
           <Outlet />
         </div>
       </main>

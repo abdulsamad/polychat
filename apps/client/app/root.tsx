@@ -24,7 +24,7 @@ export const links: Route.LinksFunction = () => [
     href: 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap',
   },
   { rel: 'icon', href: '/favicon.ico' },
-  { rel: 'theme-color', href: '#AD46FF' },
+  { rel: 'theme-color', href: '#6656D9' },
   { rel: 'manifest', href: '/manifest.webmanifest' },
 ];
 

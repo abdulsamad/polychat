@@ -1,18 +1,13 @@
-import { motion } from 'motion/react';
-
 import { SidebarTrigger } from '@/components/ui/sidebar';
 
 import SettingsDropdown from './SettingsDropdown';
 
 const Nav = () => (
-  <nav className="h-[50px] w-full flex gap-2 items-center justify-between relative px-3 py-1">
+  <nav className="relative flex h-14 w-full shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-background/90 px-3 py-1 backdrop-blur-sm sm:px-4">
     <SidebarTrigger />
-    <motion.h1
-      initial={{ translateY: '-10px' }}
-      animate={{ translateY: '0' }}
-      className="text-lg lg:text-xl italic font-bold from-purple-600 via-pink-600 to-blue-600 bg-gradient-to-r bg-clip-text text-transparent leading-6">
-      PolyChat
-    </motion.h1>
+    <h1 className="text-lg leading-6 font-semibold tracking-tight text-foreground lg:text-xl">
+      <span className="font-mono text-primary">Poly</span>Chat
+    </h1>
     <SettingsDropdown />
   </nav>
 );

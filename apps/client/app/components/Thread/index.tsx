@@ -30,11 +30,16 @@ const Thread = ({ className }: ThreadProps) => {
   const { user } = useUser();
   const shouldStickToBottom = useRef(true);
   const hasInitialScroll = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    const viewport = rootRef.current?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]'
+    );
 
     if (!viewport) return;
+    viewportRef.current = viewport;
 
     const updateScrollIntent = () => {
       const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
@@ -44,11 +49,14 @@ const Thread = ({ className }: ThreadProps) => {
     viewport.addEventListener('scroll', updateScrollIntent, { passive: true });
     updateScrollIntent();
 
-    return () => viewport.removeEventListener('scroll', updateScrollIntent);
+    return () => {
+      viewport.removeEventListener('scroll', updateScrollIntent);
+      viewportRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
-    const viewport = document.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    const viewport = viewportRef.current;
 
     if (!viewport) return;
 
@@ -68,33 +76,35 @@ const Thread = ({ className }: ThreadProps) => {
         name: getName(user),
         avatarImageSrc: user?.imageUrl!,
         messageClassNames:
-          'bg-primary text-primary-foreground before:right-0 before:translate-x-[70%] before:border-l-primary',
+          'border-primary bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]',
       },
       assistant: {
         name: variation?.split('-').join(' '),
         avatarImageSrc: `/icons/${variation}.png`,
-        messageClassNames:
-          'bg-secondary before:left-0 before:-translate-x-[70%] before:rotate-180 before:border-l-secondary',
+        messageClassNames: 'border-border/80 bg-card/80 text-card-foreground shadow-sm',
       },
     }),
     [user]
   );
-  ``;
-  const hasMessages = messages.length;
+  const hasMessages = messages.length > 0;
 
   return (
-    <ScrollArea className={clsx('px-6 lg:px-8 box-border', className)}>
-      {hasMessages ? (
-        <>
-          {messages.map((chat) => {
-            const { role, metadata } = chat;
-            return <Message key={chat.id} {...userInfo(metadata.variation)[role]} {...chat} />;
-          })}
-          {isChatResponseLoading && <Typing />}
-        </>
-      ) : (
-        <Empty name={getName(user)} />
-      )}
+    <ScrollArea
+      ref={rootRef}
+      className={clsx('thread-scroll box-border min-w-0 px-3 sm:px-5 lg:px-8', className)}>
+      <div className="mx-auto min-h-full w-full min-w-0 max-w-5xl overflow-x-clip pb-5">
+        {hasMessages ? (
+          <>
+            {messages.map((chat) => {
+              const { role, metadata } = chat;
+              return <Message key={chat.id} {...userInfo(metadata.variation)[role]} {...chat} />;
+            })}
+            {isChatResponseLoading && <Typing />}
+          </>
+        ) : (
+          <Empty name={getName(user)} />
+        )}
+      </div>
     </ScrollArea>
   );
 };

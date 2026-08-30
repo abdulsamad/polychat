@@ -40,11 +40,11 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
   }, []);
 
   return (
-    <div ref={elemRef} className="group max-w-[400px]">
-      <figure>
+    <div ref={elemRef} className="group w-full min-w-0 max-w-[400px]">
+      <figure className="min-w-0">
         <div
-          className="relative inline-block max-w-[70vw] min-w-[400px] [&_img]:rounded-2xl [&_img]:shadow-xl"
-          style={{ width }}>
+          className="relative w-full max-w-full overflow-hidden rounded-2xl [&_img]:rounded-2xl [&_img]:shadow-xl"
+          style={{ aspectRatio: `${width} / ${height}` }}>
           <ImageGallery
             thumbnailPosition="left"
             items={[
@@ -63,8 +63,8 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
                   <a
                     href={url}
                     title="Download"
-                    className="group-hover:flex hidden m-3 items-center justify-center absolute bottom-0 left-0 z-10"
-                    download>
+                    className="absolute bottom-0 left-0 z-10 m-3 flex items-center justify-center"
+                    download="generated-image.png">
                     <DownloadIcon />
                     <span className="sr-only">Download image</span>
                   </a>
@@ -74,7 +74,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
                   size="icon"
                   title="Rotate"
                   onClick={rotateImage}
-                  className="group-hover:flex hidden m-3 items-center justify-center absolute bottom-0 right-12 z-10">
+                  className="absolute right-12 bottom-0 z-10 m-3 flex items-center justify-center">
                   <RotateCwIcon />
                   <span className="sr-only">Rotate image</span>
                 </Button>

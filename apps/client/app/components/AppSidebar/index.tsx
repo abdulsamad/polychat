@@ -90,7 +90,7 @@ const AppSidebar = () => {
               <div className="mt-5">
                 <Button
                   variant="default"
-                  className="w-full text-white bg-gradient-to-r from-purple-700 via-purple-600 to-purple-500 hover:from-purple-600 hover:via-purple-500 hover:to-purple-400 transition-all duration-300 shadow-lg hover:shadow-purple-500/25"
+                  className="w-full bg-primary text-primary-foreground shadow-md transition-[color,box-shadow] hover:bg-primary/90 hover:shadow-lg"
                   onClick={addNewChat}>
                   <PlusIcon className="mr-2" />
                   New Chat
