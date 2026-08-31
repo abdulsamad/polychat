@@ -27,6 +27,25 @@ interface IMessage {
   content: string;
 }
 
+export interface ChatResponseMetadata {
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    reasoningTokens?: number;
+    cachedInputTokens?: number;
+  };
+  finishReason?: string;
+  responseId?: string;
+  modelId?: string;
+  timestamp?: string;
+}
+
+export type ChatStreamPart =
+  | { type: 'text'; text: string }
+  | { type: 'metadata'; metadata: ChatResponseMetadata }
+  | { type: 'error'; error: string };
+
 interface IGetGeneratedTextBase {
   model: enabledModelsType;
   variation: variationsType;
@@ -58,7 +77,7 @@ export const getGeneratedText = async ({
   variation,
   language,
   getToken,
-}: IGetGeneratedText): Promise<ReadableStream<string> | ErrorType> => {
+}: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
   const token = await getToken();
 
   const res = await fetch(`${baseURL}/chat`, {
@@ -86,7 +105,31 @@ export const getGeneratedText = async ({
     }
   }
 
-  return res.body.pipeThrough(new TextDecoderStream());
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+
+  return new ReadableStream<ChatStreamPart>({
+    async pull(controller) {
+      const { value, done } = await reader.read();
+
+      if (done) {
+        if (buffer.trim()) controller.enqueue(JSON.parse(buffer) as ChatStreamPart);
+        controller.close();
+        return;
+      }
+
+      buffer += value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.trim()) controller.enqueue(JSON.parse(line) as ChatStreamPart);
+      }
+    },
+    cancel() {
+      void reader.cancel();
+    },
+  });
 };
 
 interface IGetGeneratedImage {

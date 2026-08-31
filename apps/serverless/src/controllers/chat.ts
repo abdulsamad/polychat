@@ -66,8 +66,91 @@ const chat = async (c: Context<AppContext>) => {
       },
     });
 
-    // Return streaming response
-    return result.toTextStreamResponse();
+    // Stream newline-delimited JSON so the client receives text deltas and
+    // final usage metadata without mixing metadata into the visible response.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(streamController) {
+        let responseId: string | undefined;
+        let responseModelId: string | undefined;
+        let responseTimestamp: string | undefined;
+        let finishReason: string | undefined;
+        let isClosed = false;
+
+        const getStreamErrorMessage = (error: unknown) => {
+          if (APICallError.isInstance(error)) {
+            return error.statusCode === 429
+              ? 'API rate limit exceeded. Please try again later.'
+              : error.message;
+          }
+
+          return 'Something went wrong while generating the response.';
+        };
+
+        const closeWithError = (error: unknown) => {
+          if (isClosed) return;
+
+          streamController.enqueue(
+            encoder.encode(
+              `${JSON.stringify({ type: 'error', error: getStreamErrorMessage(error) })}\n`
+            )
+          );
+          streamController.close();
+          isClosed = true;
+        };
+
+        try {
+          for await (const part of result.fullStream) {
+            if (part.type === 'text-delta') {
+              streamController.enqueue(
+                encoder.encode(`${JSON.stringify({ type: 'text', text: part.text })}\n`)
+              );
+            } else if (part.type === 'finish-step') {
+              responseId = part.response.id;
+              responseModelId = part.response.modelId;
+              responseTimestamp = part.response.timestamp.toISOString();
+              finishReason = part.finishReason;
+            } else if (part.type === 'finish') {
+              streamController.enqueue(
+                encoder.encode(
+                  `${JSON.stringify({
+                    type: 'metadata',
+                    metadata: {
+                      usage: {
+                        inputTokens: part.totalUsage.inputTokens,
+                        outputTokens: part.totalUsage.outputTokens,
+                        totalTokens: part.totalUsage.totalTokens,
+                        reasoningTokens: part.totalUsage.outputTokenDetails.reasoningTokens,
+                        cachedInputTokens: part.totalUsage.inputTokenDetails.cacheReadTokens,
+                      },
+                      finishReason: finishReason || part.finishReason,
+                      responseId,
+                      modelId: responseModelId,
+                      timestamp: responseTimestamp,
+                    },
+                  })}\n`)
+              );
+            } else if (part.type === 'error') {
+              closeWithError(part.error);
+              return;
+            }
+          }
+          if (!isClosed) {
+            streamController.close();
+            isClosed = true;
+          }
+        } catch (error) {
+          closeWithError(error);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-cache',
+      },
+    });
   } catch (err) {
     if (APICallError.isInstance(err)) {
       console.error(`[CHAT] API Call Error for user ${user.id}: `, err.message);

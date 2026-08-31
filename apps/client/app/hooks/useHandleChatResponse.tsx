@@ -16,7 +16,7 @@ import {
   configAtom,
   IMessage,
 } from '@/store';
-import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
+import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 import { markStartedToastAsSeen } from '@/utils/lforage';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
@@ -126,10 +126,11 @@ const useHandleChatResponse = () => {
           throw new Error(stream.err);
         }
 
-        const reader = (stream as ReadableStream<string>).getReader();
+        const reader = (stream as ReadableStream<ChatStreamPart>).getReader();
         const uid = crypto.randomUUID();
         const timestamp = getTime(new Date());
         let content = '';
+        let responseMetadata: Extract<ChatStreamPart, { type: 'metadata' }> | undefined;
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const updateMessage = () => {
@@ -179,6 +180,15 @@ const useHandleChatResponse = () => {
                 model: thread.settings.model,
                 variation: thread.settings.variation,
                 timestamp,
+                ...(responseMetadata && responseMetadata.type === 'metadata'
+                  ? {
+                      usage: responseMetadata.metadata.usage,
+                      finishReason: responseMetadata.metadata.finishReason,
+                      responseId: responseMetadata.metadata.responseId,
+                      responseModelId: responseMetadata.metadata.modelId,
+                      responseTimestamp: responseMetadata.metadata.timestamp,
+                    }
+                  : {}),
               },
               role: 'assistant',
               type: 'text',
@@ -195,8 +205,15 @@ const useHandleChatResponse = () => {
             break;
           }
 
-          content += value;
-          scheduleMessageUpdate();
+          const part = value as ChatStreamPart;
+          if (part.type === 'text') {
+            content += part.text;
+            scheduleMessageUpdate();
+          } else if (part.type === 'metadata') {
+            responseMetadata = part;
+          } else {
+            throw new Error(part.error);
+          }
         }
 
         if (onTextMessageComplete) onTextMessageComplete(content);

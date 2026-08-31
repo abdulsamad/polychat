@@ -37,7 +37,20 @@ export interface IMessageCommons {
     variation: null | variationsType; // null is for self
     timestamp: number;
     model: enabledModelsType;
+    usage?: IMessageUsage;
+    finishReason?: string;
+    responseId?: string;
+    responseModelId?: string;
+    responseTimestamp?: string;
   };
+}
+
+export interface IMessageUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  reasoningTokens?: number;
+  cachedInputTokens?: number;
 }
 
 export interface ITextMessage {
