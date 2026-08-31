@@ -17,6 +17,7 @@ import {
   IMessage,
 } from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
+import useSpeechSynthesis from './useSpeechSynthesis';
 
 const STREAM_UPDATE_INTERVAL_MS = 80;
 
@@ -36,6 +37,7 @@ const useHandleChatResponse = () => {
 
   const { getToken } = useAuth();
   const [play] = useSound('notification.mp3');
+  const { speak } = useSpeechSynthesis();
 
   const handleChatResponse = async ({
     prompt,
@@ -173,6 +175,9 @@ const useHandleChatResponse = () => {
             navigator.vibrate(100);
             play();
             console.log('%cDONE', 'font-size:12px;font-weight:bold;color:aqua');
+            if (thread.settings.isTextToSpeechEnabled) {
+              speak(content, language);
+            }
             break;
           }
 
