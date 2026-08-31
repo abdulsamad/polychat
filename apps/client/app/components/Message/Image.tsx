@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef } from 'react';
-import { toast } from 'sonner';
-import { DownloadIcon, CopyIcon, RotateCwIcon } from 'lucide-react';
+import { DownloadIcon, RotateCwIcon } from 'lucide-react';
 import ImageGallery from 'react-image-gallery';
 
 import { type IImageMessage } from '@/store/index';
@@ -11,7 +10,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import CopyToClipboard from '@/components/Message/CopyToClipboard';
 
 import 'react-image-gallery/styles/css/image-gallery.css';
 
@@ -90,21 +88,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
             <AccordionTrigger>Prompt</AccordionTrigger>
             <AccordionContent className="group/prompt relative">
               {alt ? (
-                <>
-                  <figcaption>{alt}</figcaption>
-                  <CopyToClipboard
-                    text={alt as string}
-                    onCopy={() => {
-                      toast.success('Copied!');
-                    }}>
-                    <Button
-                      title="Copy"
-                      size="icon"
-                      className="h-6 w-6 absolute right-0 bottom-0 m-3 group-hover/prompt:visible invisible">
-                      <CopyIcon className="h-4 w-4" />
-                    </Button>
-                  </CopyToClipboard>
-                </>
+                <figcaption className="select-text">{alt}</figcaption>
               ) : (
                 <div className="text-center p-2">
                   <h1>No prompt to show!</h1>
