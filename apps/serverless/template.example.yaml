@@ -11,7 +11,7 @@ Resources:
       Runtime: nodejs22.x
       Architectures:
         - x86_64
-      Timeout: 30
+      Timeout: 60
       MemorySize: 128
       EphemeralStorage:
         Size: 512
