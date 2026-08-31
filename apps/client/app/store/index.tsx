@@ -190,10 +190,6 @@ export const threadSaveEffect = atomEffect((get, set) => {
   const thread = get(threadAtom);
   if (!thread) return;
 
-  // Do not create a persisted sidebar entry for a thread that has never had a
-  // message. A new route can briefly mount with a blank thread before input.
-  if (!get(messagesAtom).length) return;
-
   void enqueuePersistence(async () => {
     const threads = (await getThreads()) || [];
     const existingThreadIndex = threads.findIndex(({ id }) => id === thread.id);

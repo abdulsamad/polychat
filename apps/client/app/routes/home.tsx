@@ -26,15 +26,15 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
   try {
     const threads = (await getThreads()) || [];
     const messages = (await getMessages()) || {};
-    const threadsWithMessages = threads.filter((thread) => messages[thread.id]?.length);
 
     if (!threadId) {
-      const threadData = getDefaultThread();
+      const emptyThread = threads.find((thread) => !messages[thread.id]?.length);
+      const threadData = emptyThread || getDefaultThread();
 
       return { threadData, messageData: messages[threadData.id] || [] };
     }
 
-    const threadData = threadsWithMessages.find(({ id }) => id === threadId) || null;
+    const threadData = threads.find(({ id }) => id === threadId) || null;
     const messageData = messages[threadId] || [];
 
     return { threadData, messageData };
