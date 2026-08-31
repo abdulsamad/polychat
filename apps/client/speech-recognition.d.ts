@@ -135,6 +135,13 @@ declare var webkitSpeechRecognition: {
   prototype: SpeechRecognition;
   new (): SpeechRecognition;
 };
+
+interface Window {
+  SpeechRecognition?: typeof SpeechRecognition;
+  webkitSpeechRecognition?: typeof webkitSpeechRecognition;
+  SpeechGrammarList?: typeof SpeechGrammarList;
+  webkitSpeechGrammarList?: typeof webkitSpeechGrammarList;
+}
 declare var webkitSpeechGrammarList: {
   prototype: SpeechGrammarList;
   new (): SpeechGrammarList;

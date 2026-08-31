@@ -1,18 +1,26 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { getTime } from 'date-fns';
-import { toast } from 'sonner';
+import { useAtom, useAtomValue } from 'jotai';
 
-import { threadLoadingAtom, threadAtom, configAtom, upsertMessageAtom } from '@/store';
+import { configAtom, editorAtom } from '@/store';
 import { speechLog, speechGrammer, IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 
-import useHandleChatResponse from './useHandleChatResponse';
+const escapeHtml = (text: string) =>
+  text.replace(
+    /[&<>'"]|`/g,
+    (character) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;',
+        '`': '&#96;',
+      })[character] || character
+  );
 
 const useSpeech = () => {
   const { language } = useAtomValue(configAtom);
-  const thread = useAtomValue(threadAtom);
-  const addChat = useSetAtom(upsertMessageAtom);
-  const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
+  const [, setEditorState] = useAtom(editorAtom);
   const [isListening, setIsListening] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
@@ -20,55 +28,14 @@ const useSpeech = () => {
   const transcript = useRef('');
   const isFinalizing = useRef(false);
 
-  const { handleChatResponse } = useHandleChatResponse();
+  const insertTranscript = useCallback(
+    (text: string) => {
+      const paragraph = `<p>${escapeHtml(text)}</p>`;
 
-  const speakText = useCallback((text: string, language: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance();
-
-      utterance.text = text;
-      utterance.lang = language;
-
-      speechSynthesis.speak(utterance);
-    } else {
-      console.error('SpeechSynthesis API not supported');
-    }
-  }, []);
-
-  const submitTranscript = useCallback(
-    async (text: string) => {
-      try {
-        if (!thread) throw new Error('Thread not created');
-
-        addChat({
-          id: crypto.randomUUID(),
-          role: 'user',
-          content: text,
-          metadata: {
-            model: thread.settings.model,
-            variation: null,
-            timestamp: getTime(new Date()),
-          },
-          type: 'text',
-        });
-
-        setIsChatResponseLoading(true);
-
-        await handleChatResponse({
-          prompt: text,
-          onTextMessageComplete: (content) => {
-            if (thread.settings.isTextToSpeechEnabled)
-              speakText(content, recognition.current?.lang || 'en-US');
-          },
-        });
-      } catch (err) {
-        toast.error('Something went Wrong!');
-      } finally {
-        setIsChatResponseLoading(false);
-        setIsTranscribing(false);
-      }
+      setEditorState((current) => (current.trim() ? `${current}${paragraph}` : paragraph));
+      setIsTranscribing(false);
     },
-    [addChat, handleChatResponse, setIsChatResponseLoading, speakText, thread]
+    [setEditorState]
   );
 
   const finalizeTranscript = useCallback(() => {
@@ -84,10 +51,9 @@ const useSpeech = () => {
     }
 
     isFinalizing.current = true;
-    void submitTranscript(text).finally(() => {
-      isFinalizing.current = false;
-    });
-  }, [submitTranscript]);
+    insertTranscript(text);
+    isFinalizing.current = false;
+  }, [insertTranscript]);
 
   const startRecognition = useCallback(async () => {
     if (!recognition.current || isListening || isTranscribing) return null;
@@ -123,13 +89,21 @@ const useSpeech = () => {
   useEffect(() => {
     if (!IS_SPEECH_RECOGNITION_SUPPORTED()) return;
 
-    const speechRecognition = new (webkitSpeechRecognition || SpeechRecognition)();
+    const SpeechRecognitionConstructor =
+      window.webkitSpeechRecognition || window.SpeechRecognition;
+
+    if (!SpeechRecognitionConstructor) return;
+
+    const speechRecognition = new SpeechRecognitionConstructor();
 
     recognition.current = speechRecognition;
 
     // Add speech grammar
-    if (window.webkitSpeechGrammarList || window.SpeechGrammarList) {
-      const speechRecognitionList = new (webkitSpeechGrammarList || SpeechGrammarList)();
+    const SpeechGrammarListConstructor =
+      window.webkitSpeechGrammarList || window.SpeechGrammarList;
+
+    if (SpeechGrammarListConstructor) {
+      const speechRecognitionList = new SpeechGrammarListConstructor();
 
       speechRecognitionList.addFromString(speechGrammer, 1);
       recognition.current.grammars = speechRecognitionList;
