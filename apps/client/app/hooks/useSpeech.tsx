@@ -26,7 +26,6 @@ const useSpeech = () => {
 
   const recognition = useRef<SpeechRecognition | null>(null);
   const transcript = useRef('');
-  const finalizedResults = useRef(new Map<number, string>());
   const isFinalizing = useRef(false);
 
   const insertTranscript = useCallback(
@@ -61,7 +60,6 @@ const useSpeech = () => {
 
     try {
       transcript.current = '';
-      finalizedResults.current.clear();
       setIsTranscribing(false);
       recognition.current.start();
       setIsListening(true);
@@ -81,21 +79,19 @@ const useSpeech = () => {
   }, [isListening]);
 
   const onSpeechResult = useCallback((ev: SpeechRecognitionEvent) => {
+    let finalTranscript = '';
+
     for (let index = ev.resultIndex; index < ev.results.length; index += 1) {
       const result = ev.results[index];
 
       if (result.isFinal) {
-        // Results are indexed and may be reported again. Replacing the index is
-        // idempotent and avoids appending the same finalized phrase repeatedly.
-        finalizedResults.current.set(index, result[0]?.transcript ?? '');
+        finalTranscript += result[0]?.transcript ?? '';
       }
     }
 
-    transcript.current = [...finalizedResults.current.entries()]
-      .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
-      .map(([, segment]) => segment.trim())
-      .filter(Boolean)
-      .join(' ');
+    // Recognition is configured for one voice message, so interim hypotheses
+    // are updates to the same phrase and must never be appended to the editor.
+    if (finalTranscript.trim()) transcript.current = finalTranscript.trim();
   }, []);
 
   useEffect(() => {
@@ -121,9 +117,9 @@ const useSpeech = () => {
       recognition.current.grammars = speechRecognitionList;
     }
 
-    recognition.current.continuous = true;
+    recognition.current.continuous = false;
     recognition.current.lang = language;
-    recognition.current.interimResults = true;
+    recognition.current.interimResults = false;
     recognition.current.maxAlternatives = 1;
     recognition.current.onaudiostart = () => speechLog('Audio Started');
     recognition.current.onaudioend = () => speechLog('Audio Ended');
@@ -141,7 +137,6 @@ const useSpeech = () => {
       recognition.current?.abort();
       recognition.current = null;
       transcript.current = '';
-      finalizedResults.current.clear();
       setIsListening(false);
       setIsTranscribing(false);
     };
