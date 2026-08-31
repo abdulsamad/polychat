@@ -26,6 +26,7 @@ const useSpeech = () => {
 
   const recognition = useRef<SpeechRecognition | null>(null);
   const transcript = useRef('');
+  const finalizedResults = useRef(new Map<number, string>());
   const isFinalizing = useRef(false);
 
   const insertTranscript = useCallback(
@@ -60,6 +61,7 @@ const useSpeech = () => {
 
     try {
       transcript.current = '';
+      finalizedResults.current.clear();
       setIsTranscribing(false);
       recognition.current.start();
       setIsListening(true);
@@ -82,8 +84,18 @@ const useSpeech = () => {
     for (let index = ev.resultIndex; index < ev.results.length; index += 1) {
       const result = ev.results[index];
 
-      if (result.isFinal) transcript.current += `${result[0].transcript} `;
+      if (result.isFinal) {
+        // Results are indexed and may be reported again. Replacing the index is
+        // idempotent and avoids appending the same finalized phrase repeatedly.
+        finalizedResults.current.set(index, result[0]?.transcript ?? '');
+      }
     }
+
+    transcript.current = [...finalizedResults.current.entries()]
+      .sort(([leftIndex], [rightIndex]) => leftIndex - rightIndex)
+      .map(([, segment]) => segment.trim())
+      .filter(Boolean)
+      .join(' ');
   }, []);
 
   useEffect(() => {
@@ -129,6 +141,7 @@ const useSpeech = () => {
       recognition.current?.abort();
       recognition.current = null;
       transcript.current = '';
+      finalizedResults.current.clear();
       setIsListening(false);
       setIsTranscribing(false);
     };
