@@ -86,6 +86,9 @@ export const supportedModels = [
   { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: true, provider: 'openai' },
 ] as const satisfies readonly SupportedModel[];
 
+export const defaultModel =
+  'gemini-3.5-flash-lite' satisfies (typeof supportedModels)[number]['name'];
+
 export const supportedTextModels: SupportedModel[] = supportedModels.filter(
   ({ type }) => type === 'text'
 );

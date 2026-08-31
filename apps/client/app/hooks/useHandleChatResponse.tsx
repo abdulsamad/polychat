@@ -18,6 +18,8 @@ import {
 } from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 
+const STREAM_UPDATE_INTERVAL_MS = 80;
+
 interface handleChatResponseProps {
   prompt: string;
   onTextMessageComplete?: (content: string) => void;
@@ -136,7 +138,7 @@ const useHandleChatResponse = () => {
         // chunk. The final update below always flushes the complete response.
         const scheduleMessageUpdate = () => {
           if (updateTimeoutId === null) {
-            updateTimeoutId = setTimeout(updateMessage, 50);
+            updateTimeoutId = setTimeout(updateMessage, STREAM_UPDATE_INTERVAL_MS);
           }
         };
 

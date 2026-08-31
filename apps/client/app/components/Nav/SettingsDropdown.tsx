@@ -2,7 +2,13 @@ import { useCallback } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { SettingsIcon } from 'lucide-react';
 
-import { variations, supportedImageModels, imageSizes, supportedTextModels } from 'utils';
+import {
+  defaultModel,
+  variations,
+  supportedImageModels,
+  imageSizes,
+  supportedTextModels,
+} from 'utils';
 
 import { configAtom, threadAtom, updateThreadSettingsAtom } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
@@ -100,7 +106,7 @@ const SettingsDropdown = () => {
               <label className="ml-1">Model</label>
               <Select
                 value={model}
-                defaultValue="gemini-1.5-flash"
+                defaultValue={defaultModel}
                 onValueChange={(value) => updateSetting('model', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Model" />

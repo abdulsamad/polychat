@@ -10,7 +10,7 @@ import type {
   ImageSizeType,
 } from 'utils';
 
-import { supportedModels } from 'utils';
+import { defaultModel } from 'utils';
 
 import {
   settingsKey,
@@ -134,7 +134,7 @@ export interface IThread<T extends enabledModelsType> {
 export const getDefaultThread = (): IThread<enabledModelsType> => ({
   id: crypto.randomUUID(),
   settings: {
-    model: supportedModels[0].name,
+    model: defaultModel,
     variation: 'normal',
     conversationContextMode: 'single-turn',
     isTextToSpeechEnabled: false,
