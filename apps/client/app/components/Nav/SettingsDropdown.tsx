@@ -79,7 +79,7 @@ const SettingsDropdown = () => {
   if (!thread) return null;
 
   const {
-    settings: { model, variation, isContextAware, isTextToSpeechEnabled },
+    settings: { model, variation, conversationContextMode, isTextToSpeechEnabled },
   } = thread!;
   const hasImageModels = supportedImageModels.length;
   const isImageModelSelected = supportedImageModels.map(({ name }) => name).includes(model);
@@ -195,17 +195,19 @@ const SettingsDropdown = () => {
               <li>
                 <div className="flex justify-center space-x-4">
                   <Checkbox
-                    id="is-context-aware"
-                    checked={isContextAware}
+                    id="conversation-context-mode"
+                    checked={conversationContextMode === 'multi-turn'}
                     onCheckedChange={(value) =>
-                      updateCheckSetting('isContextAware', value as boolean)
+                      updateThreadSettings({
+                        conversationContextMode: value ? 'multi-turn' : 'single-turn',
+                      })
                     }
                   />
                   <div className="grid gap-1.5 leading-none">
                     <label
-                      htmlFor="is-context-aware"
+                      htmlFor="conversation-context-mode"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Is Context Aware
+                      Context
                     </label>
                   </div>
                 </div>

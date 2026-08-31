@@ -80,7 +80,7 @@ const useHandleChatResponse = () => {
         if (onImageMessageComplete) onImageMessageComplete();
       } else {
         const stream = await getGeneratedText({
-          ...(thread.settings.isContextAware
+          ...(thread.settings.conversationContextMode === 'multi-turn'
             ? {
                 messages: [
                   ...messages

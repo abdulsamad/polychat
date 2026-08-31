@@ -105,11 +105,13 @@ export type ModelConfigMap = {
 
 export type ModelConfig<T extends enabledModelsType> = ModelConfigMap[T];
 
+export type ConversationContextMode = 'single-turn' | 'multi-turn';
+
 // Thread Settings interface
 export interface IThreadSettings<T extends enabledModelsType> {
   model: T;
   variation: variationsType;
-  isContextAware: boolean;
+  conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;
   modelConfig: ModelConfig<T>;
 }
@@ -134,7 +136,7 @@ export const getDefaultThread = (): IThread<enabledModelsType> => ({
   settings: {
     model: supportedModels[0].name,
     variation: 'normal',
-    isContextAware: false,
+    conversationContextMode: 'single-turn',
     isTextToSpeechEnabled: false,
     modelConfig: {
       maxTokens: 3000,

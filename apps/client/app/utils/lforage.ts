@@ -29,8 +29,7 @@ export const lforage = localforage.createInstance({
 });
 
 export const getThreads = async (): Promise<IThreads | null> => {
-  const threads = (await lforage.getItem(threadsKey)) as IThreads;
-  return threads;
+  return (await lforage.getItem(threadsKey)) as IThreads | null;
 };
 
 export const getMessages = async (): Promise<Record<string, IMessage[]> | null> => {
