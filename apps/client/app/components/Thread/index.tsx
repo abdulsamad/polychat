@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, type HTMLAttributes } from 'react';
 import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
-import { useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 
 import { threadLoadingAtom, messagesAtom } from '@/store';
@@ -29,7 +28,6 @@ const Thread = ({ className }: ThreadProps) => {
   const messages = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
   const { user } = useUser();
-  const shouldReduceMotion = useReducedMotion();
   const shouldStickToBottom = useRef(true);
   const hasInitialScroll = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -45,7 +43,7 @@ const Thread = ({ className }: ThreadProps) => {
 
     const updateScrollIntent = () => {
       const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      shouldStickToBottom.current = distanceFromBottom <= 96;
+      shouldStickToBottom.current = distanceFromBottom <= 32;
     };
 
     viewport.addEventListener('scroll', updateScrollIntent, { passive: true });
@@ -64,16 +62,17 @@ const Thread = ({ className }: ThreadProps) => {
 
     const animationFrame = requestAnimationFrame(() => {
       if (!hasInitialScroll.current || shouldStickToBottom.current) {
-        viewport.scrollTo({
-          top: viewport.scrollHeight,
-          behavior: shouldReduceMotion || !hasInitialScroll.current ? 'auto' : 'smooth',
-        });
+        // Streaming changes the height of the last message continuously. An
+        // animation per update makes the scroll position lag and feel choppy.
+        // Keep the viewport pinned without starting another animation, and
+        // never take control back after the user scrolls away from the bottom.
+        viewport.scrollTop = viewport.scrollHeight;
         hasInitialScroll.current = true;
       }
     });
 
     return () => cancelAnimationFrame(animationFrame);
-  }, [messages, shouldReduceMotion]);
+  }, [messages]);
 
   const userInfo = useCallback(
     (variation: string | null): UserInfo => ({

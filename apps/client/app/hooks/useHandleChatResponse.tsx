@@ -113,28 +113,30 @@ const useHandleChatResponse = () => {
         const uid = crypto.randomUUID();
         const timestamp = getTime(new Date());
         let content = '';
-        let animationFrameId: number | null = null;
+        let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const updateMessage = () => {
-          animationFrameId = null;
-          upsertMessage({
-            id: uid,
-            content,
-            metadata: {
-              model: thread.settings.model,
-              timestamp,
-              variation: thread.settings.variation,
-            },
-            role: 'assistant',
-            type: 'text',
+          updateTimeoutId = null;
+          startTransition(() => {
+            upsertMessage({
+              id: uid,
+              content,
+              metadata: {
+                model: thread.settings.model,
+                timestamp,
+                variation: thread.settings.variation,
+              },
+              role: 'assistant',
+              type: 'text',
+            });
           });
         };
 
-        // Batch stream chunks to one render per browser frame instead of making
-        // the UI wait 750ms or rerender once for every network chunk.
+        // Keep network chunks responsive without reparsing Markdown on every
+        // chunk. The final update below always flushes the complete response.
         const scheduleMessageUpdate = () => {
-          if (animationFrameId === null) {
-            animationFrameId = requestAnimationFrame(updateMessage);
+          if (updateTimeoutId === null) {
+            updateTimeoutId = setTimeout(updateMessage, 50);
           }
         };
 
@@ -148,9 +150,9 @@ const useHandleChatResponse = () => {
 
           // Stream is completed
           if (done) {
-            if (animationFrameId !== null) {
-              cancelAnimationFrame(animationFrameId);
-              animationFrameId = null;
+            if (updateTimeoutId !== null) {
+              clearTimeout(updateTimeoutId);
+              updateTimeoutId = null;
             }
 
             upsertMessage({
