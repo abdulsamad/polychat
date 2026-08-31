@@ -71,7 +71,12 @@ const Message = ({
         <motion.article
           initial={shouldReduceMotion ? false : { opacity: 0, translateY: 8 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.18, ease: 'easeOut' }}
+          layout={!shouldReduceMotion}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.18,
+            ease: 'easeOut',
+            layout: { duration: shouldReduceMotion ? 0 : 0.16, ease: 'easeOut' },
+          }}
           className={clsx(
             'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none data-[state=open]:z-20',
             chatOrigin

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, type HTMLAttributes } from 'react';
 import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
+import { useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 
 import { threadLoadingAtom, messagesAtom } from '@/store';
@@ -28,6 +29,7 @@ const Thread = ({ className }: ThreadProps) => {
   const messages = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
   const { user } = useUser();
+  const shouldReduceMotion = useReducedMotion();
   const shouldStickToBottom = useRef(true);
   const hasInitialScroll = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -62,13 +64,16 @@ const Thread = ({ className }: ThreadProps) => {
 
     const animationFrame = requestAnimationFrame(() => {
       if (!hasInitialScroll.current || shouldStickToBottom.current) {
-        viewport.scrollTop = viewport.scrollHeight;
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: shouldReduceMotion || !hasInitialScroll.current ? 'auto' : 'smooth',
+        });
         hasInitialScroll.current = true;
       }
     });
 
     return () => cancelAnimationFrame(animationFrame);
-  }, [messages]);
+  }, [messages, shouldReduceMotion]);
 
   const userInfo = useCallback(
     (variation: string | null): UserInfo => ({
