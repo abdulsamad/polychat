@@ -88,7 +88,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
             <AccordionTrigger>Prompt</AccordionTrigger>
             <AccordionContent className="group/prompt relative">
               {alt ? (
-                <figcaption className="select-text">{alt}</figcaption>
+                <figcaption>{alt}</figcaption>
               ) : (
                 <div className="text-center p-2">
                   <h1>No prompt to show!</h1>
