@@ -44,7 +44,13 @@ const image = async (c: Context<AppContext>) => {
   } catch (err) {
     if (APICallError.isInstance(err)) {
       console.error(`[IMAGE] API Error - User: ${user.id}, Error: ${err.message}`);
-      return c.json({ success: false, err: err.message }, 500);
+      return c.json(
+        {
+          success: false,
+          err: err.statusCode === 429 ? 'API rate limit exceeded. Please try again later.' : err.message,
+        },
+        err.statusCode === 429 ? 429 : 500
+      );
     }
 
     console.error(`[IMAGE] Unexpected error - ` + `User: ${user.id}, ` + `Error:`, err);

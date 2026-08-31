@@ -71,7 +71,10 @@ const chat = async (c: Context<AppContext>) => {
   } catch (err) {
     if (APICallError.isInstance(err)) {
       console.error(`[CHAT] API Call Error for user ${user.id}: `, err.message);
-      return c.json({ err: err.message }, 500);
+      return c.json(
+        { success: false, err: err.statusCode === 429 ? 'API rate limit exceeded. Please try again later.' : err.message },
+        err.statusCode === 429 ? 429 : 500
+      );
     }
 
     console.error(`[CHAT] Unexpected error for user ${user.id}: `, err);

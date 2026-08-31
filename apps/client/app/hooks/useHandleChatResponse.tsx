@@ -44,7 +44,7 @@ const useHandleChatResponse = () => {
       if (!thread) throw new Error('Thread not created');
 
       if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
-        const { b64_json } = await getGeneratedImage({
+        const imageResponse = await getGeneratedImage({
           prompt,
           model: thread.settings.model,
           size: imageSize,
@@ -52,6 +52,12 @@ const useHandleChatResponse = () => {
           style,
           getToken,
         });
+
+        if (!('b64_json' in imageResponse)) {
+          throw new Error(imageResponse.err);
+        }
+
+        const { b64_json } = imageResponse;
 
         startTransition(() => {
           upsertMessage({
