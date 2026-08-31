@@ -42,6 +42,6 @@ sam deploy \
   "AnthropicAPIKey=${ANTHROPIC_API_KEY}" \
   "MistralAPIKey=${MISTRAL_API_KEY}" \
   "DeepSeekAPIKey=${DEEPSEEK_API_KEY}" \
-  "AllowedOrigin=${ALLOWED_ORIGIN:-*}"
+    "AllowedOrigins=${ALLOWED_ORIGINS:-*}"
 
 rm -rf dist/*
