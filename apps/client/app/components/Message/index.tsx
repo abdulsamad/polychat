@@ -4,7 +4,9 @@ import clsx from 'clsx';
 import { CopyIcon, ShareIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { IMessageCommons, ITextMessage, IImageMessage } from '@/store';
+import { useAtomValue } from 'jotai';
+
+import { IMessageCommons, ITextMessage, IImageMessage, threadAtom } from '@/store';
 import { UserInfo } from '@/components/Thread';
 import {
   ContextMenu,
@@ -31,9 +33,10 @@ const Message = ({
   content,
   image_url: image,
   role,
-  metadata: { model },
+  metadata: { model, usage, finishReason },
 }: MessageProps) => {
   const shouldReduceMotion = useReducedMotion();
+  const showDetailedUsage = useAtomValue(threadAtom)?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
   const isUser = role === 'user';
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
@@ -122,7 +125,26 @@ const Message = ({
                 isUser ? 'justify-end' : 'justify-start',
                 !isImage && (isUser ? 'pr-11 sm:pr-[4.25rem]' : 'pl-11 sm:pl-[4.25rem]')
               )}>
-              {model}
+              {!isUser && usage && (
+                showDetailedUsage ? (
+                  <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                    {usage.totalTokens !== undefined && <span>Total: {usage.totalTokens}</span>}
+                    {usage.inputTokens !== undefined && <span>Input: {usage.inputTokens}</span>}
+                    {usage.outputTokens !== undefined && <span>Output: {usage.outputTokens}</span>}
+                    {usage.reasoningTokens !== undefined && (
+                      <span>Reasoning: {usage.reasoningTokens}</span>
+                    )}
+                    {usage.cachedInputTokens !== undefined && (
+                      <span>Cached input: {usage.cachedInputTokens}</span>
+                    )}
+                    {finishReason && <span>Finish: {finishReason}</span>}
+                  </span>
+                ) : (
+                  <span>Total: {usage.totalTokens ?? 'Unknown'} tokens</span>
+                )
+              )}
+              {!isUser && usage && model && ' · '}
+              {!isUser && model}
             </div>
           </div>
         </motion.article>

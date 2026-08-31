@@ -126,6 +126,7 @@ export interface IThreadSettings<T extends enabledModelsType> {
   variation: variationsType;
   conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;
+  showDetailedUsage: boolean;
   modelConfig: ModelConfig<T>;
 }
 
@@ -151,6 +152,7 @@ export const getDefaultThread = (): IThread<enabledModelsType> => ({
     variation: 'normal',
     conversationContextMode: 'single-turn',
     isTextToSpeechEnabled: false,
+    showDetailedUsage: false,
     modelConfig: {
       maxTokens: 3000,
     },

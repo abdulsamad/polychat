@@ -85,7 +85,13 @@ const SettingsDropdown = () => {
   if (!thread) return null;
 
   const {
-    settings: { model, variation, conversationContextMode, isTextToSpeechEnabled },
+    settings: {
+      model,
+      variation,
+      conversationContextMode,
+      isTextToSpeechEnabled,
+      showDetailedUsage,
+    },
   } = thread!;
   const hasImageModels = supportedImageModels.length;
   const isImageModelSelected = supportedImageModels.map(({ name }) => name).includes(model);
@@ -291,6 +297,26 @@ const SettingsDropdown = () => {
                     htmlFor="is-text-to-speech-enabled"
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     Speak Results
+                  </label>
+                </div>
+              </div>
+            </li>
+          )}
+          {!isImageModelSelected && (
+            <li>
+              <div className="flex justify-center space-x-2">
+                <Checkbox
+                  id="show-detailed-usage"
+                  checked={showDetailedUsage}
+                  onCheckedChange={(value) =>
+                    updateCheckSetting('showDetailedUsage', value as boolean)
+                  }
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <label
+                    htmlFor="show-detailed-usage"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Detailed usage
                   </label>
                 </div>
               </div>

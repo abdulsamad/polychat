@@ -10,6 +10,7 @@ import { getName } from '@/utils';
 
 import Empty from './Empty';
 import Typing from './Typing';
+import UsageStatus from './UsageStatus';
 
 export type UserInfo = Record<
   'user' | 'assistant',
@@ -104,6 +105,7 @@ const Thread = ({ className }: ThreadProps) => {
               return <Message key={chat.id} {...userInfo(metadata.variation)[role]} {...chat} />;
             })}
             {isChatResponseLoading && <Typing />}
+            <UsageStatus />
           </>
         ) : (
           <Empty name={getName(user)} />
