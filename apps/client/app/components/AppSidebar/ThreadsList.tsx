@@ -40,11 +40,13 @@ const ThreadsList = () => {
 
   const fetchThreads = useCallback(() => {
     startTransition(async () => {
-      const newThreads = await getThreads();
+      const [newThreads, messages] = await Promise.all([getThreads(), getMessages()]);
 
       if (!newThreads) return;
 
-      setThreads(newThreads);
+      // Keep old blank records from appearing after upgrading from the
+      // previous behavior, which persisted a thread before its first message.
+      setThreads(newThreads.filter(({ id }) => messages?.[id]?.length));
     });
   }, []);
 

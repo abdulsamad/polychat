@@ -1,6 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
-import { toast } from 'sonner';
 
 import { variations } from 'utils';
 
@@ -25,20 +24,6 @@ const Empty = ({ name }: IEmpty) => {
   const description = useMemo(
     () => variations.find(({ code }) => code === variation)?.description,
     [variation]
-  );
-
-  const handleOnClick = useCallback(
-    async (prompt: string) => {
-      const isSubmitSuccess = await submitMessage(prompt);
-
-      if (!isSubmitSuccess) return;
-
-      // First success message
-      setTimeout(() => {
-        toast.success(`Cool! You've just got started`);
-      }, 1000);
-    },
-    [submitMessage]
   );
 
   return (
@@ -69,7 +54,7 @@ const Empty = ({ name }: IEmpty) => {
                 <Button
                   key={hint}
                   variant="outline"
-                  onClick={() => handleOnClick(hint)}
+                  onClick={() => submitMessage(hint)}
                   disabled={isChatLoading}
                   className="h-full min-w-0 rounded-xl bg-card/70 px-3 py-3 text-left shadow-sm hover:border-primary/50 hover:bg-accent/70">
                   <p className="max-w-full whitespace-break-spaces [overflow-wrap:anywhere]">

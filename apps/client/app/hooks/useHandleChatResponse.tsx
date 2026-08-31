@@ -17,9 +17,20 @@ import {
   IMessage,
 } from '@/store';
 import { getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
+import { markStartedToastAsSeen } from '@/utils/lforage';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
 const STREAM_UPDATE_INTERVAL_MS = 80;
+
+const showStartedToastOnce = async () => {
+  try {
+    if (await markStartedToastAsSeen()) {
+      toast.success(`Cool! You've just got started`);
+    }
+  } catch (error) {
+    console.error('Failed to save started toast state', error);
+  }
+};
 
 interface handleChatResponseProps {
   prompt: string;
@@ -86,6 +97,8 @@ const useHandleChatResponse = () => {
           navigator.vibrate(100);
           play();
         });
+
+        await showStartedToastOnce();
 
         if (onImageMessageComplete) onImageMessageComplete();
       } else {
@@ -178,6 +191,7 @@ const useHandleChatResponse = () => {
             if (thread.settings.isTextToSpeechEnabled) {
               speak(content, language);
             }
+            await showStartedToastOnce();
             break;
           }
 
