@@ -5,7 +5,7 @@
     "dev": "pnpm run sam:local",
     "sam:local": "pnpm run build && sam local start-api --template template.local.yaml --env-vars .env --port 3001 --warm-containers eager",
     "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --outfile=dist/index.js --external:@aws-sdk/*",
-    "deploy": "pnpm run build && sam deploy && rm -rf dist/*"
+    "deploy": "./scripts/deploy.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.39",
