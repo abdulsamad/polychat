@@ -27,6 +27,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -105,11 +106,26 @@ const SettingsDropdown = () => {
           <span className="sr-only">Toggle thread dropdown</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="rounded-xl w-72" align="end">
-        <ul className="space-y-5 lg:space-y-6 p-4">
+      <DropdownMenuContent
+        className="w-[calc(100vw-1rem)] max-w-sm rounded-2xl border-border/70 bg-popover/95 p-0 shadow-xl backdrop-blur"
+        align="end">
+        <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3.5">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <SettingsIcon className="size-[18px]" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Thread settings</p>
+            <p className="truncate text-xs text-muted-foreground">
+              Tune how this conversation responds
+            </p>
+          </div>
+        </div>
+        <ul className="space-y-5 p-4">
           <li>
             <div className="flex flex-col space-y-2">
-              <label className="ml-1">Model</label>
+              <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Model
+              </label>
               <Select
                 value={model}
                 defaultValue={defaultModel}
@@ -180,7 +196,9 @@ const SettingsDropdown = () => {
             <>
               <li>
                 <div className="flex flex-col space-y-2">
-                  <label className="ml-1">Variation</label>
+                  <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Variation
+                  </label>
                   <Select
                     value={variation}
                     onValueChange={(value) => updateSetting('variation', value)}>
@@ -205,7 +223,17 @@ const SettingsDropdown = () => {
                 </div>
               </li>
               <li>
-                <div className="flex justify-center space-x-4">
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="conversation-context-mode"
+                      className="text-sm font-medium leading-none">
+                      Context
+                    </label>
+                    <span className="text-xs text-muted-foreground">
+                      Keep earlier messages in view
+                    </span>
+                  </div>
                   <Checkbox
                     id="conversation-context-mode"
                     checked={conversationContextMode === 'multi-turn'}
@@ -215,13 +243,6 @@ const SettingsDropdown = () => {
                       })
                     }
                   />
-                  <div className="grid gap-1.5 leading-none">
-                    <label
-                      htmlFor="conversation-context-mode"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Context
-                    </label>
-                  </div>
                 </div>
               </li>
             </>
@@ -229,7 +250,9 @@ const SettingsDropdown = () => {
           {isImageModelSelected && (
             <li>
               <div className="flex flex-col space-y-2">
-                <label className="ml-1">Image Size</label>
+                <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Image size
+                </label>
                 <Select
                   value={setImageSizeValue()}
                   onValueChange={(value) => updateSetting('imageSize', value)}>
@@ -251,7 +274,9 @@ const SettingsDropdown = () => {
             <>
               <li>
                 <div className="flex flex-col space-y-2">
-                  <label className="ml-1">Quality</label>
+                  <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Quality
+                  </label>
                   <Select
                     value={quality}
                     onValueChange={(value) => updateSetting('quality', value)}>
@@ -267,7 +292,9 @@ const SettingsDropdown = () => {
               </li>
               <li>
                 <div className="flex flex-col space-y-2">
-                  <label className="ml-1">Style</label>
+                  <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                    Style
+                  </label>
                   <Select value={style} onValueChange={(value) => updateSetting('style', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Style" />
@@ -284,7 +311,17 @@ const SettingsDropdown = () => {
 
           {IS_SPEECH_SYNTHESIS_SUPPORTED() && !isImageModelSelected && (
             <li>
-              <div className="flex justify-center space-x-2">
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
+                <div className="grid gap-1">
+                  <label
+                    htmlFor="is-text-to-speech-enabled"
+                    className="text-sm font-medium leading-none">
+                    Speak results
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    Read assistant replies aloud
+                  </span>
+                </div>
                 <Checkbox
                   id="is-text-to-speech-enabled"
                   checked={isTextToSpeechEnabled}
@@ -292,35 +329,34 @@ const SettingsDropdown = () => {
                     updateCheckSetting('isTextToSpeechEnabled', value as boolean)
                   }
                 />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="is-text-to-speech-enabled"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Speak Results
-                  </label>
-                </div>
               </div>
             </li>
           )}
           {!isImageModelSelected && (
-            <li>
-              <div className="flex justify-center space-x-2">
-                <Checkbox
-                  id="show-detailed-usage"
-                  checked={showDetailedUsage}
-                  onCheckedChange={(value) =>
-                    updateCheckSetting('showDetailedUsage', value as boolean)
-                  }
-                />
-                <div className="grid gap-1.5 leading-none">
-                  <label
-                    htmlFor="show-detailed-usage"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Detailed usage
-                  </label>
+            <>
+              <DropdownMenuSeparator className="mx-0 my-0 bg-border/60" />
+              <li>
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-2.5">
+                  <div className="grid gap-1">
+                    <label
+                      htmlFor="show-detailed-usage"
+                      className="text-sm font-medium leading-none">
+                      Detailed usage
+                    </label>
+                    <span className="text-xs text-muted-foreground">
+                      Show token counts in messages and the thread
+                    </span>
+                  </div>
+                  <Checkbox
+                    id="show-detailed-usage"
+                    checked={showDetailedUsage}
+                    onCheckedChange={(value) =>
+                      updateCheckSetting('showDetailedUsage', value as boolean)
+                    }
+                  />
                 </div>
-              </div>
-            </li>
+              </li>
+            </>
           )}
         </ul>
       </DropdownMenuContent>

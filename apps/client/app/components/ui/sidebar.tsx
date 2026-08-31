@@ -68,6 +68,7 @@ function SidebarProvider({
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
+  const mobileTouchStart = React.useRef<{ x: number; y: number } | null>(null);
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === 'function' ? value(open) : value;
@@ -87,6 +88,35 @@ function SidebarProvider({
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
   }, [isMobile, setOpen, setOpenMobile]);
+
+  const handleMobileEdgeTouchStart = React.useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      if (!isMobile || openMobile || event.touches.length !== 1) return;
+
+      const touch = event.touches[0];
+      if (touch.clientX <= 24) {
+        mobileTouchStart.current = { x: touch.clientX, y: touch.clientY };
+      }
+    },
+    [isMobile, openMobile]
+  );
+
+  const handleMobileEdgeTouchEnd = React.useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      const start = mobileTouchStart.current;
+      mobileTouchStart.current = null;
+      if (!isMobile || openMobile || !start) return;
+
+      const touch = event.changedTouches[0];
+      const horizontalDistance = touch.clientX - start.x;
+      const verticalDistance = Math.abs(touch.clientY - start.y);
+
+      if (horizontalDistance >= 64 && verticalDistance <= 80) {
+        setOpenMobile(true);
+      }
+    },
+    [isMobile, openMobile, setOpenMobile]
+  );
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
@@ -134,6 +164,8 @@ function SidebarProvider({
             'group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full',
             className
           )}
+          onTouchStart={handleMobileEdgeTouchStart}
+          onTouchEnd={handleMobileEdgeTouchEnd}
           {...props}>
           {children}
         </div>
@@ -155,6 +187,32 @@ function Sidebar({
   collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const mobileTouchStart = React.useRef<{ x: number; y: number } | null>(null);
+
+  const handleMobileTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobile || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    mobileTouchStart.current = { x: touch.clientX, y: touch.clientY };
+  }, [isMobile]);
+
+  const handleMobileTouchEnd = React.useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      const start = mobileTouchStart.current;
+      mobileTouchStart.current = null;
+      if (!isMobile || !start) return;
+
+      const touch = event.changedTouches[0];
+      const horizontalDistance = touch.clientX - start.x;
+      const verticalDistance = Math.abs(touch.clientY - start.y);
+      const closeDistance = side === 'left' ? horizontalDistance <= -64 : horizontalDistance >= 64;
+
+      if (closeDistance && verticalDistance <= 80) {
+        setOpenMobile(false);
+      }
+    },
+    [isMobile, setOpenMobile, side]
+  );
 
   if (collapsible === 'none') {
     return (
@@ -187,8 +245,10 @@ function Sidebar({
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
             } as React.CSSProperties
           }
+          onTouchStart={handleMobileTouchStart}
+          onTouchEnd={handleMobileTouchEnd}
           side={side}>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div className="flex h-full w-full touch-pan-y flex-col">{children}</div>
         </SheetContent>
       </Sheet>
     );

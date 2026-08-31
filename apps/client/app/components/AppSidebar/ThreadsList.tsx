@@ -7,7 +7,14 @@ import clsx from 'clsx';
 
 import type { Route } from '@/react-router/types/root';
 import { getDefaultThread, IThreads, replaceMessagesAtom, threadAtom } from '@/store';
-import { getMessages, getThreads, lforage, messagesKey, threadsKey } from '@/utils/lforage';
+import {
+  getMessages,
+  getThreads,
+  getUserSettings,
+  lforage,
+  messagesKey,
+  threadsKey,
+} from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
@@ -63,7 +70,7 @@ const ThreadsList = () => {
     async (threadId: string) => {
       if (params.threadId === threadId) {
         // Reset the thread
-        const blankThread = getDefaultThread();
+        const blankThread = getDefaultThread((await getUserSettings()) || undefined);
         setThread(blankThread);
         replaceMessages([]);
       }
@@ -114,7 +121,7 @@ const ThreadsList = () => {
 
                   const isSelected = id === params.threadId;
                   const rootClasses: ButtonClassNames = isSelected
-                                      ? `relative before:content-[''] before:absolute before:-left-0 before:top-1/2 before:-translate-y-1/2 before:w-24 before:h-24 before:rounded-[10px] before:bg-primary before:rotate-45 before:-translate-x-[105px]`
+                    ? `relative before:content-[''] before:absolute before:-left-0 before:top-1/2 before:-translate-y-1/2 before:w-24 before:h-24 before:rounded-[10px] before:bg-primary before:rotate-45 before:-translate-x-[105px]`
                     : '';
 
                   return (
@@ -139,7 +146,9 @@ const ThreadsList = () => {
                                 [
                                   'flex items-center justify-between gap-2 w-full p-2 rounded-[8px]',
                                   isPending ? 'bg-primary/20' : '',
-                                  isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : '',
+                                  isActive
+                                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                                    : '',
                                   isTransitioning ? 'transitioning' : '',
                                 ].join(' ')
                               }

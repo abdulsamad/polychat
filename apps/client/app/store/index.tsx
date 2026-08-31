@@ -145,9 +145,10 @@ export interface IThread<T extends enabledModelsType> {
   };
 }
 
-export const getDefaultThread = (): IThread<enabledModelsType> => ({
-  id: crypto.randomUUID(),
-  settings: {
+export const getDefaultThread = (
+  settings: Partial<IThreadSettings<enabledModelsType>> = {}
+): IThread<enabledModelsType> => {
+  const defaultSettings: IThreadSettings<enabledModelsType> = {
     model: defaultModel,
     variation: 'normal',
     conversationContextMode: 'single-turn',
@@ -156,28 +157,33 @@ export const getDefaultThread = (): IThread<enabledModelsType> => ({
     modelConfig: {
       maxTokens: 3000,
     },
-  },
-  metadata: {
-    name: `Chat (${format(new Date(), 'hh:mm - dd/MM/yy')})`,
-    timestamp: getTime(new Date()),
-    status: 'idle',
-    version: 1,
-  },
-  queue: {
-    pending: [],
-    failed: [],
-  },
-});
+  };
+
+  return {
+    id: crypto.randomUUID(),
+    settings: {
+      ...defaultSettings,
+      ...settings,
+      modelConfig: { ...defaultSettings.modelConfig, ...settings.modelConfig },
+    } as IThreadSettings<enabledModelsType>,
+    metadata: {
+      name: `Chat (${format(new Date(), 'hh:mm - dd/MM/yy')})`,
+      timestamp: getTime(new Date()),
+      status: 'idle',
+      version: 1,
+    },
+    queue: {
+      pending: [],
+      failed: [],
+    },
+  };
+};
 
 export const threadAtom = atom<IThread<enabledModelsType> | null>(null);
 
 export const updateThreadSettingsAtom = atom(
   null,
-  (
-    get,
-    set,
-    update: Partial<IThreadSettings<enabledModelsType>>
-  ) => {
+  (get, set, update: Partial<IThreadSettings<enabledModelsType>>) => {
     const thread = get(threadAtom);
     if (!thread) return;
 

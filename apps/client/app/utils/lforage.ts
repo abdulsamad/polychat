@@ -1,6 +1,7 @@
 import localforage from 'localforage';
 
-import type { IMessage, IThreads } from '@/store';
+import type { enabledModelsType } from 'utils';
+import type { IMessage, IThreadSettings, IThreads } from '@/store';
 
 export const settingsKey = 'config';
 
@@ -19,6 +20,7 @@ export const getConfig = (setting: string) => {
 };
 
 export const threadsKey = 'threads';
+export const userSettingsKey = 'user-settings';
 
 export const messagesKey = 'messages';
 export const startedToastKey = 'has-seen-started-toast';
@@ -31,6 +33,18 @@ export const lforage = localforage.createInstance({
 
 export const getThreads = async (): Promise<IThreads | null> => {
   return (await lforage.getItem(threadsKey)) as IThreads | null;
+};
+
+export const getUserSettings = async (): Promise<Partial<
+  IThreadSettings<enabledModelsType>
+> | null> => {
+  return (await lforage.getItem(userSettingsKey)) as Partial<
+    IThreadSettings<enabledModelsType>
+  > | null;
+};
+
+export const setUserSettings = async (settings: IThreadSettings<enabledModelsType>) => {
+  await lforage.setItem(userSettingsKey, settings);
 };
 
 export const getMessages = async (): Promise<Record<string, IMessage[]> | null> => {

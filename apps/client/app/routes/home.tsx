@@ -10,7 +10,7 @@ import {
   threadAtom,
   threadSaveEffect,
 } from '@/store';
-import { getMessages, getThreads } from '@/utils/lforage';
+import { getMessages, getThreads, getUserSettings } from '@/utils/lforage';
 import Input from '@/components/Input';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
@@ -26,10 +26,11 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
   try {
     const threads = (await getThreads()) || [];
     const messages = (await getMessages()) || {};
+    const userSettings = await getUserSettings();
 
     if (!threadId) {
       const emptyThread = threads.find((thread) => !messages[thread.id]?.length);
-      const threadData = emptyThread || getDefaultThread();
+      const threadData = emptyThread || getDefaultThread(userSettings || undefined);
 
       return { threadData, messageData: messages[threadData.id] || [] };
     }

@@ -17,7 +17,6 @@ export const supportedModels = [
     name: 'gemini-3.7-flash',
     text: 'Gemini 3.7 Flash',
     type: 'text',
-    isSpecial: true,
     disabled: false,
     provider: 'google',
   },
