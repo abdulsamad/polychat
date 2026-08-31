@@ -197,7 +197,6 @@ const SettingsDropdown = () => {
                   <Checkbox
                     id="is-context-aware"
                     checked={isContextAware}
-                    className="dark:border-white"
                     onCheckedChange={(value) =>
                       updateCheckSetting('isContextAware', value as boolean)
                     }
@@ -275,7 +274,6 @@ const SettingsDropdown = () => {
                 <Checkbox
                   id="is-text-to-speech-enabled"
                   checked={isTextToSpeechEnabled}
-                  className="dark:border-white"
                   onCheckedChange={(value) =>
                     updateCheckSetting('isTextToSpeechEnabled', value as boolean)
                   }

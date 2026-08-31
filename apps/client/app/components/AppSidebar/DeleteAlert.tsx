@@ -43,7 +43,7 @@ const DeleteAlert = ({ children, onDelete, onCancel, open, onOpenChange }: Delet
         <AlertDialogAction asChild>
           <Button
             variant="destructive"
-            className="bg-red-500 hover:bg-red-400 transition-transform ease-in-out duration-300 text-white hover:scale-95 active:scale-90"
+            className="transition-transform duration-300 ease-in-out hover:scale-95 active:scale-90"
             onClick={(ev) => {
               ev.stopPropagation();
               onDelete();

@@ -17,17 +17,17 @@ const ErrorBoundary = ({ error }: Route.ErrorBoundaryProps) => {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-200">
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-background text-foreground">
       <div className="w-full px-16 md:px-0 flex items-center justify-center">
-        <div className="bg-white  border border-gray-200 flex flex-col items-center justify-center px-4 md:px-8 lg:px-24 py-8 rounded-lg shadow-2xl">
-          <p className="text-6xl md:text-7xl lg:text-9xl font-bold tracking-wider text-gray-300">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card px-4 py-8 shadow-2xl md:px-8 lg:px-24">
+          <p className="text-6xl font-bold tracking-wider text-muted-foreground md:text-7xl lg:text-9xl">
             <img src="/feeling_blue.svg" alt="Something went wrong" width={400} height={400} />
           </p>
-          <h1 className="text-2xl md:text-3xl lg:text-5xl font-bold tracking-wider text-gray-500 mt-4">
+          <h1 className="mt-4 text-2xl font-bold tracking-wider text-muted-foreground md:text-3xl lg:text-5xl">
             Client Error
           </h1>
           <h1>{message}</h1>
-          <p className="text-gray-500 max-w-[700px] mt-8 py-2 border-y-2 text-center">
+          <p className="mt-8 max-w-[700px] border-y-2 py-2 text-center text-muted-foreground">
             Whoops, Something went wrong.
           </p>
           {/* <p>{details}</p> */}

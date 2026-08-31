@@ -70,6 +70,7 @@ There is no reliable test suite configured in the individual packages currently.
 - Preserve the distinction between inline code and fenced code. `CodeBlock` owns syntax highlighting, filename metadata, copy, and download behavior. Download controls must remain keyboard accessible and visible on touch devices.
 - Keep thread scrolling scoped to the Radix scroll viewport associated with the active thread. Do not query a global scroll viewport when multiple Radix scroll areas may be mounted.
 - Use the semantic color tokens in `app.css` for the main chat surface. Preserve readable contrast across light, dark, and system themes instead of adding isolated hard-coded colors.
+- Treat every client UI surface as theme-aware: prefer `background`, `foreground`, `muted`, `accent`, `border`, `ring`, and `destructive` tokens over fixed color utilities or inline colors. When a fixed color is intentional, provide an explicit light and dark treatment and verify normal, hover, focus, disabled, overlay, and destructive states in both themes.
 
 ## Shared model typing
 
