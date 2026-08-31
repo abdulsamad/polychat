@@ -14,6 +14,7 @@ Resources:
         - x86_64
       Timeout: 60
       MemorySize: 128
+      ReservedConcurrentExecutions: 5
       EphemeralStorage:
         Size: 512
       Role: !GetAtt LambdaExecutionRole.Arn
