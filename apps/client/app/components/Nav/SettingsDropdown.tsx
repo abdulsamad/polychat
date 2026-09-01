@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { SettingsIcon } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 
 import {
   defaultModel,
@@ -103,8 +103,8 @@ const SettingsDropdown = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
-          <SettingsIcon className="size-[18px]" />
-          <span className="sr-only">Toggle thread dropdown</span>
+          <SlidersHorizontal className="size-[18px]" />
+          <span className="sr-only">Open thread settings</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -112,7 +112,7 @@ const SettingsDropdown = () => {
         align="end">
         <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3.5">
           <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <SettingsIcon className="size-[18px]" />
+            <SlidersHorizontal className="size-[18px]" />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-semibold">Thread settings</p>
