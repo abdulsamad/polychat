@@ -83,6 +83,7 @@ There is no reliable test suite configured in the individual packages currently.
 
 - `apps/serverless/src/index.ts` owns the Hono app and route registration.
 - Authentication is applied by `authMiddleware` before `/chat` and `/image`. Preserve bearer-token verification and issuer/algorithm checks.
+- `CLERK_AUTHORIZED_PARTIES` is a required, comma-separated allowlist of exact frontend origins checked against the Clerk JWT `azp` claim. Include the protocol and port when applicable, such as `http://localhost:3000` or `https://mydomain.example.com`; do not include URL paths.
 - Controllers should return appropriate HTTP status codes and avoid leaking provider credentials or sensitive internals.
 - Provider clients are created in `src/models/index.ts`; model selection and caching belong in `src/models/factory.ts`.
 - AI SDK v7 uses current APIs such as `LanguageModel`, `generateImage`, `imageModel`, and `maxOutputTokens`. Keep provider-specific settings under `providerOptions`.

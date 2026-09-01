@@ -65,6 +65,31 @@ To get started with PolyChat, follow these simple steps:
 
    Vite proxies `/api` to the local SAM API on port `3001`.
 
+   The serverless environment also requires Clerk configuration. Set
+   `CLERK_ISSUER_BASE_URL` to your Clerk issuer URL and
+   `CLERK_AUTHORIZED_PARTIES` to the exact frontend origin that issues the
+   Clerk session token:
+
+   ```env
+   CLERK_ISSUER_BASE_URL=https://your-instance.clerk.accounts.dev
+   CLERK_AUTHORIZED_PARTIES=http://localhost:3000
+   ```
+
+   For production, use your deployed frontend origin, including the protocol:
+
+   ```env
+   CLERK_AUTHORIZED_PARTIES=https://mydomain.example.com
+   ```
+
+   Multiple frontend origins can be separated with commas:
+
+   ```env
+   CLERK_AUTHORIZED_PARTIES=http://localhost:3000,https://mydomain.example.com
+   ```
+
+   Do not include paths such as `/login`. Keep provider keys and other secret
+   values out of Git.
+
 ## Local development
 
 Install the AWS SAM CLI and Docker Desktop first. Then start both the React frontend and the Lambda API with:
