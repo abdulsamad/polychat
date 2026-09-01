@@ -56,8 +56,6 @@ const byokProviders: Array<{ id: ByokProvider; label: string }> = [
   { id: 'mistral', label: 'Mistral' },
   { id: 'deepseek', label: 'DeepSeek' },
 ];
-const byokEnabled = import.meta.env.VITE_ENABLE_BYOK === 'true';
-
 interface UserSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -242,8 +240,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             </Select>
           </section>
 
-          {byokEnabled ? (
-            <section className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
+          <section className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
               <div className="mb-4 flex items-start gap-3">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300">
                   <KeyRoundIcon className="size-4" />
@@ -350,8 +347,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                   </Button>
                 ) : null}
               </div>
-            </section>
-          ) : null}
+          </section>
 
           <section className="rounded-xl border border-border/60 bg-muted/20 p-4">
             <div className="mb-4 flex items-start gap-3">
