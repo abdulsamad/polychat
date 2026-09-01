@@ -25,7 +25,7 @@ export const getSpeechText = (content: string) =>
     .replace(/^\s{0,3}#{1,6}\s+/gm, '')
     .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/^\s*\d+[.)]\s+/gm, '')
-    .replace(/[>*_~]/g, '')
+    .replace(/[`>*_~]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
