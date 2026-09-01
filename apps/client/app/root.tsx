@@ -16,6 +16,26 @@ export const meta: MetaFunction = () => [
   { name: 'viewport', content: 'width=device-width,initial-scale=1' },
   { name: 'color-scheme', content: 'light dark' },
   { title: 'PolyChat - The AI Chat App' },
+  {
+    name: 'description',
+    content: 'Compare AI models, generate images, and keep conversations in one local-first workspace.',
+  },
+  { property: 'og:type', content: 'website' },
+  { property: 'og:title', content: 'PolyChat - The AI Chat App' },
+  {
+    property: 'og:description',
+    content: 'Compare AI models, generate images, and keep conversations in one local-first workspace.',
+  },
+  { property: 'og:image', content: '/og-image.png' },
+  { property: 'og:image:width', content: '1730' },
+  { property: 'og:image:height', content: '909' },
+  { name: 'twitter:card', content: 'summary_large_image' },
+  { name: 'twitter:title', content: 'PolyChat - The AI Chat App' },
+  {
+    name: 'twitter:description',
+    content: 'Compare AI models, generate images, and keep conversations in one local-first workspace.',
+  },
+  { name: 'twitter:image', content: '/og-image.png' },
 ];
 
 export const links: Route.LinksFunction = () => [
