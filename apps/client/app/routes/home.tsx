@@ -11,7 +11,13 @@ import {
   threadAtom,
   threadSaveEffect,
 } from '@/store';
-import { getMessages, getThreads, getUserSettings } from '@/utils/lforage';
+import {
+  getMessages,
+  getThreads,
+  getUserSettings,
+  lforage,
+  threadsKey,
+} from '@/utils/lforage';
 import Input from '@/components/Input';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
@@ -45,6 +51,17 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
             },
           }
         : getDefaultThread(userSettings || undefined);
+
+      // The route is changed to /:threadId immediately after this loader returns.
+      // Persist first so that follow-up load can resolve the same thread instead
+      // of treating its URL as invalid and creating another empty one.
+      const existingThreadIndex = threads.findIndex(({ id }) => id === threadData.id);
+      const nextThreads =
+        existingThreadIndex === -1
+          ? [threadData, ...threads]
+          : threads.map((thread, index) => (index === existingThreadIndex ? threadData : thread));
+
+      await lforage.setItem(threadsKey, nextThreads);
 
       return { threadData, messageData: messages[threadData.id] || [] };
     }

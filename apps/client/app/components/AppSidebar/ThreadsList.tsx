@@ -7,7 +7,6 @@ import clsx from 'clsx';
 
 import type { Route } from '@/react-router/types/root';
 import {
-  getDefaultThread,
   IThreads,
   replaceMessagesAtom,
   threadAtom,
@@ -16,7 +15,6 @@ import {
 import {
   getMessages,
   getThreads,
-  getUserSettings,
   lforage,
   messagesKey,
   threadsKey,
@@ -92,8 +90,7 @@ const ThreadsList = () => {
           replaceMessages(remainingMessages[nextThread.id] || []);
           navigate(`/${nextThread.id}`, { replace: true });
         } else {
-          const blankThread = getDefaultThread((await getUserSettings()) || undefined);
-          setThread(blankThread);
+          setThread(null);
           replaceMessages([]);
           navigate('/', { replace: true });
         }
