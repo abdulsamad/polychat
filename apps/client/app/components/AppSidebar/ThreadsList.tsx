@@ -219,7 +219,7 @@ const ThreadsList = () => {
                             <div className="flex shrink-0 items-center gap-0.5">
                               <Button
                                 aria-label={`Rename ${name || 'thread'}`}
-                                className="size-7 text-muted-foreground sm:invisible sm:translate-x-2 sm:opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100"
+                                className="invisible size-7 translate-x-2 text-muted-foreground opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100 sm:group-focus-within/sidebar-item:visible sm:group-focus-within/sidebar-item:translate-x-0 sm:group-focus-within/sidebar-item:opacity-100"
                                 variant="ghost"
                                 size="icon"
                                 onClick={(ev) => {
@@ -232,7 +232,7 @@ const ThreadsList = () => {
                               <DeleteAlert onDelete={() => deleteChats(id)}>
                                 <Button
                                   aria-label={`Delete ${name || 'thread'}`}
-                                  className="size-7 sm:invisible sm:translate-x-2 sm:opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100"
+                                  className="invisible size-7 translate-x-2 opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100 sm:group-focus-within/sidebar-item:visible sm:group-focus-within/sidebar-item:translate-x-0 sm:group-focus-within/sidebar-item:opacity-100"
                                   variant="destructive"
                                   size="icon"
                                   onClick={(ev) => ev.stopPropagation()}>
