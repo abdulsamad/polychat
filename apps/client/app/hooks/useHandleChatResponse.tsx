@@ -23,7 +23,7 @@ import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api
 import { markStartedToastAsSeen } from '@/utils/lforage';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
-const STREAM_UPDATE_INTERVAL_MS = 80;
+const STREAM_UPDATE_INTERVAL_MS = 120;
 
 const showStartedToastOnce = async (openSettings: () => void) => {
   try {
