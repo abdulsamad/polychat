@@ -121,7 +121,7 @@ const Message = ({
             {/* Time */}
             <div
               className={clsx(
-                'flex items-center gap-x-1 pt-1.5 text-xs text-muted-foreground',
+                'flex min-w-0 max-w-full flex-wrap items-center gap-x-1 pt-1.5 text-xs text-muted-foreground',
                 isUser ? 'justify-end' : 'justify-start',
                 !isImage && (isUser ? 'pr-11 sm:pr-[4.25rem]' : 'pl-11 sm:pl-[4.25rem]')
               )}>
@@ -144,7 +144,9 @@ const Message = ({
                 )
               )}
               {!isUser && usage && model && ' · '}
-              {!isUser && model}
+              {!isUser && model && (
+                <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">{model}</span>
+              )}
             </div>
           </div>
         </motion.article>
