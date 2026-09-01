@@ -1,12 +1,18 @@
 import { useState, useEffect, useCallback, useTransition, type HTMLAttributes } from 'react';
 import { NavLink, useParams } from 'react-router';
-import { useAtom, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
 import type { Route } from '@/react-router/types/root';
-import { getDefaultThread, IThreads, replaceMessagesAtom, threadAtom } from '@/store';
+import {
+  getDefaultThread,
+  IThreads,
+  replaceMessagesAtom,
+  threadAtom,
+  threadsRefreshAtom,
+} from '@/store';
 import {
   getMessages,
   getThreads,
@@ -45,22 +51,20 @@ const ThreadsList = () => {
   const [renameValue, setRenameValue] = useState('');
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
+  const threadsRefresh = useAtomValue(threadsRefreshAtom);
 
   const { open, setOpenMobile } = useSidebar();
 
   const fetchThreads = useCallback(() => {
     startTransition(async () => {
       const newThreads = await getThreads();
-
-      if (!newThreads) return;
-
-      setThreads(newThreads);
+      setThreads(newThreads || []);
     });
   }, []);
 
   useEffect(() => {
     fetchThreads();
-  }, [thread]);
+  }, [thread, threadsRefresh]);
 
   useEffect(() => {
     // Refetch threads when sidebar opens

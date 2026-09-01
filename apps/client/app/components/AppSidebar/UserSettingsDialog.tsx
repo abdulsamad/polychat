@@ -4,6 +4,7 @@ import {
   KeyRoundIcon,
   LanguagesIcon,
   LockKeyholeIcon,
+  Loader2Icon,
   ClipboardPasteIcon,
   MoonIcon,
   RotateCcwIcon,
@@ -26,6 +27,7 @@ import {
   threadAtom,
   updateThreadSettingsAtom,
   waitForPersistence,
+  refreshThreadsAtom,
   type IThreadSettings,
 } from '@/store';
 import { clearLocalData, deleteAllChats, getUserSettings, setUserSettings } from '@/utils/lforage';
@@ -69,6 +71,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const byokProviders: Array<{ id: ByokProvider; label: string }> = [
   { id: 'google', label: 'Google Gemini' },
@@ -81,6 +93,8 @@ interface UserSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+type DangerAction = 'delete-chats' | 'reset-data';
 
 const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => {
   const [config, setConfig] = useAtom(configAtom);
@@ -96,12 +110,15 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [provider, setProvider] = useState<ByokProvider>('google');
   const [apiKey, setApiKey] = useState('');
+  const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
+  const [isDangerActionPending, setIsDangerActionPending] = useState(false);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState('');
   const isMobile = useIsMobile();
   const customInstructions = customInstructionsDraft;
   const activeThread = useAtomValue(threadAtom);
   const setThread = useSetAtom(threadAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
+  const refreshThreads = useSetAtom(refreshThreadsAtom);
   const updateActiveThreadSettings = useSetAtom(updateThreadSettingsAtom);
 
   const refreshVault = async () => {
@@ -200,40 +217,47 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   };
 
   const handleDeleteAllChats = async () => {
-    if (!window.confirm('Delete all chats? This cannot be undone.')) return;
-
     await deleteAllChats();
     setThread(getDefaultThread((await getUserSettings()) || undefined));
     replaceMessages([]);
     await waitForPersistence();
     await deleteAllChats();
+    refreshThreads();
     onOpenChange(false);
     toast.success('All chats deleted');
   };
 
   const handleResetAllData = async () => {
-    if (
-      !window.confirm(
-        'Reset all local data? This deletes every chat, saved setting, and BYOK provider key from this browser. This cannot be undone.'
-      )
-    )
-      return;
+    await clearLocalData();
+    if (user?.id) await resetVault(user.id);
+    setConfig(defaultConfig);
+    setThread(getDefaultThread());
+    replaceMessages([]);
+    setCustomInstructionsDraft('');
+    setThreadSettings(getDefaultThread().settings);
+    setTheme('dark');
+    setVaultExists(false);
+    setVaultUnlocked(false);
+    await waitForPersistence();
+    await deleteAllChats();
+    refreshThreads();
+    onOpenChange(false);
+    toast.success('All local data reset');
+  };
 
+  const handleDangerAction = async () => {
+    if (!dangerAction) return;
+    setIsDangerActionPending(true);
     try {
-      await clearLocalData();
-      if (user?.id) await resetVault(user.id);
-      setConfig(defaultConfig);
-      setThread(getDefaultThread());
-      replaceMessages([]);
-      setCustomInstructionsDraft('');
-      setThreadSettings(getDefaultThread().settings);
-      setTheme('dark');
-      await waitForPersistence();
-      await deleteAllChats();
-      onOpenChange(false);
-      toast.success('All local data reset');
+      if (dangerAction === 'delete-chats') await handleDeleteAllChats();
+      else await handleResetAllData();
     } catch {
-      toast.error('Could not reset all local data');
+      toast.error(
+        dangerAction === 'delete-chats' ? 'Could not delete all chats' : 'Could not reset all local data'
+      );
+    } finally {
+      setIsDangerActionPending(false);
+      setDangerAction(null);
     }
   };
 
@@ -638,16 +662,63 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="destructive" onClick={() => void handleDeleteAllChats()}>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDangerActionPending}
+              onClick={() => setDangerAction('delete-chats')}>
               <Trash2Icon className="mr-2 size-4" />
               Delete all chats
             </Button>
-            <Button type="button" variant="outline" onClick={() => void handleResetAllData()}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDangerActionPending}
+              onClick={() => setDangerAction('reset-data')}>
               <RotateCcwIcon className="mr-2 size-4" />
               Reset all local data
             </Button>
           </div>
         </section>
+
+        <AlertDialog
+          open={dangerAction !== null}
+          onOpenChange={(open) => {
+            if (!open && !isDangerActionPending) setDangerAction(null);
+          }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {dangerAction === 'delete-chats' ? 'Delete all chats?' : 'Reset all local data?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {dangerAction === 'delete-chats'
+                  ? 'Every chat and message will be permanently deleted from this browser.'
+                  : 'Every chat, saved setting, theme preference, and BYOK provider key will be permanently deleted from this browser.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel asChild>
+                <Button type="button" variant="secondary" disabled={isDangerActionPending}>
+                  Cancel
+                </Button>
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={isDangerActionPending}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleDangerAction();
+                  }}>
+                  {isDangerActionPending ? <Loader2Icon className="size-4 animate-spin" /> : null}
+                  {isDangerActionPending ? 'Working…' : 'Continue'}
+                </Button>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </>
   );
