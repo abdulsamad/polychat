@@ -26,16 +26,16 @@ export const meta: MetaFunction = () => [
     property: 'og:description',
     content: 'Compare AI models, generate images, and keep conversations in one local-first workspace.',
   },
-  { property: 'og:image', content: '/og-image.png' },
-  { property: 'og:image:width', content: '1730' },
-  { property: 'og:image:height', content: '909' },
+  { property: 'og:image', content: '/og-image.jpg' },
+  { property: 'og:image:width', content: '1200' },
+  { property: 'og:image:height', content: '630' },
   { name: 'twitter:card', content: 'summary_large_image' },
   { name: 'twitter:title', content: 'PolyChat - The AI Chat App' },
   {
     name: 'twitter:description',
     content: 'Compare AI models, generate images, and keep conversations in one local-first workspace.',
   },
-  { name: 'twitter:image', content: '/og-image.png' },
+  { name: 'twitter:image', content: '/og-image.jpg' },
 ];
 
 export const links: Route.LinksFunction = () => [
