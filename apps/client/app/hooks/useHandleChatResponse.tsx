@@ -17,6 +17,7 @@ import {
   threadLoadingAtom,
   configAtom,
   IMessage,
+  userSettingsOpenAtom,
 } from '@/store';
 import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 import { markStartedToastAsSeen } from '@/utils/lforage';
@@ -24,10 +25,14 @@ import useSpeechSynthesis from './useSpeechSynthesis';
 
 const STREAM_UPDATE_INTERVAL_MS = 80;
 
-const showStartedToastOnce = async () => {
+const showStartedToastOnce = async (openSettings: () => void) => {
   try {
     if (await markStartedToastAsSeen()) {
-      toast.success(`Cool! You've just got started`);
+      toast.info('Use your own API key', {
+        description: 'Open Settings from the sidebar to add a provider key for this browser.',
+        action: { label: 'Open settings', onClick: openSettings },
+        duration: 10000,
+      });
     }
   } catch (error) {
     console.error('Failed to save started toast state', error);
@@ -41,11 +46,14 @@ interface handleChatResponseProps {
 }
 
 const useHandleChatResponse = () => {
-  const { imageSize, language, quality, style } = useAtomValue(configAtom);
+  const config = useAtomValue(configAtom);
+  const { imageSize, language, quality, style } = config;
+  const customInstructions = config.customInstructions || '';
   const thread = useAtomValue(threadAtom);
   const messages = useAtomValue(messagesAtom);
   const upsertMessage = useSetAtom(upsertMessageAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
+  const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const [isPending, startTransition] = useTransition();
 
   const { getToken } = useAuth();
@@ -107,7 +115,7 @@ const useHandleChatResponse = () => {
           play();
         });
 
-        await showStartedToastOnce();
+        await showStartedToastOnce(() => setSettingsOpen(true));
 
         if (onImageMessageComplete) onImageMessageComplete();
       } else {
@@ -125,6 +133,8 @@ const useHandleChatResponse = () => {
           model: thread.settings.model,
           variation: thread.settings.variation,
           language,
+          customInstructions:
+            thread.settings.variation === 'custom' ? customInstructions : undefined,
           getToken,
           apiKey,
         });
@@ -211,7 +221,7 @@ const useHandleChatResponse = () => {
             if (thread.settings.isTextToSpeechEnabled) {
               speak(content, language);
             }
-            await showStartedToastOnce();
+            await showStartedToastOnce(() => setSettingsOpen(true));
             break;
           }
 

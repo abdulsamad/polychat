@@ -1,13 +1,27 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { useSetAtom } from 'jotai';
+
+import { speechPlaybackAtom } from '@/store';
 
 const MAX_UTTERANCE_LENGTH = 220;
 
-const getSpeechText = (content: string) =>
+let activeRunId = 0;
+
+export const getSpeechText = (content: string) =>
   content
-    .replace(/```[^\n]*\n([\s\S]*?)```/g, '$1')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/```[\s\S]*?(?:```|$)/g, ' ')
+    .replace(/~~~[\s\S]*?(?:~~~|$)/g, ' ')
+    .replace(/^(?: {4}|\t).+$/gm, ' ')
+    .replace(/^\s*\|.*\|\s*$/gm, ' ')
+    .replace(/^\s*[-|: ]{3,}$/gm, ' ')
+    .replace(/\$\$[\s\S]*?\$\$/g, ' ')
+    .replace(/\$[^$\n]+\$/g, ' ')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/\bwww\.\S+/gi, ' ')
+    .replace(/<https?:\/\/[^>]+>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
     .replace(/^\s{0,3}#{1,6}\s+/gm, '')
     .replace(/^\s*[-*+]\s+/gm, '')
     .replace(/^\s*\d+[.)]\s+/gm, '')
@@ -66,7 +80,7 @@ const normalizeLanguage = (language: string) => (language === 'en-UK' ? 'en-GB' 
 
 const useSpeechSynthesis = () => {
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
-  const runIdRef = useRef(0);
+  const setIsSpeaking = useSetAtom(speechPlaybackAtom);
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
@@ -83,9 +97,10 @@ const useSpeechSynthesis = () => {
 
   const cancel = useCallback(() => {
     if (!('speechSynthesis' in window)) return;
-    runIdRef.current += 1;
+    activeRunId += 1;
+    setIsSpeaking(false);
     window.speechSynthesis.cancel();
-  }, []);
+  }, [setIsSpeaking]);
 
   const speak = useCallback(
     (content: string, language: string) => {
@@ -93,21 +108,29 @@ const useSpeechSynthesis = () => {
 
       const speechLanguage = normalizeLanguage(language);
       const chunks = splitIntoUtterances(content);
-      if (!chunks.length) return;
+      if (!chunks.length) {
+        setIsSpeaking(false);
+        return;
+      }
 
       const synthesis = window.speechSynthesis;
       // Some browsers populate the voice list lazily without firing
       // `voiceschanged` before the first speech request.
       voicesRef.current = synthesis.getVoices();
-      const runId = runIdRef.current + 1;
-      runIdRef.current = runId;
+      const runId = activeRunId + 1;
+      activeRunId = runId;
+      setIsSpeaking(true);
       synthesis.cancel();
       synthesis.resume();
 
       const voice = selectVoice(voicesRef.current, speechLanguage);
       let index = 0;
       const speakNext = () => {
-        if (runId !== runIdRef.current || index >= chunks.length) return;
+        if (runId !== activeRunId) return;
+        if (index >= chunks.length) {
+          setIsSpeaking(false);
+          return;
+        }
 
         const utterance = new SpeechSynthesisUtterance(chunks[index]);
         utterance.lang = speechLanguage;
@@ -119,17 +142,19 @@ const useSpeechSynthesis = () => {
         utterance.onend = speakNext;
         utterance.onerror = (event) => {
           if (event.error !== 'canceled' && event.error !== 'interrupted') speakNext();
+          else if (runId === activeRunId) setIsSpeaking(false);
         };
         try {
           synthesis.speak(utterance);
         } catch (error) {
           console.warn('Speech synthesis is unavailable:', error);
+          if (runId === activeRunId) setIsSpeaking(false);
         }
       };
 
       speakNext();
     },
-    []
+    [setIsSpeaking]
   );
 
   useEffect(() => cancel, [cancel]);

@@ -46,6 +46,7 @@ export const streamByokText = async ({
   language,
   prompt,
   messages,
+  customInstructions,
 }: {
   model: availableModelsType;
   apiKey: string;
@@ -53,8 +54,9 @@ export const streamByokText = async ({
   language: Parameters<typeof getAssistantConfig>[1];
   prompt?: string;
   messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  customInstructions?: string;
 }): Promise<ReadableStream<ChatStreamPart>> => {
-  const config = getAssistantConfig(variation, language);
+  const config = getAssistantConfig(variation, language, customInstructions);
   const result = streamText({
     model: modelInstance(model, apiKey),
     instructions: config.prompt,

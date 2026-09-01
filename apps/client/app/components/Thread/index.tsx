@@ -7,6 +7,7 @@ import { threadLoadingAtom, messagesAtom } from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
+import { variations } from 'utils';
 
 import Empty from './Empty';
 import Typing from './Typing';
@@ -84,8 +85,8 @@ const Thread = ({ className }: ThreadProps) => {
           'border-primary bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]',
       },
       assistant: {
-        name: variation?.split('-').join(' '),
-        avatarImageSrc: `/icons/${variation}.png`,
+        name: variations.find((item) => item.code === variation)?.text || 'Assistant',
+        avatarImageSrc: variation === 'custom' ? '/polychat-mark.png' : `/icons/${variation}.png`,
         messageClassNames: 'border-border/80 bg-card/80 text-card-foreground shadow-sm',
       },
     }),

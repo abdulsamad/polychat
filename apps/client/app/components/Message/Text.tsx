@@ -160,6 +160,27 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
                   {children}
                 </a>
               ),
+              img: ({ src, alt, title }) => {
+                if (!src) return null;
+
+                return (
+                  <figure className="my-4 min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-muted/30">
+                    <img
+                      src={src}
+                      alt={alt || 'Image from assistant response'}
+                      title={title}
+                      loading="lazy"
+                      decoding="async"
+                      className="block h-auto max-h-[36rem] max-w-full object-contain"
+                    />
+                    {alt && (
+                      <figcaption className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                        {alt}
+                      </figcaption>
+                    )}
+                  </figure>
+                );
+              },
               hr: () => <hr className="my-6 border-border" />,
               table: ({ children }) => (
                 <Table className="my-4 min-w-[32rem] border-collapse overflow-hidden rounded-lg border border-border bg-card">

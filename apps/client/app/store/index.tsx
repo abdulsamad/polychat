@@ -28,6 +28,8 @@ export const editorAtom = atom('');
 // Chats
 
 export const threadLoadingAtom = atom(false);
+export const speechPlaybackAtom = atom(false);
+export const userSettingsOpenAtom = atom(false);
 
 export interface IMessageCommons {
   id: ReturnType<typeof crypto.randomUUID>;
@@ -135,6 +137,7 @@ export interface IThread<T extends enabledModelsType> {
   settings: IThreadSettings<T>;
   metadata: {
     name: string;
+    nameSource: 'default' | 'custom';
     timestamp: number;
     status: 'idle' | 'streaming' | 'saving';
     version: number;
@@ -144,6 +147,9 @@ export interface IThread<T extends enabledModelsType> {
     failed: Array<{ message: IMessage; error: string }>;
   };
 }
+
+export const getDefaultThreadName = (date = new Date()) =>
+  `New chat - ${format(date, "MMM d, yyyy 'at' h:mm a")}`;
 
 export const getDefaultThread = (
   settings: Partial<IThreadSettings<enabledModelsType>> = {}
@@ -167,10 +173,11 @@ export const getDefaultThread = (
       modelConfig: { ...defaultSettings.modelConfig, ...settings.modelConfig },
     } as IThreadSettings<enabledModelsType>,
     metadata: {
-      name: `Chat (${format(new Date(), 'hh:mm - dd/MM/yy')})`,
+      name: getDefaultThreadName(),
+      nameSource: 'default',
       timestamp: getTime(new Date()),
       status: 'idle',
-      version: 1,
+      version: 2,
     },
     queue: {
       pending: [],
@@ -271,6 +278,7 @@ export interface IConfig {
   imageSize: ImageSizeType;
   quality: 'standard' | 'hd';
   style: 'vivid' | 'natural';
+  customInstructions: string;
 }
 
 export const configAtom = atomWithStorage<IConfig>(settingsKey, {
@@ -278,4 +286,5 @@ export const configAtom = atomWithStorage<IConfig>(settingsKey, {
   imageSize: '1024x1024',
   quality: 'standard',
   style: 'vivid',
+  customInstructions: '',
 });

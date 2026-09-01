@@ -50,6 +50,7 @@ export type ChatStreamPart =
 interface IGetGeneratedTextBase {
   model: enabledModelsType;
   variation: variationsType;
+  customInstructions?: string;
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
@@ -80,8 +81,16 @@ export const getGeneratedText = async ({
   language,
   getToken,
   apiKey,
+  customInstructions,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
-  const requestBody = chatRequestSchema.safeParse({ prompt, messages, language, variation, model });
+  const requestBody = chatRequestSchema.safeParse({
+    prompt,
+    messages,
+    language,
+    variation,
+    model,
+    customInstructions,
+  });
   if (!requestBody.success) {
     return { success: false, err: 'Invalid chat request.' };
   }
@@ -90,6 +99,7 @@ export const getGeneratedText = async ({
       return await streamByokText({
         model,
         variation,
+        customInstructions,
         language: (language || 'en-US') as Parameters<typeof streamByokText>[0]['language'],
         prompt,
         messages,
@@ -192,14 +202,10 @@ export const getGeneratedImage = async ({
   }
   const token = await getToken();
 
-  const res = await axiosInstance.post(
-    '/image',
-    requestBody.data,
-    {
-      headers: { Authorization: `Bearer ${token}` },
-      validateStatus: () => true,
-    }
-  );
+  const res = await axiosInstance.post('/image', requestBody.data, {
+    headers: { Authorization: `Bearer ${token}` },
+    validateStatus: () => true,
+  });
 
   if (res.status < 200 || res.status >= 300 || !res.data) {
     switch (res.status) {

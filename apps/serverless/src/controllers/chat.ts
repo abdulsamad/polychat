@@ -21,7 +21,14 @@ const chat = async (c: Context<AppContext>) => {
     }
     const parsed = chatRequestSchema.safeParse(body);
     if (!parsed.success) return c.json({ success: false, err: 'Invalid chat request.' }, 400);
-    const { prompt, messages, language = 'en-US', variation = 'normal', model } = parsed.data;
+    const {
+      prompt,
+      messages,
+      language = 'en-US',
+      variation = 'normal',
+      customInstructions,
+      model,
+    } = parsed.data;
 
     console.info(
       `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Variation: ${variation}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length}`}`
@@ -30,7 +37,8 @@ const chat = async (c: Context<AppContext>) => {
     const modelInstance = modelFactory.createModel(model);
     const config = getAssistantConfig(
       variation as Parameters<typeof getAssistantConfig>[0],
-      language
+      language,
+      customInstructions
     );
 
     const result = streamText({
@@ -134,7 +142,8 @@ const chat = async (c: Context<AppContext>) => {
                       modelId: responseModelId,
                       timestamp: responseTimestamp,
                     },
-                  })}\n`)
+                  })}\n`
+                )
               );
             } else if (part.type === 'error') {
               closeWithError(part.error);
@@ -161,7 +170,13 @@ const chat = async (c: Context<AppContext>) => {
     if (APICallError.isInstance(err)) {
       console.error(`[CHAT] API Call Error for user ${user.id}: `, err.message);
       return c.json(
-        { success: false, err: err.statusCode === 429 ? 'API rate limit exceeded. Please try again later.' : err.message },
+        {
+          success: false,
+          err:
+            err.statusCode === 429
+              ? 'API rate limit exceeded. Please try again later.'
+              : err.message,
+        },
         err.statusCode === 429 ? 429 : 500
       );
     }

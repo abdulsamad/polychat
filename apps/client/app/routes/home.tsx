@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 
 import {
   getDefaultThread,
+  getDefaultThreadName,
   replaceMessagesAtom,
   messageSaveEffect,
   threadAtom,
@@ -29,8 +30,21 @@ export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderA
     const userSettings = await getUserSettings();
 
     if (!threadId) {
-      const emptyThread = threads.find((thread) => !messages[thread.id]?.length);
-      const threadData = emptyThread || getDefaultThread(userSettings || undefined);
+      const latestThread = [...threads].sort(
+        (a, b) => b.metadata.timestamp - a.metadata.timestamp
+      )[0];
+      const shouldReuseLatest =
+        latestThread?.metadata.nameSource === 'default' && !messages[latestThread.id]?.length;
+      const threadData = shouldReuseLatest
+        ? {
+            ...latestThread,
+            metadata: {
+              ...latestThread.metadata,
+              name: getDefaultThreadName(),
+              timestamp: Date.now(),
+            },
+          }
+        : getDefaultThread(userSettings || undefined);
 
       return { threadData, messageData: messages[threadData.id] || [] };
     }

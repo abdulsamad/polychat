@@ -1,13 +1,18 @@
 import { EditorContent, useEditorState } from '@tiptap/react';
-import { SendHorizonal } from 'lucide-react';
+import { SendHorizonal, VolumeX } from 'lucide-react';
+import { useAtomValue } from 'jotai';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
 import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
+import { speechPlaybackAtom } from '@/store';
+import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
 import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
 
 const Text = () => {
   const { editor, handleSubmit, isChatLoading } = useCustomTiptapEditor();
+  const isSpeaking = useAtomValue(speechPlaybackAtom);
+  const { cancel } = useSpeechSynthesis();
   const hasText = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => Boolean(currentEditor?.getText().trim()),
@@ -22,6 +27,18 @@ const Text = () => {
       }}>
       <EditorContent editor={editor} className="min-w-0 flex-1" />
       <div className="flex shrink-0 items-center pb-0.5">
+        {isSpeaking && (
+          <Button
+            type="button"
+            variant="secondary"
+            title="Stop speaking"
+            aria-label="Stop speaking"
+            className="mr-1 h-10 rounded-full px-3 sm:h-11"
+            onClick={cancel}>
+            <VolumeX className="size-4 sm:mr-1.5" />
+            <span className="hidden text-xs sm:inline">Stop speaking</span>
+          </Button>
+        )}
         {!hasText && IS_SPEECH_RECOGNITION_SUPPORTED() ? (
           <Voice />
         ) : (

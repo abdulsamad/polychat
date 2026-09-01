@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useTransition, type HTMLAttributes } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { useAtom, useSetAtom } from 'jotai';
-import { TrashIcon } from 'lucide-react';
+import { CheckIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -16,6 +16,7 @@ import {
   threadsKey,
 } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -40,6 +41,8 @@ const ThreadsList = () => {
   const replaceMessages = useSetAtom(replaceMessagesAtom);
   const [threads, setThreads] = useState<IThreads>([]);
   const [threadToDelete, setThreadToDelete] = useState<string | null>(null);
+  const [threadToRename, setThreadToRename] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
 
@@ -92,6 +95,28 @@ const ThreadsList = () => {
     [setThread, replaceMessages, fetchThreads]
   );
 
+  const renameThread = useCallback(async () => {
+    if (!threadToRename) return;
+    const name = renameValue.trim();
+    if (!name || name.length > 80) return;
+
+    const storedThreads = (await getThreads()) || [];
+    const nextThreads = storedThreads.map((item) =>
+      item.id === threadToRename
+        ? { ...item, metadata: { ...item.metadata, name, nameSource: 'custom' as const } }
+        : item
+    );
+    await lforage.setItem(threadsKey, nextThreads);
+    if (thread?.id === threadToRename) {
+      setThread({
+        ...thread,
+        metadata: { ...thread.metadata, name, nameSource: 'custom' },
+      });
+    }
+    setThreadToRename(null);
+    fetchThreads();
+  }, [fetchThreads, renameValue, setThread, thread, threadToRename]);
+
   if (!isPending && !threads.length) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -133,44 +158,100 @@ const ThreadsList = () => {
                             rootClasses
                           )}
                           onClick={() => setOpenMobile(false)}>
-                          <SidebarMenuButton asChild>
-                            <NavLink
-                              to={`/${id}`}
-                              onClick={(ev) => {
-                                if (isSelected) {
-                                  ev.preventDefault();
+                          {threadToRename === id ? (
+                            <div className="flex min-w-0 flex-1 items-center gap-1">
+                              <Input
+                                autoFocus
+                                value={renameValue}
+                                maxLength={80}
+                                aria-label="Thread name"
+                                onChange={(event) => setRenameValue(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') void renameThread();
+                                  if (event.key === 'Escape') setThreadToRename(null);
+                                }}
+                                onBlur={() => void renameThread()}
+                                className="h-8 min-w-0 bg-background px-2"
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-8"
+                                aria-label="Save thread name"
+                                onClick={() => void renameThread()}>
+                                <CheckIcon className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-8"
+                                aria-label="Cancel rename"
+                                onClick={() => setThreadToRename(null)}>
+                                <XIcon className="size-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <SidebarMenuButton asChild>
+                              <NavLink
+                                to={`/${id}`}
+                                onClick={(ev) => {
+                                  if (isSelected) ev.preventDefault();
+                                }}
+                                preventScrollReset
+                                className={({ isActive, isPending, isTransitioning }) =>
+                                  [
+                                    'flex items-center justify-between gap-2 w-full p-2 rounded-[8px]',
+                                    isPending ? 'bg-primary/20' : '',
+                                    isActive
+                                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                                      : '',
+                                    isTransitioning ? 'transitioning' : '',
+                                  ].join(' ')
                                 }
-                              }}
-                              preventScrollReset
-                              className={({ isActive, isPending, isTransitioning }) =>
-                                [
-                                  'flex items-center justify-between gap-2 w-full p-2 rounded-[8px]',
-                                  isPending ? 'bg-primary/20' : '',
-                                  isActive
-                                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                                    : '',
-                                  isTransitioning ? 'transitioning' : '',
-                                ].join(' ')
-                              }
-                              viewTransition>
-                              <p className="truncate w-fit text-foreground text-left inline-flex items-center justify-center gap-2">
-                                {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
-                              </p>
-                            </NavLink>
-                          </SidebarMenuButton>
-                          <DeleteAlert onDelete={() => deleteChats(id)}>
-                            <Button
-                              aria-label={`Delete ${name || 'thread'}`}
-                              className="h-7 w-6 invisible group-hover/sidebar-item:visible transition-all duration-200 ease-elastic-out translate-x-2 opacity-0 group-hover/sidebar-item:translate-x-0 group-hover/sidebar-item:opacity-100"
-                              variant="destructive"
-                              size="icon"
-                              onClick={(ev) => ev.stopPropagation()}>
-                              <TrashIcon className="h-3.5 w-3.5" />
-                            </Button>
-                          </DeleteAlert>
+                                viewTransition>
+                                <p className="truncate w-fit text-foreground text-left inline-flex items-center justify-center gap-2">
+                                  {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
+                                </p>
+                              </NavLink>
+                            </SidebarMenuButton>
+                          )}
+                          {threadToRename !== id && (
+                            <div className="flex shrink-0 items-center gap-0.5">
+                              <Button
+                                aria-label={`Rename ${name || 'thread'}`}
+                                className="size-7 text-muted-foreground sm:invisible sm:translate-x-2 sm:opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100"
+                                variant="ghost"
+                                size="icon"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  setRenameValue(name || '');
+                                  setThreadToRename(id);
+                                }}>
+                                <PencilIcon className="size-3.5" />
+                              </Button>
+                              <DeleteAlert onDelete={() => deleteChats(id)}>
+                                <Button
+                                  aria-label={`Delete ${name || 'thread'}`}
+                                  className="size-7 sm:invisible sm:translate-x-2 sm:opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100"
+                                  variant="destructive"
+                                  size="icon"
+                                  onClick={(ev) => ev.stopPropagation()}>
+                                  <TrashIcon className="size-3.5" />
+                                </Button>
+                              </DeleteAlert>
+                            </div>
+                          )}
                         </SidebarMenuItem>
                       </ContextMenuTrigger>
                       <ContextMenuContent>
+                        <ContextMenuItem
+                          onSelect={() => {
+                            setRenameValue(name || '');
+                            setThreadToRename(id);
+                          }}>
+                          <PencilIcon />
+                          Rename
+                        </ContextMenuItem>
                         <ContextMenuItem
                           variant="destructive"
                           onSelect={() => setThreadToDelete(id)}>

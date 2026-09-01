@@ -37,6 +37,7 @@ const SettingsDropdown = () => {
   const updateThreadSettings = useSetAtom(updateThreadSettingsAtom);
 
   const { imageSize, style, quality } = config;
+  const customInstructions = config.customInstructions || '';
 
   const updateSetting = useCallback(
     (name: string, value: string) => {
@@ -197,13 +198,13 @@ const SettingsDropdown = () => {
               <li>
                 <div className="flex flex-col space-y-2">
                   <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    Variation
+                    Assistant profile
                   </label>
                   <Select
                     value={variation}
                     onValueChange={(value) => updateSetting('variation', value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Variation" />
+                      <SelectValue placeholder="Assistant profile" />
                     </SelectTrigger>
                     <SelectContent>
                       {getGroupedItemsByCategory(variations).map(([category, items]) => (
@@ -212,7 +213,10 @@ const SettingsDropdown = () => {
                             {category}
                           </SelectLabel>
                           {items.map(({ code, text }) => (
-                            <SelectItem key={code} value={code}>
+                            <SelectItem
+                              key={code}
+                              value={code}
+                              disabled={code === 'custom' && !customInstructions.trim()}>
                               {text}
                             </SelectItem>
                           ))}

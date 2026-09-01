@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { useAtom } from 'jotai';
 import {
@@ -13,7 +13,7 @@ import { useSetAtom } from 'jotai';
 import { useClerk, useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
-import { threadAtom, messagesAtom } from '@/store';
+import { threadAtom, messagesAtom, userSettingsOpenAtom } from '@/store';
 import { getName } from '@/utils';
 import { setActiveAccount } from '@/utils/byok-vault';
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ import UserSettingsDialog from './UserSettingsDialog';
 const AppSidebar = () => {
   const [message, setMessages] = useAtom(messagesAtom);
   const setThread = useSetAtom(threadAtom);
-  const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+  const [isUserSettingsOpen, setIsUserSettingsOpen] = useAtom(userSettingsOpenAtom);
 
   const navigate = useNavigate();
   const clerk = useClerk();

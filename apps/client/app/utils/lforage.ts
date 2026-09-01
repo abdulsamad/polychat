@@ -1,6 +1,7 @@
 import localforage from 'localforage';
 
 import type { enabledModelsType } from 'utils';
+import { variations } from 'utils';
 import type { IMessage, IThreadSettings, IThreads } from '@/store';
 
 export const settingsKey = 'config';
@@ -32,15 +33,42 @@ export const lforage = localforage.createInstance({
 });
 
 export const getThreads = async (): Promise<IThreads | null> => {
-  return (await lforage.getItem(threadsKey)) as IThreads | null;
+  const stored = (await lforage.getItem(threadsKey)) as IThreads | null;
+  if (!stored) return null;
+
+  return stored.map((thread) => {
+    const metadata = thread.metadata as IThreads[number]['metadata'] & { nameSource?: string };
+    const isLegacyDefault = /^Chat \(/.test(metadata.name) || /^New chat - /.test(metadata.name);
+    return {
+      ...thread,
+      settings: {
+        ...thread.settings,
+        variation: variations.some(({ code }) => code === thread.settings.variation)
+          ? thread.settings.variation
+          : 'normal',
+      },
+      metadata: {
+        ...metadata,
+        nameSource: metadata.nameSource === 'custom' || !isLegacyDefault ? 'custom' : 'default',
+      },
+    };
+  });
 };
 
 export const getUserSettings = async (): Promise<Partial<
   IThreadSettings<enabledModelsType>
 > | null> => {
-  return (await lforage.getItem(userSettingsKey)) as Partial<
+  const settings = (await lforage.getItem(userSettingsKey)) as Partial<
     IThreadSettings<enabledModelsType>
   > | null;
+  if (!settings) return null;
+  return {
+    ...settings,
+    variation:
+      settings.variation && variations.some(({ code }) => code === settings.variation)
+        ? settings.variation
+        : 'normal',
+  };
 };
 
 export const setUserSettings = async (settings: IThreadSettings<enabledModelsType>) => {

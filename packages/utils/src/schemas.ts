@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { languages } from './languages';
 import { supportedImageModels, supportedModels, variations } from './models';
 
-const enumFrom = <T extends string>(values: readonly T[]) =>
-  z.enum(values as [T, ...T[]]);
+const enumFrom = <T extends string>(values: readonly T[]) => z.enum(values as [T, ...T[]]);
 
 export const modelSchema = enumFrom(supportedModels.map(({ name }) => name));
 export const imageModelSchema = enumFrom(supportedImageModels.map(({ name }) => name));
@@ -22,11 +21,17 @@ export const chatRequestSchema = z
     messages: z.array(messageSchema).max(100).optional(),
     language: languageSchema.optional(),
     variation: variationSchema.optional(),
+    customInstructions: z.string().trim().max(4_000).optional(),
     model: modelSchema,
   })
   .refine(({ prompt, messages }) => Boolean(prompt?.trim() || messages?.length), {
     message: 'Prompt or messages not found',
-  });
+  })
+  .refine(
+    ({ variation, customInstructions }) =>
+      variation !== 'custom' || Boolean(customInstructions?.trim()),
+    { message: 'Custom instructions are required for the Custom profile.' }
+  );
 
 export const imageRequestSchema = z.object({
   model: imageModelSchema,
