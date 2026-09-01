@@ -24,6 +24,21 @@ importers:
 
   apps/client:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: ^4.0.39
+        version: 4.0.39(zod@3.25.76)
+      '@ai-sdk/deepseek':
+        specifier: ^3.0.28
+        version: 3.0.28(zod@3.25.76)
+      '@ai-sdk/google':
+        specifier: ^4.0.45
+        version: 4.0.45(zod@3.25.76)
+      '@ai-sdk/mistral':
+        specifier: ^4.0.29
+        version: 4.0.29(zod@3.25.76)
+      '@ai-sdk/openai':
+        specifier: ^4.0.42
+        version: 4.0.42(zod@3.25.76)
       '@clerk/react-router':
         specifier: ^2.4.13
         version: 2.4.16(react-dom@19.2.8(react@19.2.8))(react-router@7.18.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
@@ -141,6 +156,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^2.11.5
         version: 2.27.2
+      ai:
+        specifier: ^7.0.67
+        version: 7.0.67(zod@3.25.76)
       axios:
         specifier: ^1.8.3
         version: 1.19.0(debug@4.4.3)
@@ -295,9 +313,6 @@ importers:
       '@ai-sdk/deepseek':
         specifier: ^3.0.28
         version: 3.0.28(zod@4.4.3)
-      '@ai-sdk/fal':
-        specifier: ^3.0.28
-        version: 3.0.28(zod@4.4.3)
       '@ai-sdk/google':
         specifier: ^4.0.45
         version: 4.0.45(zod@4.4.3)
@@ -350,9 +365,6 @@ importers:
       '@ai-sdk/deepseek':
         specifier: ^3.0.28
         version: 3.0.28(zod@4.4.3)
-      '@ai-sdk/fal':
-        specifier: ^3.0.28
-        version: 3.0.28(zod@4.4.3)
       '@ai-sdk/google':
         specifier: ^4.0.45
         version: 4.0.45(zod@4.4.3)
@@ -382,12 +394,6 @@ packages:
 
   '@ai-sdk/deepseek@3.0.28':
     resolution: {integrity: sha512-ySiafZL/1KQq8NF49eGWmVRYP4ezBjxAwAlMK+hhTV+9ee37LcCxlSIbURe4C4KFq8kYaTFKsTGI2poLFLOu0w==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/fal@3.0.28':
-    resolution: {integrity: sha512-/8BNaUoB1WLBuLs2zBx4ZrdWGVyX33z9GWMaRFZX/bZHesLRfw3xP6lkedhVKItnYCHMiAgNTGdpwCknoiD38w==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -5349,11 +5355,23 @@ packages:
 
 snapshots:
 
+  '@ai-sdk/anthropic@4.0.39(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/anthropic@4.0.39(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.7
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
+
+  '@ai-sdk/deepseek@3.0.28(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      zod: 3.25.76
 
   '@ai-sdk/deepseek@3.0.28(zod@4.4.3)':
     dependencies:
@@ -5361,11 +5379,12 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
 
-  '@ai-sdk/fal@3.0.28(zod@4.4.3)':
+  '@ai-sdk/gateway@4.0.53(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 4.0.7
-      '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      '@vercel/oidc': 3.2.0
+      zod: 3.25.76
 
   '@ai-sdk/gateway@4.0.53(zod@4.4.3)':
     dependencies:
@@ -5374,11 +5393,23 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 4.4.3
 
+  '@ai-sdk/google@4.0.45(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/google@4.0.45(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.7
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
+
+  '@ai-sdk/mistral@4.0.29(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      zod: 3.25.76
 
   '@ai-sdk/mistral@4.0.29(zod@4.4.3)':
     dependencies:
@@ -5386,11 +5417,26 @@ snapshots:
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
 
+  '@ai-sdk/openai@4.0.42(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      zod: 3.25.76
+
   '@ai-sdk/openai@4.0.42(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.7
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
+
+  '@ai-sdk/provider-utils@5.0.27(zod@3.25.76)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@standard-schema/spec': 1.1.0
+      '@workflow/serde': 4.1.0
+      eventsource-parser: 3.1.1
+      undici: 7.29.0
+      zod: 3.25.76
 
   '@ai-sdk/provider-utils@5.0.27(zod@4.4.3)':
     dependencies:
@@ -7713,6 +7759,13 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
+
+  ai@7.0.67(zod@3.25.76):
+    dependencies:
+      '@ai-sdk/gateway': 4.0.53(zod@3.25.76)
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@3.25.76)
+      zod: 3.25.76
 
   ai@7.0.67(zod@4.4.3):
     dependencies:

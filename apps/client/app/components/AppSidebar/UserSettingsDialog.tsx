@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useAtom } from 'jotai';
-import { LanguagesIcon, MoonIcon, SlidersHorizontalIcon, SunIcon } from 'lucide-react';
+import {
+  KeyRoundIcon,
+  LanguagesIcon,
+  LockKeyholeIcon,
+  MoonIcon,
+  SlidersHorizontalIcon,
+  SunIcon,
+} from 'lucide-react';
+import { useUser } from '@clerk/react-router';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
@@ -9,6 +17,19 @@ import { languages, supportedTextModels, variations } from 'utils';
 
 import { configAtom, getDefaultThread, type IThreadSettings } from '@/store';
 import { getUserSettings, setUserSettings } from '@/utils/lforage';
+import {
+  createVault,
+  hasVault,
+  isVaultUnlocked,
+  lockVault,
+  removeProviderKey,
+  resetVault,
+  saveProviderKey,
+  setSessionProviderKey,
+  subscribeVault,
+  unlockVault,
+  type ByokProvider,
+} from '@/utils/byok-vault';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -25,6 +46,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+
+const byokProviders: Array<{ id: ByokProvider; label: string }> = [
+  { id: 'google', label: 'Google Gemini' },
+  { id: 'openai', label: 'OpenAI' },
+  { id: 'anthropic', label: 'Anthropic' },
+  { id: 'mistral', label: 'Mistral' },
+  { id: 'deepseek', label: 'DeepSeek' },
+];
+const byokEnabled = import.meta.env.VITE_ENABLE_BYOK === 'true';
 
 interface UserSettingsDialogProps {
   open: boolean;
@@ -34,10 +66,98 @@ interface UserSettingsDialogProps {
 const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => {
   const [config, setConfig] = useAtom(configAtom);
   const { theme, setTheme } = useTheme();
+  const { user } = useUser();
   const [threadSettings, setThreadSettings] = useState<IThreadSettings<enabledModelsType>>(
     () => getDefaultThread().settings
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [vaultExists, setVaultExists] = useState(false);
+  const [vaultUnlocked, setVaultUnlocked] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const [provider, setProvider] = useState<ByokProvider>('google');
+  const [apiKey, setApiKey] = useState('');
+
+  const refreshVault = async () => {
+    if (!user?.id) return;
+    setVaultExists(await hasVault(user.id));
+    setVaultUnlocked(isVaultUnlocked(user.id));
+  };
+
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    void refreshVault();
+    return subscribeVault(() => {
+      setVaultUnlocked(isVaultUnlocked(user.id));
+      void hasVault(user.id).then(setVaultExists);
+    });
+  }, [open, user?.id]);
+
+  const handleUnlock = async () => {
+    if (!user?.id || !passphrase) return;
+    try {
+      await unlockVault(user.id, passphrase);
+      setPassphrase('');
+      toast.success('BYOK vault unlocked');
+    } catch {
+      toast.error('Could not unlock the BYOK vault. Check your passphrase.');
+    }
+  };
+
+  const handleSaveKey = async (persistent: boolean) => {
+    if (!user?.id || !apiKey.trim()) return;
+    try {
+      if (persistent) {
+        if (!vaultExists) {
+          if (!passphrase || passphrase !== confirmPassphrase) {
+            toast.error('Enter and confirm a vault passphrase.');
+            return;
+          }
+          await createVault(user.id, passphrase, provider, apiKey);
+          setConfirmPassphrase('');
+        } else {
+          if (!vaultUnlocked) {
+            toast.error('Unlock the vault before saving a provider key.');
+            return;
+          }
+          await saveProviderKey(user.id, provider, apiKey);
+        }
+        setPassphrase('');
+      } else {
+        setSessionProviderKey(user.id, provider, apiKey);
+      }
+      setApiKey('');
+      await refreshVault();
+      toast.success(
+        persistent ? 'Provider key saved securely' : 'Provider key active for this session'
+      );
+    } catch {
+      toast.error('Could not save this provider key.');
+    }
+  };
+
+  const handleRemoveKey = async () => {
+    if (!user?.id || !vaultUnlocked) return;
+    try {
+      await removeProviderKey(user.id, provider);
+      await refreshVault();
+      toast.success('Provider key removed');
+    } catch {
+      toast.error('Could not remove this provider key.');
+    }
+  };
+
+  const handleResetVault = async () => {
+    if (
+      !user?.id ||
+      !window.confirm('Reset the BYOK vault? Saved provider keys cannot be recovered.')
+    )
+      return;
+    await resetVault(user.id);
+    setVaultExists(false);
+    setVaultUnlocked(false);
+    toast.success('BYOK vault reset');
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -121,6 +241,117 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               </SelectContent>
             </Select>
           </section>
+
+          {byokEnabled ? (
+            <section className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  <KeyRoundIcon className="size-4" />
+                </span>
+                <div>
+                  <h2 className="text-sm font-semibold">Bring your own keys</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Keys are encrypted locally and used directly from this browser. PolyChat cannot
+                    recover a forgotten vault passphrase.
+                  </p>
+                </div>
+              </div>
+
+              {vaultExists && !vaultUnlocked ? (
+                <div className="mb-4 flex gap-2">
+                  <Input
+                    type="password"
+                    value={passphrase}
+                    onChange={(event) => setPassphrase(event.target.value)}
+                    placeholder="Vault passphrase"
+                    autoComplete="current-password"
+                  />
+                  <Button type="button" onClick={() => void handleUnlock()}>
+                    <LockKeyholeIcon className="mr-2 size-4" />
+                    Unlock
+                  </Button>
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 sm:grid-cols-[11rem_1fr]">
+                <Select
+                  value={provider}
+                  onValueChange={(value) => setProvider(value as ByokProvider)}>
+                  <SelectTrigger className="bg-background/70">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {byokProviders.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="password"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder="Provider API key"
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+
+              {!vaultExists ? (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Input
+                    type="password"
+                    value={passphrase}
+                    onChange={(event) => setPassphrase(event.target.value)}
+                    placeholder="Create vault passphrase"
+                    autoComplete="new-password"
+                  />
+                  <Input
+                    type="password"
+                    value={confirmPassphrase}
+                    onChange={(event) => setConfirmPassphrase(event.target.value)}
+                    placeholder="Confirm passphrase"
+                    autoComplete="new-password"
+                  />
+                </div>
+              ) : null}
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={() => void handleSaveKey(false)}>
+                  Use this session
+                </Button>
+                <Button type="button" onClick={() => void handleSaveKey(true)}>
+                  Save encrypted key
+                </Button>
+                {vaultUnlocked ? (
+                  <Button type="button" variant="outline" onClick={handleRemoveKey}>
+                    Remove provider key
+                  </Button>
+                ) : null}
+                {vaultUnlocked ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      lockVault();
+                      setVaultUnlocked(false);
+                    }}>
+                    Lock
+                  </Button>
+                ) : null}
+                {vaultExists ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => void handleResetVault()}>
+                    Reset vault
+                  </Button>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
 
           <section className="rounded-xl border border-border/60 bg-muted/20 p-4">
             <div className="mb-4 flex items-start gap-3">

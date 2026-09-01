@@ -17,6 +17,7 @@ set +a
 required_vars=(
   PORT
   CLERK_ISSUER_BASE_URL
+  CLERK_AUTHORIZED_PARTIES
   GEMINI_API_KEY
   OPENAI_API_KEY
   ANTHROPIC_API_KEY
@@ -37,6 +38,7 @@ sam deploy \
   --parameter-overrides \
   "PORT=${PORT}" \
   "ClerkIssuerBaseURL=${CLERK_ISSUER_BASE_URL}" \
+  "ClerkAuthorizedParties=${CLERK_AUTHORIZED_PARTIES}" \
   "GeminiAPIKey=${GEMINI_API_KEY}" \
   "OpenAIAPIKey=${OPENAI_API_KEY}" \
   "AnthropicAPIKey=${ANTHROPIC_API_KEY}" \

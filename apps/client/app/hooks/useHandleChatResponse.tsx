@@ -1,12 +1,14 @@
 import { useTransition } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getTime } from 'date-fns';
-import { useAuth } from '@clerk/react-router';
+import { useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 import axios from 'axios';
 import useSound from 'use-sound';
 
 import { supportedImageModels } from 'utils';
+import { providerForModel } from '@/utils/byok-providers';
+import { getProviderKey, isProviderConfigured } from '@/utils/byok-vault';
 
 import {
   threadAtom,
@@ -47,6 +49,7 @@ const useHandleChatResponse = () => {
   const [isPending, startTransition] = useTransition();
 
   const { getToken } = useAuth();
+  const { user } = useUser();
   const [play] = useSound('notification.mp3');
   const { speak } = useSpeechSynthesis();
 
@@ -57,6 +60,11 @@ const useHandleChatResponse = () => {
   }: handleChatResponseProps) => {
     try {
       if (!thread) throw new Error('Thread not created');
+      const provider = providerForModel(thread.settings.model);
+      const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
+      if (user?.id && (await isProviderConfigured(user.id, provider)) && !apiKey) {
+        throw new Error(`Unlock your ${provider} BYOK vault key before chatting.`);
+      }
 
       if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
         const imageResponse = await getGeneratedImage({
@@ -66,6 +74,7 @@ const useHandleChatResponse = () => {
           quality,
           style,
           getToken,
+          apiKey,
         });
 
         if (!('b64_json' in imageResponse)) {
@@ -117,6 +126,7 @@ const useHandleChatResponse = () => {
           variation: thread.settings.variation,
           language,
           getToken,
+          apiKey,
         });
 
         if (!stream) throw new Error();

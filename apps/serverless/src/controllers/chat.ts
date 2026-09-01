@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { streamText, APICallError } from 'ai';
 
-import { getAssistantConfig } from 'utils';
+import { chatRequestSchema, getAssistantConfig } from 'utils';
 
 import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
@@ -13,24 +13,30 @@ const chat = async (c: Context<AppContext>) => {
   const { signal } = controller;
 
   try {
-    const { prompt, messages, language, variation, model } = await c.req.json();
-
-    if (!prompt && !messages) {
-      console.warn('[CHAT] Missing prompt or messages in request');
-      return c.json({ success: false, err: 'Prompt or messages not found' }, 400);
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ success: false, err: 'Invalid chat request.' }, 400);
     }
+    const parsed = chatRequestSchema.safeParse(body);
+    if (!parsed.success) return c.json({ success: false, err: 'Invalid chat request.' }, 400);
+    const { prompt, messages, language = 'en-US', variation = 'normal', model } = parsed.data;
 
     console.info(
       `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Variation: ${variation}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length}`}`
     );
 
     const modelInstance = modelFactory.createModel(model);
-    const config = getAssistantConfig(variation, language);
+    const config = getAssistantConfig(
+      variation as Parameters<typeof getAssistantConfig>[0],
+      language
+    );
 
     const result = streamText({
       model: modelInstance,
       instructions: config.prompt,
-      messages: messages || [{ role: 'user', content: prompt }],
+      messages: messages || [{ role: 'user', content: prompt || '' }],
       temperature: config.temperature,
       seed: config.seed,
       tools: config.tools,

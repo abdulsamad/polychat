@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 import { threadAtom, messagesAtom } from '@/store';
 import { getName } from '@/utils';
+import { setActiveAccount } from '@/utils/byok-vault';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -146,7 +147,10 @@ const AppSidebar = () => {
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => signOut({ redirectUrl: window.location.origin })}>
+                    onClick={() => {
+                      setActiveAccount(null);
+                      void signOut({ redirectUrl: window.location.origin });
+                    }}>
                     <LogOutIcon />
                     Log out
                   </DropdownMenuItem>

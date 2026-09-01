@@ -5,11 +5,11 @@ declare namespace NodeJS {
     PORT: number;
     ALLOWED_ORIGINS: string;
     CLERK_ISSUER_BASE_URL: string;
+    CLERK_AUTHORIZED_PARTIES: string;
     GEMINI_API_KEY: string;
     OPENAI_API_KEY: string;
     ANTHROPIC_API_KEY: string;
     MISTRAL_API_KEY: string;
     DEEPSEEK_API_KEY: string;
-    FAL_API_KEY: string;
   }
 }

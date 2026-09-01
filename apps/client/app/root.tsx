@@ -1,6 +1,7 @@
 import { MetaFunction, Outlet } from 'react-router';
+import { useEffect } from 'react';
 import { Provider } from 'jotai';
-import { ClerkProvider } from '@clerk/react-router';
+import { ClerkProvider, useUser } from '@clerk/react-router';
 
 import type { Route } from './+types/root';
 import ErrorBoundary from './error';
@@ -8,6 +9,7 @@ import Layout from './layout';
 import Loading from './loading';
 
 import './app.css';
+import { setActiveAccount } from '@/utils/byok-vault';
 
 export const meta: MetaFunction = () => [
   { charSet: 'utf-8' },
@@ -34,10 +36,21 @@ const App = ({}: Route.ComponentProps) => {
   return (
     <ClerkProvider publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}>
       <Provider>
+        <VaultLifecycle />
         <Outlet />
       </Provider>
     </ClerkProvider>
   );
+};
+
+const VaultLifecycle = () => {
+  const { user } = useUser();
+
+  useEffect(() => {
+    setActiveAccount(user?.id ?? null);
+  }, [user?.id]);
+
+  return null;
 };
 
 export { ErrorBoundary, Layout };

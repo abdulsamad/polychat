@@ -15,12 +15,12 @@ Resources:
         Variables:
           PORT: "3001"
           CLERK_ISSUER_BASE_URL: ""
+          CLERK_AUTHORIZED_PARTIES: "http://localhost:3000"
           GEMINI_API_KEY: ""
           OPENAI_API_KEY: ""
           ANTHROPIC_API_KEY: ""
           MISTRAL_API_KEY: ""
           DEEPSEEK_API_KEY: ""
-          FAL_API_KEY: ""
       Events:
         Root:
           Type: HttpApi

@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { useAuth } from '@clerk/react-router';
 
-import { enabledModelsType, variationsType } from 'utils';
+import { chatRequestSchema, enabledModelsType, imageRequestSchema, variationsType } from 'utils';
 
 import { IConfig } from '@/store/index';
+import { generateByokImage, streamByokText } from './byok-providers';
 
 const baseURL = import.meta.env.VITE_API_ENDPOINT;
 const axiosInstance = axios.create({ baseURL });
@@ -51,6 +52,7 @@ interface IGetGeneratedTextBase {
   variation: variationsType;
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
+  apiKey?: string;
 }
 
 interface IGetGeneratedTextWithMessages extends IGetGeneratedTextBase {
@@ -77,19 +79,35 @@ export const getGeneratedText = async ({
   variation,
   language,
   getToken,
+  apiKey,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
+  const requestBody = chatRequestSchema.safeParse({ prompt, messages, language, variation, model });
+  if (!requestBody.success) {
+    return { success: false, err: 'Invalid chat request.' };
+  }
+  if (apiKey) {
+    try {
+      return await streamByokText({
+        model,
+        variation,
+        language: (language || 'en-US') as Parameters<typeof streamByokText>[0]['language'],
+        prompt,
+        messages,
+        apiKey,
+      });
+    } catch {
+      return {
+        success: false,
+        err: 'Provider request failed. Check your API key and browser access.',
+      };
+    }
+  }
   const token = await getToken();
 
   const res = await fetch(`${baseURL}/chat`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt,
-      messages,
-      language,
-      variation,
-      model,
-    }),
+    body: JSON.stringify(requestBody.data),
   });
 
   if (!res.ok || !res.body) {
@@ -99,7 +117,10 @@ export const getGeneratedText = async ({
       case 401:
         return { success: false, err: 'Unauthorized. Please check your authentication.' };
       case 400:
-        return { success: false, err: getErrorMessage(await res.json(), 'Invalid request parameters.') };
+        return {
+          success: false,
+          err: getErrorMessage(await res.json(), 'Invalid request parameters.'),
+        };
       default:
         return { success: false, err: getErrorMessage(await res.json(), 'Something went wrong.') };
     }
@@ -139,6 +160,7 @@ interface IGetGeneratedImage {
   style: IConfig['style'];
   size?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
+  apiKey?: string;
 }
 
 interface GeneratedImageResponse {
@@ -152,12 +174,27 @@ export const getGeneratedImage = async ({
   style,
   size,
   getToken,
+  apiKey,
 }: IGetGeneratedImage): Promise<GeneratedImageResponse | ErrorType> => {
+  const requestBody = imageRequestSchema.safeParse({ prompt, model, quality, style, size });
+  if (!requestBody.success) {
+    return { success: false, err: 'Invalid image request.' };
+  }
+  if (apiKey) {
+    try {
+      return await generateByokImage({ prompt, model, quality, style, size, apiKey });
+    } catch {
+      return {
+        success: false,
+        err: 'Provider request failed. Check your API key and browser access.',
+      };
+    }
+  }
   const token = await getToken();
 
   const res = await axiosInstance.post(
     '/image',
-    { prompt, model, quality, style, size },
+    requestBody.data,
     {
       headers: { Authorization: `Bearer ${token}` },
       validateStatus: () => true,
