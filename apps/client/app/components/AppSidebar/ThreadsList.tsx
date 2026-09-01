@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useTransition, type HTMLAttributes } from 'react';
-import { NavLink, useParams } from 'react-router';
+import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
 import { format } from 'date-fns';
@@ -52,6 +52,7 @@ const ThreadsList = () => {
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
   const threadsRefresh = useAtomValue(threadsRefreshAtom);
+  const navigate = useNavigate();
 
   const { open, setOpenMobile } = useSidebar();
 
@@ -75,28 +76,34 @@ const ThreadsList = () => {
 
   const deleteChats = useCallback(
     async (threadId: string) => {
-      if (params.threadId === threadId) {
-        // Reset the thread
-        const blankThread = getDefaultThread((await getUserSettings()) || undefined);
-        setThread(blankThread);
-        replaceMessages([]);
-      }
-
       const messages = (await getMessages()) || {};
-
       const { [threadId]: removedThread, ...remainingMessages } = messages;
-
       await lforage.setItem(messagesKey, remainingMessages);
-      const threads = (await getThreads()) || [];
+      const storedThreads = (await getThreads()) || [];
+      const nextThreads = storedThreads.filter(({ id }) => id !== threadId);
 
-      await lforage.setItem(
-        threadsKey,
-        threads.filter(({ id }) => id !== threadId)
-      );
+      await lforage.setItem(threadsKey, nextThreads);
+
+      if (params.threadId === threadId) {
+        const nextThread = nextThreads[0];
+
+        if (nextThread) {
+          setThread(nextThread);
+          replaceMessages(remainingMessages[nextThread.id] || []);
+          navigate(`/${nextThread.id}`, { replace: true });
+        } else {
+          const blankThread = getDefaultThread((await getUserSettings()) || undefined);
+          setThread(blankThread);
+          replaceMessages([]);
+          navigate('/', { replace: true });
+        }
+
+        setOpenMobile(false);
+      }
 
       fetchThreads();
     },
-    [setThread, replaceMessages, fetchThreads]
+    [fetchThreads, navigate, params.threadId, replaceMessages, setOpenMobile, setThread]
   );
 
   const renameThread = useCallback(async () => {
