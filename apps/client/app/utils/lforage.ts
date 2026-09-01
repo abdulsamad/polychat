@@ -37,8 +37,6 @@ export const getThreads = async (): Promise<IThreads | null> => {
   if (!stored) return null;
 
   return stored.map((thread) => {
-    const metadata = thread.metadata as IThreads[number]['metadata'] & { nameSource?: string };
-    const isLegacyDefault = /^Chat \(/.test(metadata.name) || /^New chat - /.test(metadata.name);
     return {
       ...thread,
       settings: {
@@ -46,10 +44,6 @@ export const getThreads = async (): Promise<IThreads | null> => {
         variation: variations.some(({ code }) => code === thread.settings.variation)
           ? thread.settings.variation
           : 'normal',
-      },
-      metadata: {
-        ...metadata,
-        nameSource: metadata.nameSource === 'custom' || !isLegacyDefault ? 'custom' : 'default',
       },
     };
   });
@@ -86,4 +80,17 @@ export const markStartedToastAsSeen = async () => {
 
   await lforage.setItem(startedToastKey, true);
   return true;
+};
+
+export const deleteAllChats = async () => {
+  await Promise.all([lforage.removeItem(threadsKey), lforage.removeItem(messagesKey)]);
+};
+
+export const clearLocalData = async () => {
+  await lforage.clear();
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(settingsKey);
+    window.localStorage.removeItem('theme');
+  }
 };

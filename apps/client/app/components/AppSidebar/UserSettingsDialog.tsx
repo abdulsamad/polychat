@@ -4,9 +4,12 @@ import {
   KeyRoundIcon,
   LanguagesIcon,
   LockKeyholeIcon,
+  ClipboardPasteIcon,
   MoonIcon,
+  RotateCcwIcon,
   SlidersHorizontalIcon,
   SunIcon,
+  Trash2Icon,
 } from 'lucide-react';
 import { useUser } from '@clerk/react-router';
 import { useTheme } from 'next-themes';
@@ -17,12 +20,15 @@ import { languages, supportedTextModels, variations } from 'utils';
 
 import {
   configAtom,
+  defaultConfig,
   getDefaultThread,
+  replaceMessagesAtom,
   threadAtom,
   updateThreadSettingsAtom,
+  waitForPersistence,
   type IThreadSettings,
 } from '@/store';
-import { getUserSettings, setUserSettings } from '@/utils/lforage';
+import { clearLocalData, deleteAllChats, getUserSettings, setUserSettings } from '@/utils/lforage';
 import {
   createVault,
   hasVault,
@@ -94,6 +100,8 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const isMobile = useIsMobile();
   const customInstructions = customInstructionsDraft;
   const activeThread = useAtomValue(threadAtom);
+  const setThread = useSetAtom(threadAtom);
+  const replaceMessages = useSetAtom(replaceMessagesAtom);
   const updateActiveThreadSettings = useSetAtom(updateThreadSettingsAtom);
 
   const refreshVault = async () => {
@@ -165,6 +173,20 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     }
   };
 
+  const handlePasteApiKey = async () => {
+    try {
+      const clipboardValue = await navigator.clipboard.readText();
+      if (!clipboardValue.trim()) {
+        toast.error('Clipboard is empty');
+        return;
+      }
+      setApiKey(clipboardValue.trim());
+      toast.success('Provider key pasted');
+    } catch {
+      toast.error('Could not read from the clipboard');
+    }
+  };
+
   const handleResetVault = async () => {
     if (
       !user?.id ||
@@ -175,6 +197,44 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     setVaultExists(false);
     setVaultUnlocked(false);
     toast.success('BYOK vault reset');
+  };
+
+  const handleDeleteAllChats = async () => {
+    if (!window.confirm('Delete all chats? This cannot be undone.')) return;
+
+    await deleteAllChats();
+    setThread(getDefaultThread((await getUserSettings()) || undefined));
+    replaceMessages([]);
+    await waitForPersistence();
+    await deleteAllChats();
+    onOpenChange(false);
+    toast.success('All chats deleted');
+  };
+
+  const handleResetAllData = async () => {
+    if (
+      !window.confirm(
+        'Reset all local data? This deletes every chat, saved setting, and BYOK provider key from this browser. This cannot be undone.'
+      )
+    )
+      return;
+
+    try {
+      await clearLocalData();
+      if (user?.id) await resetVault(user.id);
+      setConfig(defaultConfig);
+      setThread(getDefaultThread());
+      replaceMessages([]);
+      setCustomInstructionsDraft('');
+      setThreadSettings(getDefaultThread().settings);
+      setTheme('dark');
+      await waitForPersistence();
+      await deleteAllChats();
+      onOpenChange(false);
+      toast.success('All local data reset');
+    } catch {
+      toast.error('Could not reset all local data');
+    }
   };
 
   useEffect(() => {
@@ -347,14 +407,27 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder="Provider API key"
-              autoComplete="off"
-              spellCheck={false}
-            />
+            <div className="relative">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder="Provider API key"
+                autoComplete="off"
+                spellCheck={false}
+                className="pr-11"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Paste provider API key"
+                title="Paste from clipboard"
+                className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => void handlePasteApiKey()}>
+                <ClipboardPasteIcon className="size-4" />
+              </Button>
+            </div>
           </div>
 
           {!vaultExists ? (
@@ -549,6 +622,30 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 {label}
               </label>
             ))}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-destructive/25 bg-destructive/[0.035] p-4">
+          <div className="mb-4 flex items-start gap-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+              <Trash2Icon className="size-4" />
+            </span>
+            <div>
+              <h2 className="text-sm font-semibold">Danger zone</h2>
+              <p className="text-xs text-muted-foreground">
+                Remove local data from this browser. These actions cannot be undone.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="destructive" onClick={() => void handleDeleteAllChats()}>
+              <Trash2Icon className="mr-2 size-4" />
+              Delete all chats
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void handleResetAllData()}>
+              <RotateCcwIcon className="mr-2 size-4" />
+              Reset all local data
+            </Button>
           </div>
         </section>
       </div>

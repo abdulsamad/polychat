@@ -214,6 +214,8 @@ const enqueuePersistence = (write: () => Promise<void>) => {
   return persistenceQueue;
 };
 
+export const waitForPersistence = () => persistenceQueue;
+
 export const threadSaveEffect = atomEffect((get, set) => {
   const thread = get(threadAtom);
   if (!thread) return;
@@ -281,10 +283,12 @@ export interface IConfig {
   customInstructions: string;
 }
 
-export const configAtom = atomWithStorage<IConfig>(settingsKey, {
+export const defaultConfig: IConfig = {
   language: 'en-IN',
   imageSize: '1024x1024',
   quality: 'standard',
   style: 'vivid',
   customInstructions: '',
-});
+};
+
+export const configAtom = atomWithStorage<IConfig>(settingsKey, defaultConfig);
