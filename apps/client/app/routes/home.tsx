@@ -1,5 +1,5 @@
-import { useEffect, useState, Suspense } from 'react';
-import { useAtom, useSetAtom } from 'jotai';
+import { useEffect, useRef, useState, Suspense } from 'react';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, useUser, RedirectToSignIn } from '@clerk/react-router';
 import { useNavigate } from 'react-router';
 
@@ -14,6 +14,7 @@ import {
   replaceMessagesAtom,
   messageSaveEffect,
   threadAtom,
+  threadMessagesAtom,
   threadSaveEffect,
   workspaceReadyAtom,
 } from '@/store';
@@ -41,9 +42,14 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const hydrateThreadMessages = useSetAtom(hydrateThreadMessagesAtom);
   const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
+  const messagesByThread = useAtomValue(threadMessagesAtom);
   const setConfig = useSetAtom(configAtom);
   const setWorkspaceReady = useSetAtom(workspaceReadyAtom);
   const [isWorkspaceLoaded, setIsWorkspaceLoaded] = useState(false);
+  const workspaceAccountRef = useRef<string | null>(null);
+  const messagesByThreadRef = useRef(messagesByThread);
+
+  messagesByThreadRef.current = messagesByThread;
 
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
@@ -57,6 +63,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !user?.id) {
+      workspaceAccountRef.current = null;
       setWorkspaceReady(false);
       setActiveWorkspaceAccount(null);
       setConfig(defaultConfig);
@@ -69,12 +76,16 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     let cancelled = false;
 
     const loadWorkspace = async () => {
+      const isAccountChange = workspaceAccountRef.current !== user.id;
       setWorkspaceReady(false);
       setThread(null);
-      clearThreadMessages();
-      setConfig(defaultConfig);
       setIsWorkspaceLoaded(false);
       setActiveWorkspaceAccount(user.id);
+
+      if (isAccountChange) {
+        clearThreadMessages();
+        setConfig(defaultConfig);
+      }
 
       try {
         const [threads, messages, userSettings, savedConfig] = await Promise.all([
@@ -90,7 +101,9 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
           Object.entries(messages || {}).map(([id, threadMessages]) => [
             id,
             threadMessages.map((message) =>
-              message.metadata.requestState === 'queued' || message.metadata.requestState === 'streaming'
+              isAccountChange &&
+              (message.metadata.requestState === 'queued' ||
+                message.metadata.requestState === 'streaming')
                 ? {
                     ...message,
                     metadata: { ...message.metadata, requestState: 'interrupted' as const },
@@ -107,7 +120,8 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
               )[0];
               const shouldReuseLatest =
                 latestThread?.metadata.nameSource === 'default' &&
-                !storedMessages[latestThread.id]?.length;
+                !(messagesByThreadRef.current[latestThread.id] || storedMessages[latestThread.id])
+                  ?.length;
 
               return shouldReuseLatest
                 ? {
@@ -138,6 +152,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         }
 
         if (cancelled) return;
+        workspaceAccountRef.current = user.id;
         setConfig({ ...defaultConfig, ...savedConfig });
         hydrateThreadMessages(storedMessages);
         setThread(threadData);

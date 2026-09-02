@@ -148,20 +148,21 @@ const useHandleChatResponse = () => {
           upsertThreadMessage({
             threadId: thread.id,
             message: {
-            id: crypto.randomUUID(),
-            content: ``,
-            image_url: {
-              url: `data:image/png;base64,${b64_json}`,
-              alt: prompt,
-              size: imageSize,
-            },
-            role: 'assistant',
-            type: 'image_url',
-            metadata: {
-              model: thread.settings.model,
-              profile: thread.settings.profile,
-              timestamp: getTime(new Date()),
-            },
+              id: job.assistantMessageId,
+              content: ``,
+              image_url: {
+                url: `data:image/png;base64,${b64_json}`,
+                alt: prompt,
+                size: imageSize,
+              },
+              role: 'assistant',
+              type: 'image_url',
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp: getTime(new Date()),
+                requestId: job.id,
+              },
             },
           });
           // Haptic feedback and sound
@@ -201,7 +202,6 @@ const useHandleChatResponse = () => {
         }
 
         const reader = (stream as ReadableStream<ChatStreamPart>).getReader();
-        const uid = crypto.randomUUID();
         const timestamp = getTime(new Date());
         let content = '';
         let responseMetadata: Extract<ChatStreamPart, { type: 'metadata' }> | undefined;
@@ -211,26 +211,27 @@ const useHandleChatResponse = () => {
           upsertThreadMessage({
             threadId: thread.id,
             message: {
-            id: uid,
-            content,
-            metadata: {
-              model: thread.settings.model,
-              profile: thread.settings.profile,
-              timestamp,
-              ...(responseMetadata
-                ? {
-                  usage: responseMetadata.metadata.usage,
-                  finishReason: responseMetadata.metadata.finishReason,
-                  responseId: responseMetadata.metadata.responseId,
-                  responseModelId: responseMetadata.metadata.modelId,
-                  responseTimestamp: responseMetadata.metadata.timestamp,
-                }
-                : {}),
-              ...(finishReason ? { finishReason } : {}),
-              ...(cancelled ? { cancelled: true } : {}),
-            },
-            role: 'assistant',
-            type: 'text',
+              id: job.assistantMessageId,
+              content,
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp,
+                requestId: job.id,
+                ...(responseMetadata
+                  ? {
+                      usage: responseMetadata.metadata.usage,
+                      finishReason: responseMetadata.metadata.finishReason,
+                      responseId: responseMetadata.metadata.responseId,
+                      responseModelId: responseMetadata.metadata.modelId,
+                      responseTimestamp: responseMetadata.metadata.timestamp,
+                    }
+                  : {}),
+                ...(finishReason ? { finishReason } : {}),
+                ...(cancelled ? { cancelled: true } : {}),
+              },
+              role: 'assistant',
+              type: 'text',
             },
           });
         };
@@ -241,15 +242,16 @@ const useHandleChatResponse = () => {
             upsertThreadMessage({
               threadId: thread.id,
               message: {
-              id: uid,
-              content,
-              metadata: {
-                model: thread.settings.model,
-                timestamp,
-                profile: thread.settings.profile,
-              },
-              role: 'assistant',
-              type: 'text',
+                id: job.assistantMessageId,
+                content,
+                metadata: {
+                  model: thread.settings.model,
+                  timestamp,
+                  profile: thread.settings.profile,
+                  requestId: job.id,
+                },
+                role: 'assistant',
+                type: 'text',
               },
             });
           });

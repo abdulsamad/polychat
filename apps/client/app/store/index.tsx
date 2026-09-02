@@ -101,30 +101,49 @@ export const upsertMessageAtom = atom(null, (get, set, message: IMessage) => {
 export const upsertThreadMessageAtom = atom(
   null,
   (get, set, update: { threadId: ThreadId; message: IMessage }) => {
-  const messages = get(threadMessagesAtom)[update.threadId] || [];
-  const index = messages.findIndex(({ id }) => id === update.message.id);
+    const messages = get(threadMessagesAtom)[update.threadId] || [];
+    const index = messages.findIndex(({ id }) => id === update.message.id);
 
-  if (index === -1) {
+    if (index === -1) {
+      const requestId = update.message.metadata.requestId;
+      const pairedMessageIndex = requestId
+        ? messages.findIndex(
+            (message) =>
+              message.metadata.requestId === requestId && message.role !== update.message.role
+          )
+        : -1;
+      const insertionIndex =
+        pairedMessageIndex === -1
+          ? messages.length
+          : update.message.role === 'user'
+            ? pairedMessageIndex
+            : pairedMessageIndex + 1;
+      const nextMessages = messages.slice();
+      nextMessages.splice(insertionIndex, 0, update.message);
+
       set(threadMessagesAtom, {
         ...get(threadMessagesAtom),
-        [update.threadId]: [...messages, update.message],
+        [update.threadId]: nextMessages,
       });
-    return;
-  }
+      return;
+    }
 
-  const nextMessages = messages.slice();
+    const nextMessages = messages.slice();
     nextMessages[index] = update.message;
     set(threadMessagesAtom, { ...get(threadMessagesAtom), [update.threadId]: nextMessages });
   }
 );
 
-export const removeThreadMessageAtom = atom(null, (get, set, update: { threadId: ThreadId; id: string }) => {
-  const messages = get(threadMessagesAtom)[update.threadId] || [];
-  set(threadMessagesAtom, {
-    ...get(threadMessagesAtom),
-    [update.threadId]: messages.filter((message) => message.id !== update.id),
-  });
-});
+export const removeThreadMessageAtom = atom(
+  null,
+  (get, set, update: { threadId: ThreadId; id: string }) => {
+    const messages = get(threadMessagesAtom)[update.threadId] || [];
+    set(threadMessagesAtom, {
+      ...get(threadMessagesAtom),
+      [update.threadId]: messages.filter((message) => message.id !== update.id),
+    });
+  }
+);
 
 // Base Configuration for all models
 export interface IBaseModelConfig {
@@ -230,6 +249,7 @@ export interface ChatJob {
   threadId: ThreadId;
   prompt: string;
   userMessageId: IMessage['id'];
+  assistantMessageId: IMessage['id'];
   thread: IThread<enabledModelsType>;
   messages: IMessage[];
   config: IConfig;

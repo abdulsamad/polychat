@@ -20,6 +20,9 @@ const ChatQueueProvider = () => {
   const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
   const { handleChatResponse } = useHandleChatResponse();
   const handleChatResponseRef = useRef(handleChatResponse);
+  const selectedThreadIdRef = useRef(selectedThread?.id);
+
+  selectedThreadIdRef.current = selectedThread?.id;
 
   useEffect(() => {
     handleChatResponseRef.current = handleChatResponse;
@@ -60,7 +63,7 @@ const ChatQueueProvider = () => {
     void handleChatResponseRef.current({ job, signal: controller.signal })
       .then((result) => {
         if (result.status === 'failed') {
-          if (selectedThread?.id !== job.threadId) {
+          if (selectedThreadIdRef.current !== job.threadId) {
             setErrors((current) => ({ ...current, [job.threadId]: result.error }));
           }
           upsertThreadMessage({
@@ -102,7 +105,7 @@ const ChatQueueProvider = () => {
         clearActiveStream(controller);
         setActiveJob((current) => (current?.id === job.id ? null : current));
       });
-  }, [activeJob, selectedThread?.id, setActiveJob, setErrors, upsertThreadMessage]);
+  }, [activeJob, setActiveJob, setErrors, upsertThreadMessage]);
 
   useEffect(
     () => () => {

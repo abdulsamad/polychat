@@ -39,6 +39,7 @@ const useSubmitMessage = () => {
       if (!prompt || isChatLoading || queuedJob) return false;
 
       const id = crypto.randomUUID();
+      const assistantMessageId = crypto.randomUUID();
       const createdAt = getTime(new Date());
       upsertThreadMessage({
         threadId: thread.id,
@@ -64,6 +65,7 @@ const useSubmitMessage = () => {
           threadId: thread.id,
           prompt,
           userMessageId: id,
+          assistantMessageId,
           thread,
           messages,
           config,
