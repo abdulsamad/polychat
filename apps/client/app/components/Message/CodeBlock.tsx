@@ -75,7 +75,7 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
   };
 
   return (
-    <figure className="my-4 min-w-0 overflow-hidden rounded-xl border border-white/10 bg-code text-code-foreground shadow-sm">
+    <figure className="my-4 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-code text-code-foreground shadow-sm">
       <figcaption className="flex min-h-10 items-center justify-between gap-3 border-b border-white/10 bg-code-header px-2.5 py-1.5 sm:px-3">
         <div className="flex min-w-0 items-center gap-2 font-mono text-xs">
           <span className="truncate text-code-foreground" title={downloadName}>
@@ -110,7 +110,7 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
           </Button>
         </div>
       </figcaption>
-      <div className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
+      <div className="block w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [contain:inline-size] [scrollbar-gutter:stable]">
         <SyntaxHighlighter
           wrapLongLines={false}
           PreTag="div"

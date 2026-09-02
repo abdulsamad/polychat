@@ -100,7 +100,10 @@ const Thread = ({ className }: ThreadProps) => {
   return (
     <ScrollArea
       ref={rootRef}
-      className={clsx('thread-scroll box-border min-w-0 px-3 sm:px-5 lg:px-8', className)}>
+      className={clsx(
+        'thread-scroll box-border min-w-0 px-3 sm:px-5 lg:px-8 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:w-full [&_[data-radix-scroll-area-viewport]>div]:min-w-0',
+        className
+      )}>
       <div className="mx-auto min-h-full w-full min-w-0 max-w-5xl overflow-x-clip pb-5">
         {hasMessages ? (
           <>
