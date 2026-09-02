@@ -56,7 +56,10 @@ const Text = () => {
             title="Cancel queued message"
             aria-label="Cancel queued message"
             className="size-10 rounded-full border border-muted-foreground/30 bg-muted p-0 sm:size-11"
-            onClick={cancelQueued}>
+            onClick={(event) => {
+              event.preventDefault();
+              cancelQueued();
+            }}>
             <XIcon className="size-4" />
             <span className="sr-only">Cancel queued message</span>
           </Button>

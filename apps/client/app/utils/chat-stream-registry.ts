@@ -1,6 +1,7 @@
 import type { ThreadId } from '@/store';
 
 let active: { threadId: ThreadId; controller: AbortController } | null = null;
+const discardedSignals = new WeakSet<AbortSignal>();
 
 export const registerActiveStream = (threadId: ThreadId, controller: AbortController) => {
   active = { threadId, controller };
@@ -15,6 +16,12 @@ export const abortThreadStream = (threadId: ThreadId) => {
 };
 
 export const abortAllStreams = () => {
-  active?.controller.abort();
+  if (active) {
+    discardedSignals.add(active.controller.signal);
+    active.controller.abort();
+  }
   active = null;
 };
+
+export const isDiscardedStream = (signal?: AbortSignal) =>
+  Boolean(signal && discardedSignals.has(signal));

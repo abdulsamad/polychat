@@ -3,18 +3,27 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 
 import {
   activeChatJobAtom,
+  dequeueNextChatJobAtom,
   queuedChatJobsAtom,
+  resetChatQueueAtom,
   threadChatErrorsAtom,
   threadAtom,
   upsertThreadMessageAtom,
   type ChatJob,
 } from '@/store';
-import { abortAllStreams, clearActiveStream, registerActiveStream } from '@/utils/chat-stream-registry';
+import {
+  abortAllStreams,
+  clearActiveStream,
+  isDiscardedStream,
+  registerActiveStream,
+} from '@/utils/chat-stream-registry';
 import useHandleChatResponse from '@/hooks/useHandleChatResponse';
 
 const ChatQueueProvider = () => {
   const [activeJob, setActiveJob] = useAtom(activeChatJobAtom);
-  const [queuedJobs, setQueuedJobs] = useAtom(queuedChatJobsAtom);
+  const queuedJobs = useAtomValue(queuedChatJobsAtom);
+  const dequeueNextChatJob = useSetAtom(dequeueNextChatJobAtom);
+  const resetChatQueue = useSetAtom(resetChatQueueAtom);
   const setErrors = useSetAtom(threadChatErrorsAtom);
   const selectedThread = useAtomValue(threadAtom);
   const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
@@ -30,11 +39,8 @@ const ChatQueueProvider = () => {
 
   useEffect(() => {
     if (activeJob || !queuedJobs.length) return;
-
-    const [nextJob, ...remainingJobs] = queuedJobs;
-    setQueuedJobs(remainingJobs);
-    setActiveJob(nextJob);
-  }, [activeJob, queuedJobs, setActiveJob, setQueuedJobs]);
+    dequeueNextChatJob();
+  }, [activeJob, dequeueNextChatJob, queuedJobs.length]);
 
   useEffect(() => {
     if (!activeJob) return;
@@ -60,8 +66,12 @@ const ChatQueueProvider = () => {
       },
     });
 
-    void handleChatResponseRef.current({ job, signal: controller.signal })
+    void handleChatResponseRef
+      .current({ job, signal: controller.signal })
       .then((result) => {
+        if (isDiscardedStream(controller.signal)) return;
+        if (result.status === 'discarded') return;
+
         if (result.status === 'failed') {
           if (selectedThreadIdRef.current !== job.threadId) {
             setErrors((current) => ({ ...current, [job.threadId]: result.error }));
@@ -110,10 +120,9 @@ const ChatQueueProvider = () => {
   useEffect(
     () => () => {
       abortAllStreams();
-      setActiveJob(null);
-      setQueuedJobs([]);
+      resetChatQueue();
     },
-    [setActiveJob, setQueuedJobs]
+    [resetChatQueue]
   );
 
   return null;

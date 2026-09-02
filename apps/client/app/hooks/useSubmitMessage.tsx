@@ -1,18 +1,17 @@
 import { useCallback } from 'react';
 import { getTime } from 'date-fns';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
 import {
-  activeChatJobAtom,
+  cancelQueuedChatJobAtom,
   configAtom,
+  enqueueChatJobAtom,
   messagesAtom,
-  queuedChatJobsAtom,
-  removeThreadMessageAtom,
   threadAtom,
   threadLoadingAtom,
   threadQueuedJobAtom,
-  upsertThreadMessageAtom,
 } from '@/store';
 import { abortThreadStream } from '@/utils/chat-stream-registry';
 
@@ -22,60 +21,38 @@ const useSubmitMessage = () => {
   const config = useAtomValue(configAtom);
   const isChatLoading = useAtomValue(threadLoadingAtom);
   const queuedJob = useAtomValue(threadQueuedJobAtom);
-  const activeJob = useAtomValue(activeChatJobAtom);
-  const [, setQueuedJobs] = useAtom(queuedChatJobsAtom);
-  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
-  const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
+  const enqueueChatJob = useSetAtom(enqueueChatJobAtom);
+  const cancelQueuedChatJob = useSetAtom(cancelQueuedChatJobAtom);
+  const { user } = useUser();
 
   const submitMessage = useCallback(
     (rawPrompt: string) => {
       const prompt = rawPrompt.trim();
 
-      if (!thread) {
+      if (!thread || !user?.id) {
         toast.error('This chat is not ready yet.');
         return false;
       }
 
-      if (!prompt || isChatLoading || queuedJob) return false;
+      if (!prompt) return false;
 
       const id = crypto.randomUUID();
       const assistantMessageId = crypto.randomUUID();
       const createdAt = getTime(new Date());
-      upsertThreadMessage({
+      return enqueueChatJob({
+        id,
+        accountId: user.id,
         threadId: thread.id,
-        message: {
-          id,
-          role: 'user',
-          content: prompt,
-          metadata: {
-            model: thread.settings.model,
-            profile: null,
-            timestamp: createdAt,
-            requestId: id,
-            requestState: activeJob ? 'queued' : 'streaming',
-          },
-          type: 'text',
-        },
+        prompt,
+        userMessageId: id,
+        assistantMessageId,
+        thread,
+        messages,
+        config,
+        createdAt,
       });
-
-      setQueuedJobs((current) => [
-        ...current,
-        {
-          id,
-          threadId: thread.id,
-          prompt,
-          userMessageId: id,
-          assistantMessageId,
-          thread,
-          messages,
-          config,
-          createdAt,
-        },
-      ]);
-
-      return true;
     },
-    [activeJob, config, isChatLoading, messages, queuedJob, setQueuedJobs, thread, upsertThreadMessage]
+    [config, enqueueChatJob, messages, thread, user?.id]
   );
 
   const stopChat = useCallback(() => {
@@ -83,14 +60,17 @@ const useSubmitMessage = () => {
   }, [thread]);
 
   const cancelQueuedMessage = useCallback(() => {
-    if (!queuedJob || !thread) return null;
+    if (!thread) return null;
+    return cancelQueuedChatJob(thread.id);
+  }, [cancelQueuedChatJob, thread]);
 
-    setQueuedJobs((current) => current.filter((job) => job.id !== queuedJob.id));
-    removeThreadMessage({ threadId: thread.id, id: queuedJob.userMessageId });
-    return queuedJob.prompt;
-  }, [queuedJob, removeThreadMessage, setQueuedJobs, thread]);
-
-  return { isChatLoading, isQueued: Boolean(queuedJob), submitMessage, stopChat, cancelQueuedMessage };
+  return {
+    isChatLoading,
+    isQueued: Boolean(queuedJob),
+    submitMessage,
+    stopChat,
+    cancelQueuedMessage,
+  };
 };
 
 export default useSubmitMessage;

@@ -35,7 +35,7 @@ const MessageContent = ({
   content,
   image_url: image,
   role,
-  metadata: { model, usage, finishReason, cancelled },
+  metadata: { model, usage, finishReason, cancelled, requestState },
 }: MessageProps) => {
   const shouldReduceMotion = useReducedMotion();
   const showDetailedUsage = useAtomValue(threadAtom)?.settings.showDetailedUsage ?? false;
@@ -160,6 +160,16 @@ const MessageContent = ({
               {!isUser && cancelled && (
                 <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   Cancelled
+                </span>
+              )}
+              {isUser && requestState === 'failed' && (
+                <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
+                  Response failed
+                </span>
+              )}
+              {isUser && requestState === 'interrupted' && (
+                <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Interrupted
                 </span>
               )}
             </div>

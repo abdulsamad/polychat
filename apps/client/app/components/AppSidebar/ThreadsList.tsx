@@ -10,13 +10,16 @@ import {
   IThreads,
   clearThreadChatErrorAtom,
   enqueuePersistence,
+  removeThreadMessagesAtom,
   replaceMessagesAtom,
   threadAtom,
   threadChatErrorsAtom,
   threadChatStateAtom,
   threadsRefreshAtom,
+  workspaceReadyAtom,
 } from '@/store';
 import {
+  getActiveWorkspaceAccount,
   getMessages,
   getThreads,
   setMessages,
@@ -55,33 +58,43 @@ const ThreadsList = () => {
   const threadsRefresh = useAtomValue(threadsRefreshAtom);
   const threadChatState = useAtomValue(threadChatStateAtom);
   const threadChatErrors = useAtomValue(threadChatErrorsAtom);
+  const workspaceReady = useAtomValue(workspaceReadyAtom);
   const clearThreadChatError = useSetAtom(clearThreadChatErrorAtom);
+  const removeThreadMessages = useSetAtom(removeThreadMessagesAtom);
   const navigate = useNavigate();
 
   const { open, setOpenMobile } = useSidebar();
 
   const fetchThreads = useCallback(() => {
+    const accountId = getActiveWorkspaceAccount();
     startTransition(async () => {
       const newThreads = await getThreads();
-      setThreads(newThreads || []);
+      if (getActiveWorkspaceAccount() === accountId) {
+        setThreads(newThreads || []);
+      }
     });
   }, []);
 
   useEffect(() => {
+    if (!workspaceReady) {
+      setThreads([]);
+      return;
+    }
+
     fetchThreads();
-  }, [thread, threadsRefresh]);
+  }, [fetchThreads, thread, threadsRefresh, workspaceReady]);
 
   useEffect(() => {
     // Refetch threads when sidebar opens
-    if (open) {
+    if (open && workspaceReady) {
       fetchThreads();
     }
-  }, [open, fetchThreads]);
+  }, [open, fetchThreads, workspaceReady]);
 
   const deleteChats = useCallback(
     async (threadId: string) => {
-      if (Object.keys(threadChatState).length) {
-        toast.info('Stop or cancel queued work before deleting chats.');
+      if (threadChatState[threadId]) {
+        toast.info('Stop or cancel this chat before deleting it.');
         return;
       }
 
@@ -95,6 +108,9 @@ const ThreadsList = () => {
 
         return { remainingMessages, nextThreads };
       });
+
+      removeThreadMessages(threadId);
+      clearThreadChatError(threadId);
 
       if (params.threadId === threadId) {
         const nextThread = nextThreads[0];
@@ -114,7 +130,17 @@ const ThreadsList = () => {
 
       fetchThreads();
     },
-    [fetchThreads, navigate, params.threadId, replaceMessages, setOpenMobile, setThread, threadChatState]
+    [
+      clearThreadChatError,
+      fetchThreads,
+      navigate,
+      params.threadId,
+      removeThreadMessages,
+      replaceMessages,
+      setOpenMobile,
+      setThread,
+      threadChatState,
+    ]
   );
 
   const renameThread = useCallback(async () => {

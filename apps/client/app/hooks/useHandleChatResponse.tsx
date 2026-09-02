@@ -18,6 +18,7 @@ import {
   userSettingsScrollTargetAtom,
 } from '@/store';
 import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
+import { isDiscardedStream } from '@/utils/chat-stream-registry';
 import { markStartedToastAsSeen } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import useSpeechSynthesis from './useSpeechSynthesis';
@@ -115,6 +116,8 @@ const useHandleChatResponse = () => {
     let isSharedApiRequest = true;
 
     try {
+      if (user?.id !== job.accountId) return { status: 'discarded' as const };
+
       const provider = providerForModel(thread.settings.model);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
       isSharedApiRequest = !apiKey;
@@ -125,6 +128,7 @@ const useHandleChatResponse = () => {
         isSharedApiRequest = false;
         throw new Error(`Unlock your ${provider} BYOK vault key before chatting.`);
       }
+      if (signal?.aborted) return { status: 'cancelled' as const };
 
       if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
         const imageResponse = await getGeneratedImage({
@@ -141,6 +145,7 @@ const useHandleChatResponse = () => {
         if (!('b64_json' in imageResponse)) {
           throw Object.assign(new Error(imageResponse.err), { status: imageResponse.status });
         }
+        if (signal?.aborted) return { status: 'cancelled' as const };
 
         const { b64_json } = imageResponse;
 
@@ -208,6 +213,8 @@ const useHandleChatResponse = () => {
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
+          if (isDiscardedStream(signal)) return;
+
           upsertThreadMessage({
             threadId: thread.id,
             message: {
@@ -238,6 +245,8 @@ const useHandleChatResponse = () => {
 
         const updateMessage = () => {
           updateTimeoutId = null;
+          if (isDiscardedStream(signal)) return;
+
           startTransition(() => {
             upsertThreadMessage({
               threadId: thread.id,
@@ -268,6 +277,15 @@ const useHandleChatResponse = () => {
         try {
           while (true) {
             const { value, done } = await reader.read();
+
+            if (signal?.aborted) {
+              if (updateTimeoutId !== null) {
+                clearTimeout(updateTimeoutId);
+                updateTimeoutId = null;
+              }
+              if (content || responseMetadata) saveAssistantMessage('stop', true);
+              return { status: 'cancelled' as const };
+            }
 
             // Stream is completed
             if (done) {
@@ -300,11 +318,20 @@ const useHandleChatResponse = () => {
             }
           }
         } catch (error) {
-          if (!signal?.aborted) throw error;
-
           if (updateTimeoutId !== null) {
             clearTimeout(updateTimeoutId);
             updateTimeoutId = null;
+          }
+
+          try {
+            await reader.cancel();
+          } catch {
+            // The request may already have closed the reader while aborting.
+          }
+
+          if (!signal?.aborted) {
+            if (content || responseMetadata) saveAssistantMessage('error');
+            throw error;
           }
 
           // Keep the generated portion visible after Stop. If the provider

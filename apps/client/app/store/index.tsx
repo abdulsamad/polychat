@@ -91,6 +91,14 @@ export const clearThreadMessagesAtom = atom(null, (_get, set) => {
   set(threadMessagesAtom, {});
 });
 
+export const removeThreadMessagesAtom = atom(null, (get, set, threadId: ThreadId) => {
+  const current = get(threadMessagesAtom);
+  if (!(threadId in current)) return;
+
+  const { [threadId]: _removed, ...remaining } = current;
+  set(threadMessagesAtom, remaining);
+});
+
 /** Append a new message, or replace an existing message while it streams. */
 export const upsertMessageAtom = atom(null, (get, set, message: IMessage) => {
   const thread = get(threadAtom);
@@ -246,6 +254,7 @@ export const threadAtom = atom<IThread<enabledModelsType> | null>(null);
 
 export interface ChatJob {
   id: IMessage['id'];
+  accountId: string;
   threadId: ThreadId;
   prompt: string;
   userMessageId: IMessage['id'];
@@ -260,6 +269,89 @@ export const activeChatJobAtom = atom<ChatJob | null>(null);
 export const queuedChatJobsAtom = atom<ChatJob[]>([]);
 export const threadChatErrorsAtom = atom<Record<ThreadId, string>>({});
 
+export const enqueueChatJobAtom = atom(null, (get, set, job: ChatJob) => {
+  const activeJob = get(activeChatJobAtom);
+  const queuedJobs = get(queuedChatJobsAtom);
+
+  if (
+    activeJob?.threadId === job.threadId ||
+    queuedJobs.some((queuedJob) => queuedJob.threadId === job.threadId)
+  ) {
+    return false;
+  }
+
+  set(upsertThreadMessageAtom, {
+    threadId: job.threadId,
+    message: {
+      id: job.userMessageId,
+      role: 'user',
+      content: job.prompt,
+      metadata: {
+        model: job.thread.settings.model,
+        profile: null,
+        timestamp: job.createdAt,
+        requestId: job.id,
+        requestState: activeJob || queuedJobs.length ? 'queued' : 'streaming',
+      },
+      type: 'text',
+    },
+  });
+  set(queuedChatJobsAtom, [...queuedJobs, job]);
+  return true;
+});
+
+export const cancelQueuedChatJobAtom = atom(null, (get, set, threadId: ThreadId) => {
+  const queuedJobs = get(queuedChatJobsAtom);
+  const job = queuedJobs.find((queuedJob) => queuedJob.threadId === threadId);
+  if (!job) return null;
+
+  set(
+    queuedChatJobsAtom,
+    queuedJobs.filter((queuedJob) => queuedJob.id !== job.id)
+  );
+  set(removeThreadMessageAtom, { threadId, id: job.userMessageId });
+  return job.prompt;
+});
+
+export const dequeueNextChatJobAtom = atom(null, (get, set) => {
+  if (get(activeChatJobAtom)) return;
+
+  const [nextJob, ...remainingJobs] = get(queuedChatJobsAtom);
+  if (!nextJob) return;
+
+  set(queuedChatJobsAtom, remainingJobs);
+  set(activeChatJobAtom, nextJob);
+});
+
+export const resetChatQueueAtom = atom(null, (get, set) => {
+  const currentMessages = get(threadMessagesAtom);
+  let didInterruptMessage = false;
+  const interruptedMessages = Object.fromEntries(
+    Object.entries(currentMessages).map(([threadId, messages]) => [
+      threadId,
+      messages.map((message) => {
+        if (
+          message.metadata.requestState !== 'queued' &&
+          message.metadata.requestState !== 'streaming'
+        ) {
+          return message;
+        }
+
+        didInterruptMessage = true;
+        return {
+          ...message,
+          metadata: { ...message.metadata, requestState: 'interrupted' as const },
+        };
+      }),
+    ])
+  );
+
+  if (didInterruptMessage) set(threadMessagesAtom, interruptedMessages);
+  set(activeChatJobAtom, null);
+  set(queuedChatJobsAtom, []);
+  set(threadChatErrorsAtom, {});
+});
+
 export const threadChatStateAtom = atom((get) => {
   const active = get(activeChatJobAtom);
   const queued = get(queuedChatJobsAtom);
@@ -267,7 +359,9 @@ export const threadChatStateAtom = atom((get) => {
 
   if (active) result[active.threadId] = { state: 'streaming' };
   queued.forEach((job, index) => {
-    result[job.threadId] = { state: 'queued', position: index + 1 };
+    if (!result[job.threadId]) {
+      result[job.threadId] = { state: 'queued', position: index + 1 };
+    }
   });
 
   return result;
