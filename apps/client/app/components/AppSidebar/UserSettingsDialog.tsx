@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   KeyRoundIcon,
@@ -28,6 +28,7 @@ import {
   updateThreadSettingsAtom,
   waitForPersistence,
   refreshThreadsAtom,
+  userSettingsScrollTargetAtom,
   type IThreadSettings,
 } from '@/store';
 import { clearLocalData, deleteAllChats, getUserSettings, setUserSettings } from '@/utils/lforage';
@@ -98,6 +99,7 @@ type DangerAction = 'delete-chats' | 'reset-data';
 
 const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => {
   const [config, setConfig] = useAtom(configAtom);
+  const [scrollTarget, setScrollTarget] = useAtom(userSettingsScrollTargetAtom);
   const { theme, setTheme } = useTheme();
   const { user } = useUser();
   const [threadSettings, setThreadSettings] = useState<IThreadSettings<enabledModelsType>>(
@@ -120,6 +122,20 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const replaceMessages = useSetAtom(replaceMessagesAtom);
   const refreshThreads = useSetAtom(refreshThreadsAtom);
   const updateActiveThreadSettings = useSetAtom(updateThreadSettingsAtom);
+  const customInstructionsRef = useRef<HTMLElement>(null);
+  const byokRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!open || !scrollTarget) return;
+
+    const frame = requestAnimationFrame(() => {
+      const target = scrollTarget === 'custom-instructions' ? customInstructionsRef : byokRef;
+      target.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setScrollTarget(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [open, scrollTarget, setScrollTarget]);
 
   const refreshVault = async () => {
     if (!user?.id) return;
@@ -338,7 +354,9 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           </Select>
         </section>
 
-        <section className="rounded-xl border border-primary/20 bg-primary/[0.035] p-4">
+        <section
+          ref={customInstructionsRef}
+          className="rounded-xl border border-primary/20 bg-primary/[0.035] p-4">
           <div className="mb-4 flex items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <SlidersHorizontalIcon className="size-4" />
@@ -388,7 +406,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           </div>
         </section>
 
-        <section className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
+        <section ref={byokRef} className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
           <div className="mb-4 flex items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300">
               <KeyRoundIcon className="size-4" />

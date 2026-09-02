@@ -4,7 +4,12 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { profiles } from 'utils';
 
 import useSubmitMessage from '@/hooks/useSubmitMessage';
-import { threadAtom, threadSettingsOpenAtom, userSettingsOpenAtom } from '@/store';
+import {
+  threadAtom,
+  threadSettingsOpenAtom,
+  userSettingsOpenAtom,
+  userSettingsScrollTargetAtom,
+} from '@/store';
 import { Button } from '@/components/ui/button';
 
 interface IEmpty {
@@ -31,10 +36,10 @@ const emptyTips = [
     target: 'thread',
   },
   {
-    before: 'Add custom instructions or your own provider key in ',
+    before: 'Add your own provider key in ',
     link: 'Settings',
     after: '.',
-    target: 'user',
+    target: 'byok',
   },
 ] as const;
 
@@ -43,6 +48,7 @@ const Empty = ({ name }: IEmpty) => {
   const profile = thread?.settings.profile;
   const setThreadSettingsOpen = useSetAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
+  const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
 
   const { isChatLoading, submitMessage } = useSubmitMessage();
 
@@ -54,7 +60,7 @@ const Empty = ({ name }: IEmpty) => {
     () => profiles.find(({ code }) => code === profile)?.description,
     [profile]
   );
-  const [tip, setTip] = useState(emptyTips[0]);
+  const [tip, setTip] = useState<(typeof emptyTips)[number]>(emptyTips[0]);
 
   useEffect(() => {
     const nextTip = emptyTips[Math.floor(Math.random() * emptyTips.length)];
@@ -103,11 +109,15 @@ const Empty = ({ name }: IEmpty) => {
             type="button"
             variant="link"
             className="h-auto p-0 text-inherit underline underline-offset-2"
-            onClick={() =>
-              tip.target === 'thread'
-                ? setThreadSettingsOpen(true)
-                : setUserSettingsOpen(true)
-            }>
+            onClick={() => {
+              if (tip.target === 'thread') {
+                setThreadSettingsOpen(true);
+                return;
+              }
+
+              setUserSettingsScrollTarget('byok');
+              setUserSettingsOpen(true);
+            }}>
             {tip.link}
           </Button>
           {tip.after}

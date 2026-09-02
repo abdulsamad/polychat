@@ -5,21 +5,28 @@ import { chatRequestSchema, getAssistantConfig } from 'utils';
 
 import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
+import { readJsonBody } from '../utils/request';
+
+const MAX_CHAT_REQUEST_BYTES = 384 * 1024;
 
 const chat = async (c: Context<AppContext>) => {
   const startTime = Date.now();
   const user = c.get('user');
   const controller = new AbortController();
   const { signal } = controller;
+  if (c.req.raw.signal.aborted) controller.abort();
+  c.req.raw.signal.addEventListener('abort', () => controller.abort(), { once: true });
 
   try {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ success: false, err: 'Invalid chat request.' }, 400);
+    const requestBody = await readJsonBody(c.req.raw, MAX_CHAT_REQUEST_BYTES);
+    if (!requestBody.success) {
+      return c.json(
+        { success: false, err: requestBody.status === 413 ? 'Chat request is too large.' : 'Invalid chat request.' },
+        requestBody.status
+      );
     }
-    const parsed = chatRequestSchema.safeParse(body);
+
+    const parsed = chatRequestSchema.safeParse(requestBody.body);
     if (!parsed.success) return c.json({ success: false, err: 'Invalid chat request.' }, 400);
     const {
       prompt,
@@ -157,6 +164,9 @@ const chat = async (c: Context<AppContext>) => {
         } catch (error) {
           closeWithError(error);
         }
+      },
+      cancel() {
+        controller.abort();
       },
     });
 

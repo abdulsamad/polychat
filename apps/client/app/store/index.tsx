@@ -1,6 +1,5 @@
 import { atom } from 'jotai';
 import { atomEffect } from 'jotai-effect';
-import { atomWithStorage } from 'jotai/utils';
 import { getTime, format } from 'date-fns';
 
 import type {
@@ -13,12 +12,12 @@ import type {
 import { defaultModel } from 'utils';
 
 import {
-  settingsKey,
   threadsKey,
   lforage,
   getThreads,
   messagesKey,
   getMessages,
+  setConfig,
 } from '@/utils/lforage';
 
 // Editor
@@ -31,6 +30,9 @@ export const threadLoadingAtom = atom(false);
 export const speechPlaybackAtom = atom(false);
 export const userSettingsOpenAtom = atom(false);
 export const threadSettingsOpenAtom = atom(false);
+export type UserSettingsScrollTarget = 'custom-instructions' | 'byok';
+export const userSettingsScrollTargetAtom = atom<UserSettingsScrollTarget | null>(null);
+export const workspaceReadyAtom = atom(false);
 
 export interface IMessageCommons {
   id: ReturnType<typeof crypto.randomUUID>;
@@ -223,7 +225,8 @@ export const waitForPersistence = () => persistenceQueue;
 
 export const threadSaveEffect = atomEffect((get, set) => {
   const thread = get(threadAtom);
-  if (!thread) return;
+  const workspaceReady = get(workspaceReadyAtom);
+  if (!thread || !workspaceReady) return;
 
   void enqueuePersistence(async () => {
     const threads = (await getThreads()) || [];
@@ -242,7 +245,8 @@ export const threadSaveEffect = atomEffect((get, set) => {
 export const messageSaveEffect = atomEffect((get, set) => {
   const thread = get(threadAtom);
   const messages = get(messagesAtom);
-  if (!thread) return;
+  const workspaceReady = get(workspaceReadyAtom);
+  if (!thread || !workspaceReady) return;
 
   void enqueuePersistence(async () => {
     const allMessages = (await getMessages()) || {};
@@ -296,4 +300,14 @@ export const defaultConfig: IConfig = {
   customInstructions: '',
 };
 
-export const configAtom = atomWithStorage<IConfig>(settingsKey, defaultConfig);
+export const configAtom = atom<IConfig>(defaultConfig);
+
+export const configSaveEffect = atomEffect((get) => {
+  const config = get(configAtom);
+  const workspaceReady = get(workspaceReadyAtom);
+  if (!workspaceReady) return;
+
+  void enqueuePersistence(() => setConfig(config)).catch((err) =>
+    console.error('Failed to save config', err)
+  );
+});

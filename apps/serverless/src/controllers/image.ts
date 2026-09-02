@@ -4,19 +4,24 @@ import { generateImage, APICallError } from 'ai';
 import { imageRequestSchema } from 'utils';
 import { openAiClient } from '@models/index';
 import { AppContext } from '@/index';
+import { readJsonBody } from '../utils/request';
+
+const MAX_IMAGE_REQUEST_BYTES = 32 * 1024;
 
 const image = async (c: Context<AppContext>) => {
   const startTime = Date.now();
   const user = c.get('user');
 
   try {
-    let body: unknown;
-    try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ success: false, err: 'Invalid image request.' }, 400);
+    const requestBody = await readJsonBody(c.req.raw, MAX_IMAGE_REQUEST_BYTES);
+    if (!requestBody.success) {
+      return c.json(
+        { success: false, err: requestBody.status === 413 ? 'Image request is too large.' : 'Invalid image request.' },
+        requestBody.status
+      );
     }
-    const parsed = imageRequestSchema.safeParse(body);
+
+    const parsed = imageRequestSchema.safeParse(requestBody.body);
     if (!parsed.success) return c.json({ success: false, err: 'Invalid image request.' }, 400);
     const { model, prompt, n, quality, style, size = '1024x1024' } = parsed.data;
 

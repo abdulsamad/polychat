@@ -16,6 +16,7 @@ import {
   updateThreadSettingsAtom,
   threadSettingsOpenAtom,
   userSettingsOpenAtom,
+  userSettingsScrollTargetAtom,
 } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ const SettingsDropdown = () => {
   const updateThreadSettings = useSetAtom(updateThreadSettingsAtom);
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
+  const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
 
   const { imageSize, style, quality } = config;
   const customInstructions = config.customInstructions || '';
@@ -241,7 +243,10 @@ const SettingsDropdown = () => {
                         type="button"
                         variant="link"
                         className="h-auto p-0 text-xs font-medium"
-                        onClick={() => setUserSettingsOpen(true)}>
+                        onClick={() => {
+                          setUserSettingsScrollTarget('custom-instructions');
+                          setUserSettingsOpen(true);
+                        }}>
                         Settings
                       </Button>
                       .

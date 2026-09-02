@@ -1,22 +1,27 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useAtom, useSetAtom } from 'jotai';
-import { useAuth, RedirectToSignIn } from '@clerk/react-router';
+import { useAuth, useUser, RedirectToSignIn } from '@clerk/react-router';
 import { useNavigate } from 'react-router';
 
 import {
   getDefaultThread,
   getDefaultThreadName,
+  configAtom,
+  configSaveEffect,
+  defaultConfig,
   replaceMessagesAtom,
   messageSaveEffect,
   threadAtom,
   threadSaveEffect,
+  workspaceReadyAtom,
 } from '@/store';
 import {
+  getConfig,
   getMessages,
   getThreads,
   getUserSettings,
-  lforage,
-  threadsKey,
+  setActiveWorkspaceAccount,
+  setThreads,
 } from '@/utils/lforage';
 import Input from '@/components/Input';
 import Thread from '@/components/Thread';
@@ -29,82 +34,129 @@ export const meta = ({}: Route.MetaArgs) => [
   { name: 'description', content: 'Welcome to PolyChat!' },
 ];
 
-export const clientLoader = async ({ params: { threadId } }: Route.ClientLoaderArgs) => {
-  try {
-    const threads = (await getThreads()) || [];
-    const messages = (await getMessages()) || {};
-    const userSettings = await getUserSettings();
-
-    if (!threadId) {
-      const latestThread = [...threads].sort(
-        (a, b) => b.metadata.timestamp - a.metadata.timestamp
-      )[0];
-      const shouldReuseLatest =
-        latestThread?.metadata.nameSource === 'default' && !messages[latestThread.id]?.length;
-      const threadData = shouldReuseLatest
-        ? {
-            ...latestThread,
-            metadata: {
-              ...latestThread.metadata,
-              name: getDefaultThreadName(),
-              timestamp: Date.now(),
-            },
-          }
-        : getDefaultThread(userSettings || undefined);
-
-      // The route is changed to /:threadId immediately after this loader returns.
-      // Persist first so that follow-up load can resolve the same thread instead
-      // of treating its URL as invalid and creating another empty one.
-      const existingThreadIndex = threads.findIndex(({ id }) => id === threadData.id);
-      const nextThreads =
-        existingThreadIndex === -1
-          ? [threadData, ...threads]
-          : threads.map((thread, index) => (index === existingThreadIndex ? threadData : thread));
-
-      await lforage.setItem(threadsKey, nextThreads);
-
-      return { threadData, messageData: messages[threadData.id] || [] };
-    }
-
-    const threadData = threads.find(({ id }) => id === threadId) || null;
-    const messageData = messages[threadId] || [];
-
-    return { threadData, messageData };
-  } catch (err) {
-    return { threadData: getDefaultThread(), messageData: [] };
-  }
-};
-
-const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
+const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
+  const setConfig = useSetAtom(configAtom);
+  const setWorkspaceReady = useSetAtom(workspaceReadyAtom);
+  const [isWorkspaceLoaded, setIsWorkspaceLoaded] = useState(false);
 
   const { isSignedIn, isLoaded } = useAuth();
+  const { user } = useUser();
 
   // Subscribe to thread, message side effects to save changes locally
   useAtom(threadSaveEffect, { delay: 1000 });
   useAtom(messageSaveEffect, { delay: 1000 });
+  useAtom(configSaveEffect, { delay: 1000 });
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { threadData } = loaderData;
-
-    if (!threadData) {
-      setThread(getDefaultThread());
+    if (!isLoaded || !isSignedIn || !user?.id) {
+      setWorkspaceReady(false);
+      setActiveWorkspaceAccount(null);
+      setConfig(defaultConfig);
+      setThread(null);
       replaceMessages([]);
-      navigate('/', { replace: true });
+      setIsWorkspaceLoaded(false);
       return;
     }
 
-    setThread(threadData);
-    replaceMessages(loaderData.messageData);
+    let cancelled = false;
 
-    // Give every active thread a canonical URL, including a newly-created thread.
-    if (!threadId) {
-      navigate(`/${threadData.id}`, { replace: true });
-    }
-  }, [loaderData, threadId]);
+    const loadWorkspace = async () => {
+      setWorkspaceReady(false);
+      setThread(null);
+      replaceMessages([]);
+      setConfig(defaultConfig);
+      setIsWorkspaceLoaded(false);
+      setActiveWorkspaceAccount(user.id);
+
+      try {
+        const [threads, messages, userSettings, savedConfig] = await Promise.all([
+          getThreads(),
+          getMessages(),
+          getUserSettings(),
+          getConfig(),
+        ]);
+        if (cancelled) return;
+
+        const storedThreads = threads || [];
+        const storedMessages = messages || {};
+        const threadData = threadId
+          ? storedThreads.find((thread) => thread.id === threadId) || null
+          : (() => {
+              const latestThread = [...storedThreads].sort(
+                (a, b) => b.metadata.timestamp - a.metadata.timestamp
+              )[0];
+              const shouldReuseLatest =
+                latestThread?.metadata.nameSource === 'default' &&
+                !storedMessages[latestThread.id]?.length;
+
+              return shouldReuseLatest
+                ? {
+                    ...latestThread,
+                    metadata: {
+                      ...latestThread.metadata,
+                      name: getDefaultThreadName(),
+                      timestamp: Date.now(),
+                    },
+                  }
+                : getDefaultThread(userSettings || undefined);
+            })();
+
+        if (!threadData) {
+          navigate('/', { replace: true });
+          return;
+        }
+
+        if (!threadId) {
+          const existingThreadIndex = storedThreads.findIndex((thread) => thread.id === threadData.id);
+          const nextThreads =
+            existingThreadIndex === -1
+              ? [threadData, ...storedThreads]
+              : storedThreads.map((thread, index) =>
+                  index === existingThreadIndex ? threadData : thread
+                );
+          await setThreads(nextThreads);
+        }
+
+        if (cancelled) return;
+        setConfig({ ...defaultConfig, ...savedConfig });
+        setThread(threadData);
+        replaceMessages(storedMessages[threadData.id] || []);
+        setWorkspaceReady(true);
+        setIsWorkspaceLoaded(true);
+
+        if (!threadId) navigate(`/${threadData.id}`, { replace: true });
+      } catch {
+        if (cancelled) return;
+
+        const threadData = getDefaultThread();
+        setThread(threadData);
+        replaceMessages([]);
+        setWorkspaceReady(true);
+        setIsWorkspaceLoaded(true);
+        navigate(`/${threadData.id}`, { replace: true });
+      }
+    };
+
+    void loadWorkspace();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isLoaded,
+    isSignedIn,
+    navigate,
+    replaceMessages,
+    setConfig,
+    setThread,
+    setWorkspaceReady,
+    threadId,
+    user?.id,
+  ]);
 
   if (!isLoaded) {
     return <Loading />;
@@ -113,6 +165,8 @@ const Home = ({ params: { threadId }, loaderData }: Route.ComponentProps) => {
   if (!isSignedIn) {
     return <RedirectToSignIn />;
   }
+
+  if (!isWorkspaceLoaded) return <Loading />;
 
   return (
     <Suspense fallback={<Loading />}>

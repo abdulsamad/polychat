@@ -18,6 +18,7 @@ import {
   configAtom,
   IMessage,
   userSettingsOpenAtom,
+  userSettingsScrollTargetAtom,
 } from '@/store';
 import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 import { markStartedToastAsSeen } from '@/utils/lforage';
@@ -102,12 +103,17 @@ const useHandleChatResponse = () => {
   const upsertMessage = useSetAtom(upsertMessageAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
+  const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
   const [isPending, startTransition] = useTransition();
 
   const { getToken } = useAuth();
   const { user } = useUser();
   const [play] = useSound('notification.mp3');
   const { speak } = useSpeechSynthesis();
+  const openByokSettings = () => {
+    setSettingsScrollTarget('byok');
+    setSettingsOpen(true);
+  };
 
   const handleChatResponse = async ({
     prompt,
@@ -170,7 +176,7 @@ const useHandleChatResponse = () => {
           play();
         });
 
-        await showStartedToastOnce(() => setSettingsOpen(true));
+        await showStartedToastOnce(openByokSettings);
 
         if (onImageMessageComplete) onImageMessageComplete();
       } else {
@@ -276,7 +282,7 @@ const useHandleChatResponse = () => {
             if (thread.settings.isTextToSpeechEnabled) {
               speak(content, language);
             }
-            await showStartedToastOnce(() => setSettingsOpen(true));
+            await showStartedToastOnce(openByokSettings);
             break;
           }
 
@@ -300,7 +306,7 @@ const useHandleChatResponse = () => {
         return showResponseErrorToast(
           err.response?.data.err || err.message,
           isSharedApiRequest,
-          () => setSettingsOpen(true),
+          openByokSettings,
           err.response?.status
         );
       }
@@ -309,14 +315,12 @@ const useHandleChatResponse = () => {
         return showResponseErrorToast(
           err.message || 'Something went Wrong!',
           isSharedApiRequest,
-          () => setSettingsOpen(true),
+          openByokSettings,
           'status' in err && typeof err.status === 'number' ? err.status : undefined
         );
       }
 
-      showResponseErrorToast('Something went Wrong!', isSharedApiRequest, () =>
-        setSettingsOpen(true)
-      );
+      showResponseErrorToast('Something went Wrong!', isSharedApiRequest, openByokSettings);
     }
   };
 

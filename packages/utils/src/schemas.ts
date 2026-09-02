@@ -15,6 +15,8 @@ const messageSchema = z.object({
   content: z.string().max(32_000),
 });
 
+const MAX_CHAT_CONTENT_CHARS = 64_000;
+
 export const chatRequestSchema = z
   .object({
     prompt: z.string().max(32_000).optional(),
@@ -27,6 +29,12 @@ export const chatRequestSchema = z
   .refine(({ prompt, messages }) => Boolean(prompt?.trim() || messages?.length), {
     message: 'Prompt or messages not found',
   })
+  .refine(
+    ({ prompt, messages }) =>
+      (prompt?.length || 0) + (messages?.reduce((total, message) => total + message.content.length, 0) || 0) <=
+      MAX_CHAT_CONTENT_CHARS,
+    { message: 'Chat content is too large.' }
+  )
   .refine(
     ({ profile, customInstructions }) =>
       profile !== 'custom' || Boolean(customInstructions?.trim()),
