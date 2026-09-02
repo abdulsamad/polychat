@@ -12,10 +12,9 @@ import {
 import { useClerk, useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
-import { messagesAtom, userSettingsOpenAtom } from '@/store';
+import { messagesAtom, threadLoadingAtom, userSettingsOpenAtom } from '@/store';
 import { getName } from '@/utils';
 import { setActiveAccount } from '@/utils/byok-vault';
-import { abortAllStreams } from '@/utils/chat-stream-registry';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -43,6 +42,7 @@ import UserSettingsDialog from './UserSettingsDialog';
 
 const AppSidebar = () => {
   const message = useAtomValue(messagesAtom);
+  const isChatLoading = useAtomValue(threadLoadingAtom);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useAtom(userSettingsOpenAtom);
 
   const navigate = useNavigate();
@@ -52,6 +52,11 @@ const AppSidebar = () => {
   const { setOpenMobile, isMobile } = useSidebar();
 
   const addNewChat = useCallback(() => {
+    if (isChatLoading) {
+      toast.info('Stop generating before starting a new chat.');
+      return;
+    }
+
     setOpenMobile(false);
 
     if (message.length === 0) {
@@ -63,7 +68,7 @@ const AppSidebar = () => {
     }
 
     navigate('/');
-  }, [navigate, setOpenMobile, message]);
+  }, [isChatLoading, navigate, setOpenMobile, message]);
 
   return (
     <aside>
@@ -148,7 +153,6 @@ const AppSidebar = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => {
-                      abortAllStreams();
                       setActiveAccount(null);
                       void signOut({ redirectUrl: window.location.origin });
                     }}>

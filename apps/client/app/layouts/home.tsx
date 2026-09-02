@@ -4,7 +4,6 @@ import { RedirectToSignIn, useAuth } from '@clerk/react-router';
 import Nav from '@/components/Nav';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from '@/components/AppSidebar';
-import ChatQueueProvider from '@/components/ChatQueueProvider';
 import Loading from '@/loading';
 
 const Home = () => {
@@ -15,7 +14,6 @@ const Home = () => {
 
   return (
     <SidebarProvider>
-      <ChatQueueProvider />
       <AppSidebar />
       <main className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <Nav />

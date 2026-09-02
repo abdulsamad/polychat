@@ -21,8 +21,6 @@ import { languages, supportedTextModels, profiles } from 'utils';
 
 import {
   configAtom,
-  activeChatJobAtom,
-  clearThreadMessagesAtom,
   defaultConfig,
   getDefaultThread,
   replaceMessagesAtom,
@@ -30,12 +28,10 @@ import {
   updateThreadSettingsAtom,
   waitForPersistence,
   refreshThreadsAtom,
-  queuedChatJobsAtom,
   userSettingsScrollTargetAtom,
   type IThreadSettings,
 } from '@/store';
 import { clearLocalData, deleteAllChats, getUserSettings, setUserSettings } from '@/utils/lforage';
-import { abortAllStreams } from '@/utils/chat-stream-registry';
 import {
   createVault,
   hasVault,
@@ -124,9 +120,6 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const activeThread = useAtomValue(threadAtom);
   const setThread = useSetAtom(threadAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
-  const setActiveChatJob = useSetAtom(activeChatJobAtom);
-  const setQueuedChatJobs = useSetAtom(queuedChatJobsAtom);
-  const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const refreshThreads = useSetAtom(refreshThreadsAtom);
   const updateActiveThreadSettings = useSetAtom(updateThreadSettingsAtom);
   const customInstructionsRef = useRef<HTMLElement>(null);
@@ -240,10 +233,6 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   };
 
   const handleDeleteAllChats = async () => {
-    abortAllStreams();
-    setActiveChatJob(null);
-    setQueuedChatJobs([]);
-    clearThreadMessages();
     await deleteAllChats();
     setThread(getDefaultThread((await getUserSettings()) || undefined));
     replaceMessages([]);
@@ -255,10 +244,6 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   };
 
   const handleResetAllData = async () => {
-    abortAllStreams();
-    setActiveChatJob(null);
-    setQueuedChatJobs([]);
-    clearThreadMessages();
     await clearLocalData();
     if (user?.id) await resetVault(user.id);
     setConfig(defaultConfig);

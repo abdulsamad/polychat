@@ -9,8 +9,6 @@ import {
   configAtom,
   configSaveEffect,
   defaultConfig,
-  clearThreadMessagesAtom,
-  hydrateThreadMessagesAtom,
   replaceMessagesAtom,
   messageSaveEffect,
   threadAtom,
@@ -38,8 +36,6 @@ export const meta = ({}: Route.MetaArgs) => [
 
 const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
-  const hydrateThreadMessages = useSetAtom(hydrateThreadMessagesAtom);
-  const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
   const setConfig = useSetAtom(configAtom);
   const setWorkspaceReady = useSetAtom(workspaceReadyAtom);
@@ -61,7 +57,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
       setActiveWorkspaceAccount(null);
       setConfig(defaultConfig);
       setThread(null);
-      clearThreadMessages();
+      replaceMessages([]);
       setIsWorkspaceLoaded(false);
       return;
     }
@@ -71,7 +67,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     const loadWorkspace = async () => {
       setWorkspaceReady(false);
       setThread(null);
-      clearThreadMessages();
+      replaceMessages([]);
       setConfig(defaultConfig);
       setIsWorkspaceLoaded(false);
       setActiveWorkspaceAccount(user.id);
@@ -86,19 +82,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         if (cancelled) return;
 
         const storedThreads = threads || [];
-        const storedMessages = Object.fromEntries(
-          Object.entries(messages || {}).map(([id, threadMessages]) => [
-            id,
-            threadMessages.map((message) =>
-              message.metadata.requestState === 'queued' || message.metadata.requestState === 'streaming'
-                ? {
-                    ...message,
-                    metadata: { ...message.metadata, requestState: 'interrupted' as const },
-                  }
-                : message
-            ),
-          ])
-        );
+        const storedMessages = messages || {};
         const threadData = threadId
           ? storedThreads.find((thread) => thread.id === threadId) || null
           : (() => {
@@ -139,8 +123,8 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
         if (cancelled) return;
         setConfig({ ...defaultConfig, ...savedConfig });
-        hydrateThreadMessages(storedMessages);
         setThread(threadData);
+        replaceMessages(storedMessages[threadData.id] || []);
         setWorkspaceReady(true);
         setIsWorkspaceLoaded(true);
 
@@ -166,8 +150,6 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     isLoaded,
     isSignedIn,
     navigate,
-    clearThreadMessages,
-    hydrateThreadMessages,
     replaceMessages,
     setConfig,
     setThread,

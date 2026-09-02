@@ -3,29 +3,17 @@ import { getTime } from 'date-fns';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { toast } from 'sonner';
 
-import {
-  activeChatJobAtom,
-  configAtom,
-  messagesAtom,
-  queuedChatJobsAtom,
-  removeThreadMessageAtom,
-  threadAtom,
-  threadLoadingAtom,
-  threadQueuedJobAtom,
-  upsertThreadMessageAtom,
-} from '@/store';
-import { abortThreadStream } from '@/utils/chat-stream-registry';
+import { chatAbortControllerAtom, threadAtom, threadLoadingAtom, upsertMessageAtom } from '@/store';
+
+import useHandleChatResponse from './useHandleChatResponse';
 
 const useSubmitMessage = () => {
   const thread = useAtomValue(threadAtom);
-  const messages = useAtomValue(messagesAtom);
-  const config = useAtomValue(configAtom);
   const isChatLoading = useAtomValue(threadLoadingAtom);
-  const queuedJob = useAtomValue(threadQueuedJobAtom);
-  const activeJob = useAtomValue(activeChatJobAtom);
-  const [, setQueuedJobs] = useAtom(queuedChatJobsAtom);
-  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
-  const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
+  const addChat = useSetAtom(upsertMessageAtom);
+  const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
+  const [abortController, setAbortController] = useAtom(chatAbortControllerAtom);
+  const { handleChatResponse } = useHandleChatResponse();
 
   const submitMessage = useCallback(
     (rawPrompt: string) => {
@@ -36,59 +24,55 @@ const useSubmitMessage = () => {
         return false;
       }
 
-      if (!prompt || isChatLoading || queuedJob) return false;
+      if (!prompt || isChatLoading) return false;
 
-      const id = crypto.randomUUID();
-      const createdAt = getTime(new Date());
-      upsertThreadMessage({
-        threadId: thread.id,
-        message: {
-          id,
-          role: 'user',
-          content: prompt,
-          metadata: {
-            model: thread.settings.model,
-            profile: null,
-            timestamp: createdAt,
-            requestId: id,
-            requestState: activeJob ? 'queued' : 'streaming',
-          },
-          type: 'text',
+      addChat({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: prompt,
+        metadata: {
+          model: thread.settings.model,
+          profile: null,
+          timestamp: getTime(new Date()),
         },
+        type: 'text',
       });
 
-      setQueuedJobs((current) => [
-        ...current,
-        {
-          id,
-          threadId: thread.id,
-          prompt,
-          userMessageId: id,
-          thread,
-          messages,
-          config,
-          createdAt,
-        },
-      ]);
+      const controller = new AbortController();
+      setAbortController(controller);
+      setIsChatResponseLoading(true);
+
+      void handleChatResponse({ prompt, signal: controller.signal })
+        .catch((error) => {
+          if (!controller.signal.aborted) {
+            console.error(error);
+            toast.error('The message could not be sent.');
+          }
+        })
+        .finally(() => {
+          setAbortController((currentController) =>
+            currentController === controller ? null : currentController
+          );
+          setIsChatResponseLoading(false);
+        });
 
       return true;
     },
-    [activeJob, config, isChatLoading, messages, queuedJob, setQueuedJobs, thread, upsertThreadMessage]
+    [
+      addChat,
+      handleChatResponse,
+      isChatLoading,
+      setAbortController,
+      setIsChatResponseLoading,
+      thread,
+    ]
   );
 
   const stopChat = useCallback(() => {
-    if (thread) abortThreadStream(thread.id);
-  }, [thread]);
+    abortController?.abort();
+  }, [abortController]);
 
-  const cancelQueuedMessage = useCallback(() => {
-    if (!queuedJob || !thread) return null;
-
-    setQueuedJobs((current) => current.filter((job) => job.id !== queuedJob.id));
-    removeThreadMessage({ threadId: thread.id, id: queuedJob.userMessageId });
-    return queuedJob.prompt;
-  }, [queuedJob, removeThreadMessage, setQueuedJobs, thread]);
-
-  return { isChatLoading, isQueued: Boolean(queuedJob), submitMessage, stopChat, cancelQueuedMessage };
+  return { isChatLoading, submitMessage, stopChat };
 };
 
 export default useSubmitMessage;
