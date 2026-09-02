@@ -3,12 +3,14 @@ import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 import type { Route } from '@/react-router/types/root';
 import {
   IThreads,
   replaceMessagesAtom,
   threadAtom,
+  threadLoadingAtom,
   threadsRefreshAtom,
 } from '@/store';
 import {
@@ -49,6 +51,7 @@ const ThreadsList = () => {
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
   const threadsRefresh = useAtomValue(threadsRefreshAtom);
+  const isChatLoading = useAtomValue(threadLoadingAtom);
   const navigate = useNavigate();
 
   const { open, setOpenMobile } = useSidebar();
@@ -194,7 +197,15 @@ const ThreadsList = () => {
                               <NavLink
                                 to={`/${id}`}
                                 onClick={(ev) => {
-                                  if (isSelected) ev.preventDefault();
+                                  if (isSelected) {
+                                    ev.preventDefault();
+                                    return;
+                                  }
+
+                                  if (isChatLoading) {
+                                    ev.preventDefault();
+                                    toast.info('Stop generating before switching chats.');
+                                  }
                                 }}
                                 preventScrollReset
                                 className={({ isActive, isPending, isTransitioning }) =>
@@ -236,7 +247,15 @@ const ThreadsList = () => {
                                 }}>
                                 <PencilIcon className="size-3.5" />
                               </Button>
-                              <DeleteAlert onDelete={() => deleteChats(id)}>
+                              <DeleteAlert
+                                onDelete={() => {
+                                  if (isChatLoading) {
+                                    toast.info('Stop generating before switching chats.');
+                                    return;
+                                  }
+
+                                  void deleteChats(id);
+                                }}>
                                 <Button
                                   aria-label={`Delete ${name || 'thread'}`}
                                   className="invisible size-7 translate-x-2 opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100 sm:group-focus-within/sidebar-item:visible sm:group-focus-within/sidebar-item:translate-x-0 sm:group-focus-within/sidebar-item:opacity-100"
@@ -261,7 +280,14 @@ const ThreadsList = () => {
                         </ContextMenuItem>
                         <ContextMenuItem
                           variant="destructive"
-                          onSelect={() => setThreadToDelete(id)}>
+                          onSelect={() => {
+                            if (isChatLoading) {
+                              toast.info('Stop generating before switching chats.');
+                              return;
+                            }
+
+                            setThreadToDelete(id);
+                          }}>
                           <TrashIcon />
                           Delete
                         </ContextMenuItem>
@@ -276,7 +302,7 @@ const ThreadsList = () => {
               if (!open) setThreadToDelete(null);
             }}
             onDelete={() => {
-              if (threadToDelete) void deleteChats(threadToDelete);
+              if (threadToDelete && !isChatLoading) void deleteChats(threadToDelete);
               setThreadToDelete(null);
             }}
           />
