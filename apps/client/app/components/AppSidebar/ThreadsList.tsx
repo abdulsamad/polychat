@@ -18,7 +18,7 @@ import {
   getThreads,
   lforage,
   messagesKey,
-  threadsKey,
+  setThreads as setStoredThreads,
 } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,7 +82,7 @@ const ThreadsList = () => {
       const storedThreads = (await getThreads()) || [];
       const nextThreads = storedThreads.filter(({ id }) => id !== threadId);
 
-      await lforage.setItem(threadsKey, nextThreads);
+      await setStoredThreads(nextThreads);
 
       if (params.threadId === threadId) {
         const nextThread = nextThreads[0];
@@ -116,7 +116,7 @@ const ThreadsList = () => {
         ? { ...item, metadata: { ...item.metadata, name, nameSource: 'custom' as const } }
         : item
     );
-    await lforage.setItem(threadsKey, nextThreads);
+    await setStoredThreads(nextThreads);
     if (thread?.id === threadToRename) {
       setThread({
         ...thread,
@@ -157,9 +157,7 @@ const ThreadsList = () => {
                   return (
                     <ContextMenu key={id}>
                       <ContextMenuTrigger asChild>
-                        <SidebarMenuItem
-                          className="group/sidebar-item flex w-full cursor-default rounded-none px-4 hover:bg-transparent"
-                          onClick={() => setOpenMobile(false)}>
+                        <SidebarMenuItem className="group/sidebar-item flex w-full cursor-default rounded-none px-4 hover:bg-transparent">
                           {threadToRename === id ? (
                             <div className="flex min-w-0 flex-1 items-center gap-1">
                               <Input
@@ -205,7 +203,10 @@ const ThreadsList = () => {
                                   if (isChatLoading) {
                                     ev.preventDefault();
                                     toast.info('Stop generating before switching chats.');
+                                    return;
                                   }
+
+                                  setOpenMobile(false);
                                 }}
                                 preventScrollReset
                                 className={({ isActive, isPending, isTransitioning }) =>
