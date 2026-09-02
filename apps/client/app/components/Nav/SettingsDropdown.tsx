@@ -288,7 +288,7 @@ const SettingsDropdown = () => {
                       Context
                     </label>
                     <span className="text-xs text-muted-foreground">
-                      Send previous messages to the assistant for context and preserve context
+                      Send previous messages to the assistant and preserve context
                     </span>
                   </div>
                   <Checkbox
