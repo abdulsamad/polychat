@@ -213,9 +213,12 @@ const ThreadsList = () => {
                 return (
                   <ContextMenu key={id}>
                     <ContextMenuTrigger asChild>
-                      <SidebarMenuItem className="group/sidebar-item flex w-full cursor-default rounded-none px-4 hover:bg-transparent">
+                      <SidebarMenuItem
+                        className={`flex w-full cursor-default rounded-none hover:bg-transparent ${
+                          threadToRename === id ? 'px-2' : 'px-4'
+                        }`}>
                         {threadToRename === id ? (
-                          <div className="flex min-w-0 flex-1 items-center gap-1">
+                          <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_1.75rem_1.75rem] items-center gap-1">
                             <Input
                               ref={renameInputRef}
                               autoFocus
@@ -238,7 +241,7 @@ const ThreadsList = () => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="size-8 shrink-0"
+                              className="size-7"
                               aria-label="Save thread name"
                               onClick={() => void renameThread()}>
                               <CheckIcon className="size-4" />
@@ -246,7 +249,7 @@ const ThreadsList = () => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="size-8 shrink-0"
+                              className="size-7"
                               aria-label="Cancel rename"
                               onClick={() => setThreadToRename(null)}>
                               <XIcon className="size-4" />
@@ -307,35 +310,6 @@ const ThreadsList = () => {
                               </span>
                             </NavLink>
                           </SidebarMenuButton>
-                        )}
-                        {threadToRename !== id && (
-                          <div className="flex shrink-0 items-center gap-0.5">
-                            <Button
-                              aria-label={`Rename ${name || 'thread'}`}
-                              className="invisible size-7 translate-x-2 text-muted-foreground opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100 sm:group-focus-within/sidebar-item:visible sm:group-focus-within/sidebar-item:translate-x-0 sm:group-focus-within/sidebar-item:opacity-100"
-                              variant="ghost"
-                              size="icon"
-                              onClick={(ev) => {
-                                ev.stopPropagation();
-                                setRenameValue(name || '');
-                                setThreadToRename(id);
-                              }}>
-                              <PencilIcon className="size-3.5" />
-                            </Button>
-                            <DeleteAlert
-                              onDelete={() => {
-                                void deleteChats(id);
-                              }}>
-                              <Button
-                                aria-label={`Delete ${name || 'thread'}`}
-                                className="invisible size-7 translate-x-2 opacity-0 sm:transition-all sm:duration-200 sm:group-hover/sidebar-item:visible sm:group-hover/sidebar-item:translate-x-0 sm:group-hover/sidebar-item:opacity-100 sm:group-focus-within/sidebar-item:visible sm:group-focus-within/sidebar-item:translate-x-0 sm:group-focus-within/sidebar-item:opacity-100"
-                                variant="destructive"
-                                size="icon"
-                                onClick={(ev) => ev.stopPropagation()}>
-                                <TrashIcon className="size-3.5" />
-                              </Button>
-                            </DeleteAlert>
-                          </div>
                         )}
                       </SidebarMenuItem>
                     </ContextMenuTrigger>
