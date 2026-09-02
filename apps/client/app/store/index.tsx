@@ -6,14 +6,7 @@ import type { profilesType, supportedLanguagesType, enabledModelsType, ImageSize
 
 import { defaultModel } from 'utils';
 
-import {
-  threadsKey,
-  lforage,
-  getThreads,
-  messagesKey,
-  getMessages,
-  setConfig,
-} from '@/utils/lforage';
+import { getThreads, getMessages, setConfig, setMessages, setThreads } from '@/utils/lforage';
 
 // Editor
 
@@ -211,11 +204,16 @@ export type IThreads = IThread<enabledModelsType>[];
 
 // Serialize writes so a fast stream update cannot overwrite a newer snapshot
 // with the result of an older async read.
-let persistenceQueue = Promise.resolve();
+let persistenceQueue: Promise<void> = Promise.resolve();
 
-const enqueuePersistence = (write: () => Promise<void>) => {
-  persistenceQueue = persistenceQueue.then(write, write);
-  return persistenceQueue;
+export const enqueuePersistence = <T,>(write: () => Promise<T>) => {
+  let result!: T;
+  const run = async () => {
+    result = await write();
+  };
+
+  persistenceQueue = persistenceQueue.then(run, run);
+  return persistenceQueue.then(() => result);
 };
 
 export const waitForPersistence = () => persistenceQueue;
@@ -235,7 +233,7 @@ export const threadSaveEffect = atomEffect((get, set) => {
       threads.unshift(thread);
     }
 
-    await lforage.setItem(threadsKey, threads);
+    await setThreads(threads);
   }).catch((err) => console.error('Failed to save thread', err));
 });
 
@@ -247,7 +245,7 @@ export const messageSaveEffect = atomEffect((get, set) => {
 
   void enqueuePersistence(async () => {
     const allMessages = (await getMessages()) || {};
-    await lforage.setItem(messagesKey, { ...allMessages, [thread.id]: messages });
+    await setMessages({ ...allMessages, [thread.id]: messages });
   }).catch((err) => console.error('Failed to save messages', err));
 });
 

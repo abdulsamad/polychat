@@ -93,6 +93,11 @@ export const getMessages = async (): Promise<Record<string, IMessage[]> | null> 
   return messages;
 };
 
+export const setMessages = async (messages: Record<string, IMessage[]>) => {
+  const key = scopedKey(messagesKey);
+  if (key) await lforage.setItem(key, messages);
+};
+
 export const markStartedToastAsSeen = async () => {
   const key = scopedKey(startedToastKey);
   if (!key) return false;

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import type { Route } from '@/react-router/types/root';
 import {
   IThreads,
+  enqueuePersistence,
   replaceMessagesAtom,
   threadAtom,
   threadLoadingAtom,
@@ -16,8 +17,7 @@ import {
 import {
   getMessages,
   getThreads,
-  lforage,
-  messagesKey,
+  setMessages,
   setThreads as setStoredThreads,
 } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
@@ -76,13 +76,16 @@ const ThreadsList = () => {
 
   const deleteChats = useCallback(
     async (threadId: string) => {
-      const messages = (await getMessages()) || {};
-      const { [threadId]: removedThread, ...remainingMessages } = messages;
-      await lforage.setItem(messagesKey, remainingMessages);
-      const storedThreads = (await getThreads()) || [];
-      const nextThreads = storedThreads.filter(({ id }) => id !== threadId);
+      const { remainingMessages, nextThreads } = await enqueuePersistence(async () => {
+        const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
+        const remainingMessages = { ...(messages || {}) };
+        delete remainingMessages[threadId];
+        const nextThreads = (storedThreads || []).filter(({ id }) => id !== threadId);
 
-      await setStoredThreads(nextThreads);
+        await Promise.all([setMessages(remainingMessages), setStoredThreads(nextThreads)]);
+
+        return { remainingMessages, nextThreads };
+      });
 
       if (params.threadId === threadId) {
         const nextThread = nextThreads[0];
@@ -107,17 +110,21 @@ const ThreadsList = () => {
 
   const renameThread = useCallback(async () => {
     if (!threadToRename) return;
+    const threadId = threadToRename;
     const name = renameValue.trim();
     if (!name || name.length > 80) return;
 
-    const storedThreads = (await getThreads()) || [];
-    const nextThreads = storedThreads.map((item) =>
-      item.id === threadToRename
-        ? { ...item, metadata: { ...item.metadata, name, nameSource: 'custom' as const } }
-        : item
-    );
-    await setStoredThreads(nextThreads);
-    if (thread?.id === threadToRename) {
+    await enqueuePersistence(async () => {
+      const storedThreads = (await getThreads()) || [];
+      const nextThreads = storedThreads.map((item) =>
+        item.id === threadId
+          ? { ...item, metadata: { ...item.metadata, name, nameSource: 'custom' as const } }
+          : item
+      );
+      await setStoredThreads(nextThreads);
+    });
+
+    if (thread?.id === threadId) {
       setThread({
         ...thread,
         metadata: { ...thread.metadata, name, nameSource: 'custom' },
@@ -167,10 +174,15 @@ const ThreadsList = () => {
                                 aria-label="Thread name"
                                 onChange={(event) => setRenameValue(event.target.value)}
                                 onKeyDown={(event) => {
-                                  if (event.key === 'Enter') void renameThread();
-                                  if (event.key === 'Escape') setThreadToRename(null);
+                                  if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    void renameThread();
+                                  }
+                                  if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    setThreadToRename(null);
+                                  }
                                 }}
-                                onBlur={() => void renameThread()}
                                 className="h-8 min-w-0 bg-background px-2"
                               />
                               <Button
