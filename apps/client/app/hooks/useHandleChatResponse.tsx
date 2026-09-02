@@ -35,8 +35,8 @@ const showResponseErrorToast = (
     return;
   }
 
-  toast.error('API request failed', {
-    description: `[Testing only] ${message} Use your own key. It is encrypted locally and sent directly to the provider - never PolyChat.`,
+  toast.error('The shared server is for testing only', {
+    description: `[Testing only] ${message} This server is not intended for general use. Use Bring Your Own Key (BYOK) in Settings to connect your own provider and continue with your own key.`,
     action: { label: 'Open settings', onClick: openSettings },
     duration: 12000,
   });
@@ -45,8 +45,8 @@ const showResponseErrorToast = (
 const showStartedToastOnce = async (openSettings: () => void) => {
   try {
     if (await markStartedToastAsSeen()) {
-      toast.info('Use your own API key', {
-        description: 'Open Settings from the sidebar to add a provider key for this browser.',
+      toast.info('Did you know you can use your own key?', {
+        description: 'Try Bring Your Own Key (BYOK) in Settings. Your provider key is encrypted locally and used directly from this browser.',
         action: { label: 'Open settings', onClick: openSettings },
         duration: 10000,
       });
