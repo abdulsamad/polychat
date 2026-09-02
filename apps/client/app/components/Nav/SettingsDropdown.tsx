@@ -10,7 +10,12 @@ import {
   supportedTextModels,
 } from 'utils';
 
-import { configAtom, threadAtom, updateThreadSettingsAtom } from '@/store';
+import {
+  configAtom,
+  threadAtom,
+  updateThreadSettingsAtom,
+  userSettingsOpenAtom,
+} from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,6 +40,7 @@ const SettingsDropdown = () => {
   const [config, setConfig] = useAtom(configAtom);
   const thread = useAtomValue(threadAtom);
   const updateThreadSettings = useSetAtom(updateThreadSettingsAtom);
+  const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
 
   const { imageSize, style, quality } = config;
   const customInstructions = config.customInstructions || '';
@@ -224,6 +230,19 @@ const SettingsDropdown = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {variation === 'custom' ? (
+                    <p className="px-1 text-xs text-muted-foreground">
+                      Custom instructions are managed in{' '}
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto p-0 text-xs font-medium"
+                        onClick={() => setUserSettingsOpen(true)}>
+                        Settings
+                      </Button>
+                      .
+                    </p>
+                  ) : null}
                 </div>
               </li>
               <li>
