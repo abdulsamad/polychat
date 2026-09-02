@@ -68,6 +68,7 @@ const AppSidebar = () => {
 
   return (
     <aside>
+      <UserSettingsDialog open={isUserSettingsOpen} onOpenChange={setIsUserSettingsOpen} />
       <Sidebar>
         <SidebarHeader>
           <SidebarMenu>
@@ -156,7 +157,6 @@ const AppSidebar = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <UserSettingsDialog open={isUserSettingsOpen} onOpenChange={setIsUserSettingsOpen} />
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
