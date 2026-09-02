@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAtomValue } from 'jotai';
 
 import { profiles } from 'utils';
@@ -10,6 +10,13 @@ import { Button } from '@/components/ui/button';
 interface IEmpty {
   name: string;
 }
+
+const emptyTips = [
+  'Open thread settings to switch models or profiles.',
+  'Enable context to keep earlier messages in view.',
+  'Turn on text-to-speech from thread settings.',
+  'Add custom instructions or your own provider key in Settings.',
+];
 
 const Empty = ({ name }: IEmpty) => {
   const thread = useAtomValue(threadAtom);
@@ -25,6 +32,12 @@ const Empty = ({ name }: IEmpty) => {
     () => profiles.find(({ code }) => code === profile)?.description,
     [profile]
   );
+  const [tip, setTip] = useState(emptyTips[0]);
+
+  useEffect(() => {
+    const nextTip = emptyTips[Math.floor(Math.random() * emptyTips.length)];
+    setTip(nextTip);
+  }, []);
 
   return (
     <div className="flex min-h-full items-center justify-center px-1 py-8 sm:px-4">
@@ -39,9 +52,6 @@ const Empty = ({ name }: IEmpty) => {
             </span>
             Hi <span className="capitalize">{name || 'there'}, </span>
           </h1>
-          <h2 className="mx-auto max-w-lg py-5 text-sm leading-6 text-muted-foreground [text-wrap:pretty] sm:text-base">
-            {`Type in the input box in the bottom and start chatting. You can also change settings from the hamburger menu in the top left corner.`}
-          </h2>
         </div>
         {description && hints?.length && (
           <>
@@ -65,6 +75,9 @@ const Empty = ({ name }: IEmpty) => {
             </div>
           </>
         )}
+        <p className="mx-auto mt-10 max-w-2xl border-t border-border/60 px-4 pt-4 text-xs leading-5 text-muted-foreground/80 sm:text-sm">
+          Tip: {tip}
+        </p>
       </div>
     </div>
   );
