@@ -23,6 +23,14 @@ const getErrorMessage = (data: unknown, fallback: string) => {
   return fallback;
 };
 
+const getResponseErrorMessage = async (res: Response, fallback: string) => {
+  try {
+    return getErrorMessage(await res.json(), fallback);
+  } catch {
+    return fallback;
+  }
+};
+
 interface IMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -121,18 +129,25 @@ export const getGeneratedText = async ({
   });
 
   if (!res.ok || !res.body) {
+    const fallback =
+      res.status === 429
+        ? 'API rate limit exceeded. Please try again later.'
+        : res.status === 401
+          ? 'Unauthorized. Please check your authentication.'
+          : res.status === 400
+            ? 'Invalid request parameters.'
+            : 'Something went wrong.';
+    const serverError = await getResponseErrorMessage(res, fallback);
+
     switch (res.status) {
       case 429:
-        return { success: false, err: 'Rate limit exceeded. Please try again later.' };
+        return { success: false, err: serverError };
       case 401:
-        return { success: false, err: 'Unauthorized. Please check your authentication.' };
+        return { success: false, err: serverError };
       case 400:
-        return {
-          success: false,
-          err: getErrorMessage(await res.json(), 'Invalid request parameters.'),
-        };
+        return { success: false, err: serverError };
       default:
-        return { success: false, err: getErrorMessage(await res.json(), 'Something went wrong.') };
+        return { success: false, err: serverError };
     }
   }
 
@@ -208,15 +223,23 @@ export const getGeneratedImage = async ({
   });
 
   if (res.status < 200 || res.status >= 300 || !res.data) {
+    const fallback =
+      res.status === 429
+        ? 'API rate limit exceeded. Please try again later.'
+        : res.status === 401
+          ? 'Unauthorized. Please check your authentication.'
+          : res.status === 400
+            ? 'Invalid request parameters.'
+            : 'Something went wrong.';
+    const serverError = getErrorMessage(res.data, fallback);
+
     switch (res.status) {
       case 429:
-        return { success: false, err: 'API rate limit exceeded. Please try again later.' };
+        return { success: false, err: serverError };
       case 401:
-        return { success: false, err: 'Unauthorized. Please check your authentication.' };
-      case 400:
-        return { success: false, err: getErrorMessage(res.data, 'Invalid request parameters.') };
+        return { success: false, err: serverError };
       default:
-        return { success: false, err: getErrorMessage(res.data, 'Something went wrong.') };
+        return { success: false, err: serverError };
     }
   }
 

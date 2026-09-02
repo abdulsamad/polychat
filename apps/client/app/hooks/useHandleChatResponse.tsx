@@ -25,6 +25,23 @@ import useSpeechSynthesis from './useSpeechSynthesis';
 
 const STREAM_UPDATE_INTERVAL_MS = 120;
 
+const showResponseErrorToast = (
+  message: string,
+  isSharedApiRequest: boolean,
+  openSettings: () => void
+) => {
+  if (!isSharedApiRequest) {
+    toast.error(message);
+    return;
+  }
+
+  toast.error('API request failed', {
+    description: `[Testing only] ${message} Use your own key. It is encrypted locally and sent directly to the provider - never PolyChat.`,
+    action: { label: 'Open settings', onClick: openSettings },
+    duration: 12000,
+  });
+};
+
 const showStartedToastOnce = async (openSettings: () => void) => {
   try {
     if (await markStartedToastAsSeen()) {
@@ -66,11 +83,18 @@ const useHandleChatResponse = () => {
     onTextMessageComplete,
     onImageMessageComplete,
   }: handleChatResponseProps) => {
+    let isSharedApiRequest = true;
+
     try {
       if (!thread) throw new Error('Thread not created');
       const provider = providerForModel(thread.settings.model);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
-      if (user?.id && (await isProviderConfigured(user.id, provider)) && !apiKey) {
+      isSharedApiRequest = !apiKey;
+      const hasConfiguredProvider = user?.id
+        ? await isProviderConfigured(user.id, provider)
+        : false;
+      if (hasConfiguredProvider && !apiKey) {
+        isSharedApiRequest = false;
         throw new Error(`Unlock your ${provider} BYOK vault key before chatting.`);
       }
 
@@ -242,14 +266,24 @@ const useHandleChatResponse = () => {
       console.error(err);
 
       if (axios.isAxiosError(err)) {
-        return toast.error(err.response?.data.err || err.message);
+        return showResponseErrorToast(
+          err.response?.data.err || err.message,
+          isSharedApiRequest,
+          () => setSettingsOpen(true)
+        );
       }
 
       if (err instanceof Error) {
-        return toast.error(err.message || 'Something went Wrong!');
+        return showResponseErrorToast(
+          err.message || 'Something went Wrong!',
+          isSharedApiRequest,
+          () => setSettingsOpen(true)
+        );
       }
 
-      toast.error('Something went Wrong!');
+      showResponseErrorToast('Something went Wrong!', isSharedApiRequest, () =>
+        setSettingsOpen(true)
+      );
     }
   };
 
