@@ -288,7 +288,7 @@ const SettingsDropdown = () => {
                       Context
                     </label>
                     <span className="text-xs text-muted-foreground">
-                      Keep earlier messages in view
+                      Send previous messages to the assistant for context and preserve context
                     </span>
                   </div>
                   <Checkbox
@@ -401,7 +401,7 @@ const SettingsDropdown = () => {
                       Detailed usage
                     </label>
                     <span className="text-xs text-muted-foreground">
-                      Show token counts in messages and the thread
+                      Show detailed token counts in messages and the thread
                     </span>
                   </div>
                   <Checkbox
