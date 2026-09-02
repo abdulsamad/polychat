@@ -1,17 +1,19 @@
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { CheckIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
+import { AlertCircleIcon, CheckIcon, Clock3Icon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 import type { Route } from '@/react-router/types/root';
 import {
   IThreads,
+  clearThreadChatErrorAtom,
   enqueuePersistence,
   replaceMessagesAtom,
   threadAtom,
-  threadLoadingAtom,
+  threadChatErrorsAtom,
+  threadChatStateAtom,
   threadsRefreshAtom,
 } from '@/store';
 import {
@@ -51,7 +53,9 @@ const ThreadsList = () => {
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
   const threadsRefresh = useAtomValue(threadsRefreshAtom);
-  const isChatLoading = useAtomValue(threadLoadingAtom);
+  const threadChatState = useAtomValue(threadChatStateAtom);
+  const threadChatErrors = useAtomValue(threadChatErrorsAtom);
+  const clearThreadChatError = useSetAtom(clearThreadChatErrorAtom);
   const navigate = useNavigate();
 
   const { open, setOpenMobile } = useSidebar();
@@ -76,6 +80,11 @@ const ThreadsList = () => {
 
   const deleteChats = useCallback(
     async (threadId: string) => {
+      if (Object.keys(threadChatState).length) {
+        toast.info('Stop or cancel queued work before deleting chats.');
+        return;
+      }
+
       const { remainingMessages, nextThreads } = await enqueuePersistence(async () => {
         const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
         const remainingMessages = { ...(messages || {}) };
@@ -105,7 +114,7 @@ const ThreadsList = () => {
 
       fetchThreads();
     },
-    [fetchThreads, navigate, params.threadId, replaceMessages, setOpenMobile, setThread]
+    [fetchThreads, navigate, params.threadId, replaceMessages, setOpenMobile, setThread, threadChatState]
   );
 
   const renameThread = useCallback(async () => {
@@ -160,6 +169,8 @@ const ThreadsList = () => {
                 ))
               : threads.map(({ id, metadata: { name, timestamp } }) => {
                   const isSelected = id === params.threadId;
+                  const activity = threadChatState[id];
+                  const error = threadChatErrors[id];
 
                   return (
                     <ContextMenu key={id}>
@@ -212,12 +223,7 @@ const ThreadsList = () => {
                                     return;
                                   }
 
-                                  if (isChatLoading) {
-                                    ev.preventDefault();
-                                    toast.info('Stop generating before switching chats.');
-                                    return;
-                                  }
-
+                                  clearThreadChatError(id);
                                   setOpenMobile(false);
                                 }}
                                 preventScrollReset
@@ -238,11 +244,28 @@ const ThreadsList = () => {
                                     className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-sidebar-primary"
                                   />
                                 )}
-                                <p
-                                  className="min-w-0 flex-1 truncate text-left"
-                                  title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
-                                  {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
-                                </p>
+                                <span className="flex min-w-0 flex-1 items-center gap-2">
+                                  {activity?.state === 'streaming' && (
+                                    <span
+                                      aria-label="Generating response"
+                                      className="size-1.5 shrink-0 rounded-full bg-sidebar-primary motion-safe:animate-pulse"
+                                    />
+                                  )}
+                                  {activity?.state === 'queued' && (
+                                    <Clock3Icon
+                                      aria-label={`Queued, position ${activity.position}`}
+                                      className="size-3.5 shrink-0 text-sidebar-primary"
+                                    />
+                                  )}
+                                  {!activity && error && (
+                                    <AlertCircleIcon aria-label="Response failed" className="size-3.5 shrink-0 text-destructive" />
+                                  )}
+                                  <p
+                                    className="min-w-0 flex-1 truncate text-left"
+                                    title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
+                                    {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
+                                  </p>
+                                </span>
                               </NavLink>
                             </SidebarMenuButton>
                           )}
@@ -262,11 +285,6 @@ const ThreadsList = () => {
                               </Button>
                               <DeleteAlert
                                 onDelete={() => {
-                                  if (isChatLoading) {
-                                    toast.info('Stop generating before switching chats.');
-                                    return;
-                                  }
-
                                   void deleteChats(id);
                                 }}>
                                 <Button
@@ -294,11 +312,6 @@ const ThreadsList = () => {
                         <ContextMenuItem
                           variant="destructive"
                           onSelect={() => {
-                            if (isChatLoading) {
-                              toast.info('Stop generating before switching chats.');
-                              return;
-                            }
-
                             setThreadToDelete(id);
                           }}>
                           <TrashIcon />
@@ -315,7 +328,7 @@ const ThreadsList = () => {
               if (!open) setThreadToDelete(null);
             }}
             onDelete={() => {
-              if (threadToDelete && !isChatLoading) void deleteChats(threadToDelete);
+              if (threadToDelete) void deleteChats(threadToDelete);
               setThreadToDelete(null);
             }}
           />
