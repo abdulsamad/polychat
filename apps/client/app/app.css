@@ -109,6 +109,15 @@
     @apply bg-background text-foreground;
     min-inline-size: 0;
     overflow-x: clip;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   ::selection {
