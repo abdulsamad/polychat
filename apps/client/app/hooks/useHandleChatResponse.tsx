@@ -25,7 +25,7 @@ import { markStartedToastAsSeen } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
-const STREAM_UPDATE_INTERVAL_MS = 120;
+const STREAM_UPDATE_INTERVAL_MS = 80;
 
 const showResponseErrorToast = (
   message: string,
@@ -186,13 +186,13 @@ const useHandleChatResponse = () => {
         const stream = await getGeneratedText({
           ...(thread.settings.conversationContextMode === 'multi-turn'
             ? {
-                messages: [
-                  ...messages
-                    .filter(({ type }) => type === 'text')
-                    .map(({ role, content }) => ({ role, content })),
-                  { role: 'user', content: prompt },
-                ] as Array<Pick<IMessage, 'role' | 'content'>>,
-              }
+              messages: [
+                ...messages
+                  .filter(({ type }) => type === 'text')
+                  .map(({ role, content }) => ({ role, content })),
+                { role: 'user', content: prompt },
+              ] as Array<Pick<IMessage, 'role' | 'content'>>,
+            }
             : { prompt }),
           model: thread.settings.model,
           profile: thread.settings.profile,
@@ -227,12 +227,12 @@ const useHandleChatResponse = () => {
               timestamp,
               ...(responseMetadata
                 ? {
-                    usage: responseMetadata.metadata.usage,
-                    finishReason: responseMetadata.metadata.finishReason,
-                    responseId: responseMetadata.metadata.responseId,
-                    responseModelId: responseMetadata.metadata.modelId,
-                    responseTimestamp: responseMetadata.metadata.timestamp,
-                  }
+                  usage: responseMetadata.metadata.usage,
+                  finishReason: responseMetadata.metadata.finishReason,
+                  responseId: responseMetadata.metadata.responseId,
+                  responseModelId: responseMetadata.metadata.modelId,
+                  responseTimestamp: responseMetadata.metadata.timestamp,
+                }
                 : {}),
               ...(finishReason ? { finishReason } : {}),
               ...(cancelled ? { cancelled: true } : {}),
