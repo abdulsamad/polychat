@@ -19,7 +19,7 @@ const extensions = [
 
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
-  const { isChatLoading, submitMessage, stopChat } = useSubmitMessage();
+  const { isChatLoading, isQueued, submitMessage, stopChat, cancelQueuedMessage } = useSubmitMessage();
 
   const editor = useEditor({
     extensions,
@@ -74,6 +74,15 @@ const useCustomEditor = () => {
     return true;
   }, [editor, setEditorState, submitMessage]);
 
+  const cancelQueued = useCallback(() => {
+    const prompt = cancelQueuedMessage();
+    if (!prompt || !editor) return;
+    const content = `<p>${prompt}</p>`;
+    editor.commands.setContent(content, false);
+    setEditorState(content);
+    editor.commands.focus('end');
+  }, [cancelQueuedMessage, editor, setEditorState]);
+
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
@@ -84,7 +93,7 @@ const useCustomEditor = () => {
     editor.commands.focus('end');
   }, [editor, editorState]);
 
-  return { editor, handleSubmit, isChatLoading, stopChat };
+  return { editor, handleSubmit, isChatLoading, isQueued, stopChat, cancelQueued };
 };
 
 export default useCustomEditor;

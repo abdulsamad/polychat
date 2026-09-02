@@ -14,7 +14,6 @@ export const editorAtom = atom('');
 
 // Chats
 
-export const threadLoadingAtom = atom(false);
 export const speechPlaybackAtom = atom(false);
 export const userSettingsOpenAtom = atom(false);
 export const threadSettingsOpenAtom = atom(false);
@@ -36,6 +35,8 @@ export interface IMessageCommons {
     responseId?: string;
     responseModelId?: string;
     responseTimestamp?: string;
+    requestId?: string;
+    requestState?: 'queued' | 'streaming' | 'failed' | 'interrupted';
   };
 }
 
@@ -58,27 +59,71 @@ export interface IImageMessage {
 
 export type IMessage = IMessageCommons & (ITextMessage | IImageMessage);
 
-/** The active thread's messages. Mutations go through the action atoms below. */
-export const messagesAtom = atom<IMessage[]>([]);
+export type ThreadId = string;
+
+/** All loaded thread messages. Streams always update this map by thread id. */
+export const threadMessagesAtom = atom<Record<ThreadId, IMessage[]>>({});
+
+/** The selected thread's message view, retained for existing consumers. */
+export const messagesAtom = atom((get) => {
+  const thread = get(threadAtom);
+  return thread ? get(threadMessagesAtom)[thread.id] || [] : [];
+});
 
 /** Replace messages when the active route/thread changes. */
-export const replaceMessagesAtom = atom(null, (_get, set, messages: IMessage[]) => {
-  set(messagesAtom, messages);
+export const replaceMessagesAtom = atom(null, (get, set, messages: IMessage[]) => {
+  const thread = get(threadAtom);
+  if (!thread) return;
+  set(threadMessagesAtom, { ...get(threadMessagesAtom), [thread.id]: messages });
+});
+
+/** Hydrate storage without replacing newer in-memory stream updates. */
+export const hydrateThreadMessagesAtom = atom(
+  null,
+  (get, set, storedMessages: Record<ThreadId, IMessage[]>) => {
+    const current = get(threadMessagesAtom);
+    const next = { ...storedMessages, ...current };
+    set(threadMessagesAtom, next);
+  }
+);
+
+export const clearThreadMessagesAtom = atom(null, (_get, set) => {
+  set(threadMessagesAtom, {});
 });
 
 /** Append a new message, or replace an existing message while it streams. */
 export const upsertMessageAtom = atom(null, (get, set, message: IMessage) => {
-  const messages = get(messagesAtom);
-  const index = messages.findIndex(({ id }) => id === message.id);
+  const thread = get(threadAtom);
+  if (!thread) return;
+  set(upsertThreadMessageAtom, { threadId: thread.id, message });
+});
+
+export const upsertThreadMessageAtom = atom(
+  null,
+  (get, set, update: { threadId: ThreadId; message: IMessage }) => {
+  const messages = get(threadMessagesAtom)[update.threadId] || [];
+  const index = messages.findIndex(({ id }) => id === update.message.id);
 
   if (index === -1) {
-    set(messagesAtom, [...messages, message]);
+      set(threadMessagesAtom, {
+        ...get(threadMessagesAtom),
+        [update.threadId]: [...messages, update.message],
+      });
     return;
   }
 
   const nextMessages = messages.slice();
-  nextMessages[index] = message;
-  set(messagesAtom, nextMessages);
+    nextMessages[index] = update.message;
+    set(threadMessagesAtom, { ...get(threadMessagesAtom), [update.threadId]: nextMessages });
+  }
+);
+
+export const removeThreadMessageAtom = atom(null, (get, set, update: { threadId: ThreadId; id: string }) => {
+  const messages = get(threadMessagesAtom)[update.threadId] || [];
+  set(threadMessagesAtom, {
+    ...get(threadMessagesAtom),
+    [update.threadId]: messages.filter((message) => message.id !== update.id),
+  });
 });
 
 // Base Configuration for all models
@@ -179,7 +224,50 @@ export const getDefaultThread = (
 };
 
 export const threadAtom = atom<IThread<enabledModelsType> | null>(null);
-export const chatAbortControllerAtom = atom<AbortController | null>(null);
+
+export interface ChatJob {
+  id: IMessage['id'];
+  threadId: ThreadId;
+  prompt: string;
+  userMessageId: IMessage['id'];
+  thread: IThread<enabledModelsType>;
+  messages: IMessage[];
+  config: IConfig;
+  createdAt: number;
+}
+
+export const activeChatJobAtom = atom<ChatJob | null>(null);
+export const queuedChatJobsAtom = atom<ChatJob[]>([]);
+export const threadChatErrorsAtom = atom<Record<ThreadId, string>>({});
+
+export const threadChatStateAtom = atom((get) => {
+  const active = get(activeChatJobAtom);
+  const queued = get(queuedChatJobsAtom);
+  const result: Record<ThreadId, { state: 'streaming' | 'queued'; position?: number }> = {};
+
+  if (active) result[active.threadId] = { state: 'streaming' };
+  queued.forEach((job, index) => {
+    result[job.threadId] = { state: 'queued', position: index + 1 };
+  });
+
+  return result;
+});
+
+export const threadLoadingAtom = atom((get) => {
+  const thread = get(threadAtom);
+  return Boolean(thread && get(activeChatJobAtom)?.threadId === thread.id);
+});
+
+export const threadQueuedJobAtom = atom((get) => {
+  const thread = get(threadAtom);
+  return thread ? get(queuedChatJobsAtom).find((job) => job.threadId === thread.id) || null : null;
+});
+
+export const clearThreadChatErrorAtom = atom(null, (get, set, threadId: ThreadId) => {
+  const { [threadId]: _cleared, ...remaining } = get(threadChatErrorsAtom);
+  set(threadChatErrorsAtom, remaining);
+});
+
 export const threadsRefreshAtom = atom(0);
 export const refreshThreadsAtom = atom(null, (_get, set) => {
   set(threadsRefreshAtom, (value) => value + 1);
@@ -238,14 +326,12 @@ export const threadSaveEffect = atomEffect((get, set) => {
 });
 
 export const messageSaveEffect = atomEffect((get, set) => {
-  const thread = get(threadAtom);
-  const messages = get(messagesAtom);
+  const messagesByThread = get(threadMessagesAtom);
   const workspaceReady = get(workspaceReadyAtom);
-  if (!thread || !workspaceReady) return;
+  if (!workspaceReady) return;
 
   void enqueuePersistence(async () => {
-    const allMessages = (await getMessages()) || {};
-    await setMessages({ ...allMessages, [thread.id]: messages });
+    await setMessages(messagesByThread);
   }).catch((err) => console.error('Failed to save messages', err));
 });
 

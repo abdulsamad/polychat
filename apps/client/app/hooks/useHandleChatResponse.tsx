@@ -11,12 +11,9 @@ import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfigured } from '@/utils/byok-vault';
 
 import {
-  threadAtom,
-  messagesAtom,
-  upsertMessageAtom,
-  threadLoadingAtom,
-  configAtom,
-  IMessage,
+  type ChatJob,
+  type IMessage,
+  upsertThreadMessageAtom,
   userSettingsOpenAtom,
   userSettingsScrollTargetAtom,
 } from '@/store';
@@ -89,20 +86,12 @@ const showStartedToastOnce = async (openSettings: () => void) => {
 };
 
 interface handleChatResponseProps {
-  prompt: string;
+  job: ChatJob;
   signal?: AbortSignal;
-  onTextMessageComplete?: (content: string) => void;
-  onImageMessageComplete?: () => void;
 }
 
 const useHandleChatResponse = () => {
-  const config = useAtomValue(configAtom);
-  const { imageSize, language, quality, style } = config;
-  const customInstructions = config.customInstructions || '';
-  const thread = useAtomValue(threadAtom);
-  const messages = useAtomValue(messagesAtom);
-  const upsertMessage = useSetAtom(upsertMessageAtom);
-  const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
+  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
   const [isPending, startTransition] = useTransition();
@@ -117,15 +106,15 @@ const useHandleChatResponse = () => {
   };
 
   const handleChatResponse = async ({
-    prompt,
+    job,
     signal,
-    onTextMessageComplete,
-    onImageMessageComplete,
   }: handleChatResponseProps) => {
+    const { prompt, thread, messages, config } = job;
+    const { imageSize, language, quality, style } = config;
+    const customInstructions = config.customInstructions || '';
     let isSharedApiRequest = true;
 
     try {
-      if (!thread) throw new Error('Thread not created');
       const provider = providerForModel(thread.settings.model);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
       isSharedApiRequest = !apiKey;
@@ -156,7 +145,9 @@ const useHandleChatResponse = () => {
         const { b64_json } = imageResponse;
 
         startTransition(() => {
-          upsertMessage({
+          upsertThreadMessage({
+            threadId: thread.id,
+            message: {
             id: crypto.randomUUID(),
             content: ``,
             image_url: {
@@ -171,9 +162,8 @@ const useHandleChatResponse = () => {
               profile: thread.settings.profile,
               timestamp: getTime(new Date()),
             },
+            },
           });
-
-          setIsChatResponseLoading(false);
           // Haptic feedback and sound
           navigator.vibrate(100);
           play();
@@ -181,7 +171,7 @@ const useHandleChatResponse = () => {
 
         await showStartedToastOnce(openByokSettings);
 
-        if (onImageMessageComplete) onImageMessageComplete();
+        return { status: 'completed' as const };
       } else {
         const stream = await getGeneratedText({
           ...(thread.settings.conversationContextMode === 'multi-turn'
@@ -218,7 +208,9 @@ const useHandleChatResponse = () => {
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
-          upsertMessage({
+          upsertThreadMessage({
+            threadId: thread.id,
+            message: {
             id: uid,
             content,
             metadata: {
@@ -239,13 +231,16 @@ const useHandleChatResponse = () => {
             },
             role: 'assistant',
             type: 'text',
+            },
           });
         };
 
         const updateMessage = () => {
           updateTimeoutId = null;
           startTransition(() => {
-            upsertMessage({
+            upsertThreadMessage({
+              threadId: thread.id,
+              message: {
               id: uid,
               content,
               metadata: {
@@ -255,6 +250,7 @@ const useHandleChatResponse = () => {
               },
               role: 'assistant',
               type: 'text',
+              },
             });
           });
         };
@@ -315,32 +311,35 @@ const useHandleChatResponse = () => {
           if (content || responseMetadata) saveAssistantMessage('stop', true);
         }
 
-        if (onTextMessageComplete) onTextMessageComplete(content);
+        return { status: signal?.aborted ? ('cancelled' as const) : ('completed' as const) };
       }
     } catch (err) {
-      if (signal?.aborted) return;
+      if (signal?.aborted) return { status: 'cancelled' as const };
 
       console.error(err);
 
       if (axios.isAxiosError(err)) {
-        return showResponseErrorToast(
+        showResponseErrorToast(
           err.response?.data.err || err.message,
           isSharedApiRequest,
           openByokSettings,
           err.response?.status
         );
+        return { status: 'failed' as const, error: err.response?.data.err || err.message };
       }
 
       if (err instanceof Error) {
-        return showResponseErrorToast(
+        showResponseErrorToast(
           err.message || 'Something went Wrong!',
           isSharedApiRequest,
           openByokSettings,
           'status' in err && typeof err.status === 'number' ? err.status : undefined
         );
+        return { status: 'failed' as const, error: err.message || 'Something went Wrong!' };
       }
 
       showResponseErrorToast('Something went Wrong!', isSharedApiRequest, openByokSettings);
+      return { status: 'failed' as const, error: 'Something went Wrong!' };
     }
   };
 
