@@ -177,11 +177,17 @@ const MessageContent = ({
         </motion.article>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem disabled={!shareText} onSelect={() => void copyMessage()}>
+        <ContextMenuItem
+          className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
+          disabled={!shareText}
+          onSelect={() => void copyMessage()}>
           <CopyIcon />
           Copy message
         </ContextMenuItem>
-        <ContextMenuItem disabled={!shareText} onSelect={() => void shareMessage()}>
+        <ContextMenuItem
+          className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
+          disabled={!shareText}
+          onSelect={() => void shareMessage()}>
           <ShareIcon />
           Share message
         </ContextMenuItem>
