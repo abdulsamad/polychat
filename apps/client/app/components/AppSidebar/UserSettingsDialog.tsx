@@ -713,7 +713,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               disabled={isDangerActionPending}
               onClick={() => setDangerAction('reset-data')}>
               <RotateCcwIcon className="mr-2 size-4" />
-              Reset all local data
+              Purge Everything
             </Button>
           </div>
         </section>
