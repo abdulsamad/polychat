@@ -75,8 +75,8 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
   };
 
   return (
-    <figure className="my-4 min-w-0 overflow-hidden rounded-xl border border-white/10 bg-code text-code-foreground shadow-sm">
-      <figcaption className="flex min-h-10 items-center justify-between gap-3 border-b border-white/10 bg-code-header px-2.5 py-1.5 sm:px-3">
+    <figure className="my-4 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-code text-code-foreground shadow-sm">
+      <figcaption className="flex min-h-10 min-w-0 max-w-full items-center justify-between gap-3 border-b border-white/10 bg-code-header px-2.5 py-1.5 sm:px-3">
         <div className="flex min-w-0 items-center gap-2 font-mono text-xs">
           <span className="truncate text-code-foreground" title={downloadName}>
             {downloadName}
@@ -110,7 +110,7 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
           </Button>
         </div>
       </figcaption>
-      <div className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
+      <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
         <SyntaxHighlighter
           wrapLongLines={false}
           PreTag="div"
@@ -119,7 +119,9 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
             background: 'transparent',
             margin: 0,
             minWidth: 'max-content',
+            width: 'max-content',
             padding: '1rem',
+            overflow: 'visible',
           }}
           codeTagProps={{ className: 'font-mono text-[0.8125rem] leading-6' }}
           language={normalizedLanguage}
