@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
+import { Placeholder } from '@tiptap/extensions';
 import { useAtom } from 'jotai';
 
 import { editorAtom } from '@/store/index';
@@ -10,7 +10,7 @@ import useSubmitMessage from './useSubmitMessage';
 
 const extensions = [
   StarterKit.configure({
-    history: false,
+    undoRedo: false,
     heading: { levels: [1, 2, 3, 4, 5, 6], HTMLAttributes: { class: 'heading' } },
     paragraph: { HTMLAttributes: { class: 'paragraph' } },
   }),
@@ -80,7 +80,7 @@ const useCustomEditor = () => {
     const currentContent = editor.isEmpty ? '' : editor.getHTML();
     if (currentContent === editorState) return;
 
-    editor.commands.setContent(editorState, false);
+    editor.commands.setContent(editorState, { emitUpdate: false });
     editor.commands.focus('end');
   }, [editor, editorState]);
 
