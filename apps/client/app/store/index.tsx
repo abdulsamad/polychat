@@ -21,7 +21,6 @@ export const editorAtom = atom('');
 
 // Chats
 
-export const threadLoadingAtom = atom(false);
 export const speechPlaybackAtom = atom(false);
 export const userSettingsOpenAtom = atom(false);
 export const threadSettingsOpenAtom = atom(false);
@@ -65,8 +64,66 @@ export interface IImageMessage {
 
 export type IMessage = IMessageCommons & (ITextMessage | IImageMessage);
 
-/** The active thread's messages. Mutations go through the action atoms below. */
-export const messagesAtom = atom<IMessage[]>([]);
+export type ThreadId = string;
+
+export interface ThreadActivity {
+  status: 'streaming';
+  startedAt: number;
+}
+
+export const threadMessagesAtom = atom<Record<ThreadId, IMessage[]>>({});
+
+/** Messages for the selected thread. Background streams update threadMessagesAtom directly. */
+export const messagesAtom = atom(
+  (get) => {
+    const thread = get(threadAtom);
+    return thread ? get(threadMessagesAtom)[thread.id] || [] : [];
+  },
+  (get, set, messages: IMessage[] | ((current: IMessage[]) => IMessage[])) => {
+    const thread = get(threadAtom);
+    if (!thread) return;
+
+    const current = get(threadMessagesAtom)[thread.id] || [];
+    const nextMessages = typeof messages === 'function' ? messages(current) : messages;
+    set(threadMessagesAtom, { ...get(threadMessagesAtom), [thread.id]: nextMessages });
+  }
+);
+
+export const threadActivityAtom = atom<Record<ThreadId, ThreadActivity>>({});
+
+export const threadLoadingAtom = atom((get) => {
+  const thread = get(threadAtom);
+  return Boolean(thread && get(threadActivityAtom)[thread.id]);
+});
+
+export const anyThreadLoadingAtom = atom((get) => Object.keys(get(threadActivityAtom)).length > 0);
+
+export const setThreadMessagesAtom = atom(
+  null,
+  (get, set, update: { threadId: ThreadId; messages: IMessage[] }) => {
+    const messagesByThread = get(threadMessagesAtom);
+    set(threadMessagesAtom, { ...messagesByThread, [update.threadId]: update.messages });
+  }
+);
+
+export const hydrateThreadMessagesAtom = atom(
+  null,
+  (get, set, storedMessages: Record<ThreadId, IMessage[]>) => {
+    const currentMessages = get(threadMessagesAtom);
+    const nextMessages = { ...currentMessages };
+
+    for (const [threadId, messages] of Object.entries(storedMessages)) {
+      const current = nextMessages[threadId];
+      if (!current || messages.length > current.length) nextMessages[threadId] = messages;
+    }
+
+    set(threadMessagesAtom, nextMessages);
+  }
+);
+
+export const clearThreadMessagesAtom = atom(null, (_get, set) => {
+  set(threadMessagesAtom, {});
+});
 
 /** Replace messages when the active route/thread changes. */
 export const replaceMessagesAtom = atom(null, (_get, set, messages: IMessage[]) => {
@@ -75,17 +132,45 @@ export const replaceMessagesAtom = atom(null, (_get, set, messages: IMessage[]) 
 
 /** Append a new message, or replace an existing message while it streams. */
 export const upsertMessageAtom = atom(null, (get, set, message: IMessage) => {
-  const messages = get(messagesAtom);
-  const index = messages.findIndex(({ id }) => id === message.id);
+  const thread = get(threadAtom);
+  if (!thread) return;
+  set(upsertThreadMessageAtom, { threadId: thread.id, message });
+});
 
-  if (index === -1) {
-    set(messagesAtom, [...messages, message]);
-    return;
+export const upsertThreadMessageAtom = atom(
+  null,
+  (get, set, update: { threadId: ThreadId; message: IMessage }) => {
+    const messages = get(threadMessagesAtom)[update.threadId] || [];
+    const index = messages.findIndex(({ id }) => id === update.message.id);
+
+    if (index === -1) {
+      set(threadMessagesAtom, {
+        ...get(threadMessagesAtom),
+        [update.threadId]: [...messages, update.message],
+      });
+      return;
+    }
+
+    const nextMessages = messages.slice();
+    nextMessages[index] = update.message;
+    set(threadMessagesAtom, { ...get(threadMessagesAtom), [update.threadId]: nextMessages });
   }
+);
 
-  const nextMessages = messages.slice();
-  nextMessages[index] = message;
-  set(messagesAtom, nextMessages);
+export const startThreadActivityAtom = atom(null, (get, set, threadId: ThreadId) => {
+  set(threadActivityAtom, {
+    ...get(threadActivityAtom),
+    [threadId]: { status: 'streaming', startedAt: Date.now() },
+  });
+});
+
+export const finishThreadActivityAtom = atom(null, (get, set, threadId: ThreadId) => {
+  const { [threadId]: _finished, ...remaining } = get(threadActivityAtom);
+  set(threadActivityAtom, remaining);
+});
+
+export const clearThreadActivityAtom = atom(null, (_get, set) => {
+  set(threadActivityAtom, {});
 });
 
 // Base Configuration for all models
@@ -186,7 +271,6 @@ export const getDefaultThread = (
 };
 
 export const threadAtom = atom<IThread<enabledModelsType> | null>(null);
-export const chatAbortControllerAtom = atom<AbortController | null>(null);
 export const threadsRefreshAtom = atom(0);
 export const refreshThreadsAtom = atom(null, (_get, set) => {
   set(threadsRefreshAtom, (value) => value + 1);
@@ -240,44 +324,15 @@ export const threadSaveEffect = atomEffect((get, set) => {
 });
 
 export const messageSaveEffect = atomEffect((get, set) => {
-  const thread = get(threadAtom);
-  const messages = get(messagesAtom);
+  const messagesByThread = get(threadMessagesAtom);
   const workspaceReady = get(workspaceReadyAtom);
-  if (!thread || !workspaceReady) return;
+  if (!workspaceReady) return;
 
   void enqueuePersistence(async () => {
     const allMessages = (await getMessages()) || {};
-    await lforage.setItem(messagesKey, { ...allMessages, [thread.id]: messages });
+    await lforage.setItem(messagesKey, { ...allMessages, ...messagesByThread });
   }).catch((err) => console.error('Failed to save messages', err));
 });
-
-// Flags
-
-// export const configCatClientAtom = atom(
-//   configcat.getClient(import.meta.env.NEXT_PUBLIC_CONFIGCAT_API_KEY)
-// );
-
-// export const identifierAtom = atom('');
-
-// export const flagsAtom = atom(async (get) => {
-//   const identifier = get(identifierAtom);
-
-//   if (identifier) {
-//     const userObject = new configcat.User(identifier);
-//     const client = get(configCatClientAtom);
-
-//     const gpt4Enabled = await client.getValueAsync('enable-GPT-4', false, userObject);
-
-//     const dallE3Enabled = await client.getValueAsync('enable-DALL-E-3', false, userObject);
-
-//     return {
-//       gpt4Enabled,
-//       dallE3Enabled,
-//     };
-//   }
-
-//   return null;
-// });
 
 // Config
 

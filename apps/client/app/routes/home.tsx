@@ -9,7 +9,9 @@ import {
   configAtom,
   configSaveEffect,
   defaultConfig,
-  replaceMessagesAtom,
+  clearThreadActivityAtom,
+  clearThreadMessagesAtom,
+  hydrateThreadMessagesAtom,
   messageSaveEffect,
   threadAtom,
   threadSaveEffect,
@@ -36,7 +38,9 @@ export const meta = ({}: Route.MetaArgs) => [
 
 const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
-  const replaceMessages = useSetAtom(replaceMessagesAtom);
+  const hydrateThreadMessages = useSetAtom(hydrateThreadMessagesAtom);
+  const clearThreadActivity = useSetAtom(clearThreadActivityAtom);
+  const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const setConfig = useSetAtom(configAtom);
   const setWorkspaceReady = useSetAtom(workspaceReadyAtom);
   const [isWorkspaceLoaded, setIsWorkspaceLoaded] = useState(false);
@@ -57,7 +61,8 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
       setActiveWorkspaceAccount(null);
       setConfig(defaultConfig);
       setThread(null);
-      replaceMessages([]);
+      clearThreadActivity();
+      clearThreadMessages();
       setIsWorkspaceLoaded(false);
       return;
     }
@@ -67,7 +72,6 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     const loadWorkspace = async () => {
       setWorkspaceReady(false);
       setThread(null);
-      replaceMessages([]);
       setConfig(defaultConfig);
       setIsWorkspaceLoaded(false);
       setActiveWorkspaceAccount(user.id);
@@ -83,6 +87,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
         const storedThreads = threads || [];
         const storedMessages = messages || {};
+        hydrateThreadMessages(storedMessages);
         const threadData = threadId
           ? storedThreads.find((thread) => thread.id === threadId) || null
           : (() => {
@@ -111,7 +116,9 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         }
 
         if (!threadId) {
-          const existingThreadIndex = storedThreads.findIndex((thread) => thread.id === threadData.id);
+          const existingThreadIndex = storedThreads.findIndex(
+            (thread) => thread.id === threadData.id
+          );
           const nextThreads =
             existingThreadIndex === -1
               ? [threadData, ...storedThreads]
@@ -124,7 +131,6 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         if (cancelled) return;
         setConfig({ ...defaultConfig, ...savedConfig });
         setThread(threadData);
-        replaceMessages(storedMessages[threadData.id] || []);
         setWorkspaceReady(true);
         setIsWorkspaceLoaded(true);
 
@@ -134,7 +140,6 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
         const threadData = getDefaultThread();
         setThread(threadData);
-        replaceMessages([]);
         setWorkspaceReady(true);
         setIsWorkspaceLoaded(true);
         navigate(`/${threadData.id}`, { replace: true });
@@ -150,7 +155,9 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     isLoaded,
     isSignedIn,
     navigate,
-    replaceMessages,
+    hydrateThreadMessages,
+    clearThreadActivity,
+    clearThreadMessages,
     setConfig,
     setThread,
     setWorkspaceReady,

@@ -13,7 +13,14 @@ import { useSetAtom } from 'jotai';
 import { useClerk, useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
-import { threadAtom, messagesAtom, userSettingsOpenAtom } from '@/store';
+import {
+  clearThreadActivityAtom,
+  clearThreadMessagesAtom,
+  threadAtom,
+  messagesAtom,
+  userSettingsOpenAtom,
+} from '@/store';
+import { abortAllThreadStreams } from '@/utils/stream-registry';
 import { getName } from '@/utils';
 import { setActiveAccount } from '@/utils/byok-vault';
 import { Button } from '@/components/ui/button';
@@ -44,6 +51,8 @@ import UserSettingsDialog from './UserSettingsDialog';
 const AppSidebar = () => {
   const [message, setMessages] = useAtom(messagesAtom);
   const setThread = useSetAtom(threadAtom);
+  const clearThreadActivity = useSetAtom(clearThreadActivityAtom);
+  const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useAtom(userSettingsOpenAtom);
 
   const navigate = useNavigate();
@@ -149,6 +158,9 @@ const AppSidebar = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => {
+                      abortAllThreadStreams();
+                      clearThreadActivity();
+                      clearThreadMessages();
                       setActiveAccount(null);
                       void signOut({ redirectUrl: window.location.origin });
                     }}>

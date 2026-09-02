@@ -8,6 +8,7 @@ import type { Route } from '@/react-router/types/root';
 import {
   IThreads,
   replaceMessagesAtom,
+  threadActivityAtom,
   threadAtom,
   threadsRefreshAtom,
 } from '@/store';
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/sidebar';
 
 import DeleteAlert from './DeleteAlert';
+import { abortThreadStream } from '@/utils/stream-registry';
 
 const ThreadsList = () => {
   const [thread, setThread] = useAtom(threadAtom);
@@ -49,6 +51,7 @@ const ThreadsList = () => {
   const [isPending, startTransition] = useTransition();
   const params = useParams<Route.ClientLoaderArgs['params']>();
   const threadsRefresh = useAtomValue(threadsRefreshAtom);
+  const threadActivity = useAtomValue(threadActivityAtom);
   const navigate = useNavigate();
 
   const { open, setOpenMobile } = useSidebar();
@@ -73,6 +76,7 @@ const ThreadsList = () => {
 
   const deleteChats = useCallback(
     async (threadId: string) => {
+      abortThreadStream(threadId);
       const messages = (await getMessages()) || {};
       const { [threadId]: removedThread, ...remainingMessages } = messages;
       await lforage.setItem(messagesKey, remainingMessages);
@@ -150,6 +154,7 @@ const ThreadsList = () => {
                 ))
               : threads.map(({ id, metadata: { name, timestamp } }) => {
                   const isSelected = id === params.threadId;
+                  const isStreaming = Boolean(threadActivity[id]);
 
                   return (
                     <ContextMenu key={id}>
@@ -214,11 +219,21 @@ const ThreadsList = () => {
                                     className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-sidebar-primary"
                                   />
                                 )}
-                                <p
-                                  className="min-w-0 flex-1 truncate text-left"
-                                  title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
-                                  {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
-                                </p>
+                                <span className="flex min-w-0 flex-1 items-center gap-2">
+                                  {isStreaming && (
+                                    <span
+                                      className="size-1.5 shrink-0 rounded-full bg-sidebar-primary motion-safe:animate-pulse"
+                                      title="Generating response"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  <p
+                                    className="min-w-0 flex-1 truncate text-left"
+                                    title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
+                                    {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
+                                  </p>
+                                  {isStreaming && <span className="sr-only">Generating response</span>}
+                                </span>
                               </NavLink>
                             </SidebarMenuButton>
                           )}

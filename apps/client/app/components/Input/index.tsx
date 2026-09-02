@@ -10,7 +10,7 @@ import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
 
 const Text = () => {
-  const { editor, handleSubmit, isChatLoading, stopChat } = useCustomTiptapEditor();
+  const { editor, handleSubmit, isChatLoading, isAnyChatLoading, stopChat } = useCustomTiptapEditor();
   const isSpeaking = useAtomValue(speechPlaybackAtom);
   const { cancel } = useSpeechSynthesis();
   const hasText = useEditorState({
@@ -58,7 +58,7 @@ const Text = () => {
             type="submit"
             title="Send message"
             className="size-10 rounded-full bg-primary p-0 text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground hover:shadow-lg sm:size-11"
-            disabled={!hasText}>
+            disabled={!hasText || isAnyChatLoading}>
             <SendHorizonal className="size-4" />
             <span className="sr-only">Send message</span>
           </Button>

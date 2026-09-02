@@ -6,6 +6,7 @@ import { profiles } from 'utils';
 import useSubmitMessage from '@/hooks/useSubmitMessage';
 import {
   threadAtom,
+  anyThreadLoadingAtom,
   threadSettingsOpenAtom,
   userSettingsOpenAtom,
   userSettingsScrollTargetAtom,
@@ -51,6 +52,7 @@ const Empty = ({ name }: IEmpty) => {
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
 
   const { isChatLoading, submitMessage } = useSubmitMessage();
+  const isAnyChatLoading = useAtomValue(anyThreadLoadingAtom);
 
   const hints = useMemo(
     () => profiles.find(({ code }) => code === profile)?.hints,
@@ -93,7 +95,7 @@ const Empty = ({ name }: IEmpty) => {
                   key={hint}
                   variant="outline"
                   onClick={() => submitMessage(hint)}
-                  disabled={isChatLoading}
+                  disabled={isChatLoading || isAnyChatLoading}
                   className="h-full min-w-0 rounded-xl bg-card/70 px-3 py-3 text-left shadow-sm hover:border-primary/50 hover:bg-accent/70">
                   <p className="max-w-full whitespace-break-spaces [overflow-wrap:anywhere]">
                     {hint}
