@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useTransition, type HTMLAttributes } from 'react';
+import { useState, useEffect, useCallback, useTransition } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { CheckIcon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import clsx from 'clsx';
 
 import type { Route } from '@/react-router/types/root';
 import {
@@ -150,21 +149,13 @@ const ThreadsList = () => {
                   </SidebarMenuItem>
                 ))
               : threads.map(({ id, metadata: { name, timestamp } }) => {
-                  type ButtonClassNames = HTMLAttributes<HTMLButtonElement>['className'];
-
                   const isSelected = id === params.threadId;
-                  const rootClasses: ButtonClassNames = isSelected
-                    ? `relative before:content-[''] before:absolute before:-left-0 before:top-1/2 before:-translate-y-1/2 before:w-24 before:h-24 before:rounded-[10px] before:bg-primary before:rotate-45 before:-translate-x-[105px]`
-                    : '';
 
                   return (
                     <ContextMenu key={id}>
                       <ContextMenuTrigger asChild>
                         <SidebarMenuItem
-                          className={clsx(
-                            'flex w-full px-4 rounded-none cursor-default hover:bg-transparent group/sidebar-item',
-                            rootClasses
-                          )}
+                          className="group/sidebar-item flex w-full cursor-default rounded-none px-4 hover:bg-transparent"
                           onClick={() => setOpenMobile(false)}>
                           {threadToRename === id ? (
                             <div className="flex min-w-0 flex-1 items-center gap-1">
@@ -208,16 +199,24 @@ const ThreadsList = () => {
                                 preventScrollReset
                                 className={({ isActive, isPending, isTransitioning }) =>
                                   [
-                                    'flex items-center justify-between gap-2 w-full p-2 rounded-[8px]',
+                                    'relative flex min-w-0 flex-1 items-center justify-between gap-2 rounded-[8px] p-2',
                                     isPending ? 'bg-primary/20' : '',
                                     isActive
-                                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                                      ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.3)]'
                                       : '',
                                     isTransitioning ? 'transitioning' : '',
                                   ].join(' ')
                                 }
                                 viewTransition>
-                                <p className="truncate w-fit text-foreground text-left inline-flex items-center justify-center gap-2">
+                                {isSelected && (
+                                  <span
+                                    aria-hidden="true"
+                                    className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-sidebar-primary"
+                                  />
+                                )}
+                                <p
+                                  className="min-w-0 flex-1 truncate text-left"
+                                  title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
                                   {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
                                 </p>
                               </NavLink>
