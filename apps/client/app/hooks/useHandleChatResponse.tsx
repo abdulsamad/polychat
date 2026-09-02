@@ -1,5 +1,5 @@
 import { useTransition } from 'react';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { getTime } from 'date-fns';
 import { useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
@@ -7,15 +7,16 @@ import axios from 'axios';
 import useSound from 'use-sound';
 
 import { supportedImageModels } from 'utils';
-import type { enabledModelsType } from 'utils';
 import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfigured } from '@/utils/byok-vault';
 
 import {
+  threadAtom,
+  messagesAtom,
+  upsertMessageAtom,
+  threadLoadingAtom,
   configAtom,
   IMessage,
-  IThread,
-  upsertThreadMessageAtom,
   userSettingsOpenAtom,
   userSettingsScrollTargetAtom,
 } from '@/store';
@@ -90,8 +91,6 @@ const showStartedToastOnce = async (openSettings: () => void) => {
 interface handleChatResponseProps {
   prompt: string;
   signal?: AbortSignal;
-  thread: IThread<enabledModelsType>;
-  messages: IMessage[];
   onTextMessageComplete?: (content: string) => void;
   onImageMessageComplete?: () => void;
 }
@@ -100,7 +99,10 @@ const useHandleChatResponse = () => {
   const config = useAtomValue(configAtom);
   const { imageSize, language, quality, style } = config;
   const customInstructions = config.customInstructions || '';
-  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
+  const thread = useAtomValue(threadAtom);
+  const messages = useAtomValue(messagesAtom);
+  const upsertMessage = useSetAtom(upsertMessageAtom);
+  const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
   const [isPending, startTransition] = useTransition();
@@ -117,14 +119,13 @@ const useHandleChatResponse = () => {
   const handleChatResponse = async ({
     prompt,
     signal,
-    thread,
-    messages,
     onTextMessageComplete,
     onImageMessageComplete,
   }: handleChatResponseProps) => {
     let isSharedApiRequest = true;
 
     try {
+      if (!thread) throw new Error('Thread not created');
       const provider = providerForModel(thread.settings.model);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
       isSharedApiRequest = !apiKey;
@@ -155,25 +156,24 @@ const useHandleChatResponse = () => {
         const { b64_json } = imageResponse;
 
         startTransition(() => {
-          upsertThreadMessage({
-            threadId: thread.id,
-            message: {
-              id: crypto.randomUUID(),
-              content: ``,
-              image_url: {
-                url: `data:image/png;base64,${b64_json}`,
-                alt: prompt,
-                size: imageSize,
-              },
-              role: 'assistant',
-              type: 'image_url',
-              metadata: {
-                model: thread.settings.model,
-                profile: thread.settings.profile,
-                timestamp: getTime(new Date()),
-              },
+          upsertMessage({
+            id: crypto.randomUUID(),
+            content: ``,
+            image_url: {
+              url: `data:image/png;base64,${b64_json}`,
+              alt: prompt,
+              size: imageSize,
+            },
+            role: 'assistant',
+            type: 'image_url',
+            metadata: {
+              model: thread.settings.model,
+              profile: thread.settings.profile,
+              timestamp: getTime(new Date()),
             },
           });
+
+          setIsChatResponseLoading(false);
           // Haptic feedback and sound
           navigator.vibrate(100);
           play();
@@ -186,13 +186,13 @@ const useHandleChatResponse = () => {
         const stream = await getGeneratedText({
           ...(thread.settings.conversationContextMode === 'multi-turn'
             ? {
-                messages: [
-                  ...messages
-                    .filter(({ type }) => type === 'text')
-                    .map(({ role, content }) => ({ role, content })),
-                  { role: 'user', content: prompt },
-                ] as Array<Pick<IMessage, 'role' | 'content'>>,
-              }
+              messages: [
+                ...messages
+                  .filter(({ type }) => type === 'text')
+                  .map(({ role, content }) => ({ role, content })),
+                { role: 'user', content: prompt },
+              ] as Array<Pick<IMessage, 'role' | 'content'>>,
+            }
             : { prompt }),
           model: thread.settings.model,
           profile: thread.settings.profile,
@@ -218,49 +218,43 @@ const useHandleChatResponse = () => {
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
-          upsertThreadMessage({
-            threadId: thread.id,
-            message: {
-              id: uid,
-              content,
-              metadata: {
-                model: thread.settings.model,
-                profile: thread.settings.profile,
-                timestamp,
-                ...(responseMetadata
-                  ? {
-                      usage: responseMetadata.metadata.usage,
-                      finishReason: responseMetadata.metadata.finishReason,
-                      responseId: responseMetadata.metadata.responseId,
-                      responseModelId: responseMetadata.metadata.modelId,
-                      responseTimestamp: responseMetadata.metadata.timestamp,
-                    }
-                  : {}),
-                ...(finishReason ? { finishReason } : {}),
-                ...(cancelled ? { cancelled: true } : {}),
-              },
-              role: 'assistant',
-              type: 'text',
+          upsertMessage({
+            id: uid,
+            content,
+            metadata: {
+              model: thread.settings.model,
+              profile: thread.settings.profile,
+              timestamp,
+              ...(responseMetadata
+                ? {
+                  usage: responseMetadata.metadata.usage,
+                  finishReason: responseMetadata.metadata.finishReason,
+                  responseId: responseMetadata.metadata.responseId,
+                  responseModelId: responseMetadata.metadata.modelId,
+                  responseTimestamp: responseMetadata.metadata.timestamp,
+                }
+                : {}),
+              ...(finishReason ? { finishReason } : {}),
+              ...(cancelled ? { cancelled: true } : {}),
             },
+            role: 'assistant',
+            type: 'text',
           });
         };
 
         const updateMessage = () => {
           updateTimeoutId = null;
           startTransition(() => {
-            upsertThreadMessage({
-              threadId: thread.id,
-              message: {
-                id: uid,
-                content,
-                metadata: {
-                  model: thread.settings.model,
-                  timestamp,
-                  profile: thread.settings.profile,
-                },
-                role: 'assistant',
-                type: 'text',
+            upsertMessage({
+              id: uid,
+              content,
+              metadata: {
+                model: thread.settings.model,
+                timestamp,
+                profile: thread.settings.profile,
               },
+              role: 'assistant',
+              type: 'text',
             });
           });
         };
