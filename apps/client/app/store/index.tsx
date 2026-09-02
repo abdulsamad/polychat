@@ -2,12 +2,7 @@ import { atom } from 'jotai';
 import { atomEffect } from 'jotai-effect';
 import { getTime, format } from 'date-fns';
 
-import type {
-  profilesType,
-  supportedLanguagesType,
-  enabledModelsType,
-  ImageSizeType,
-} from 'utils';
+import type { profilesType, supportedLanguagesType, enabledModelsType, ImageSizeType } from 'utils';
 
 import { defaultModel } from 'utils';
 
@@ -44,6 +39,7 @@ export interface IMessageCommons {
     model: enabledModelsType;
     usage?: IMessageUsage;
     finishReason?: string;
+    cancelled?: boolean;
     responseId?: string;
     responseModelId?: string;
     responseTimestamp?: string;

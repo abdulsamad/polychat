@@ -197,8 +197,7 @@ const useHandleChatResponse = () => {
           model: thread.settings.model,
           profile: thread.settings.profile,
           language,
-          customInstructions:
-            thread.settings.profile === 'custom' ? customInstructions : undefined,
+          customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
           getToken,
           apiKey,
           signal,
@@ -217,6 +216,31 @@ const useHandleChatResponse = () => {
         let content = '';
         let responseMetadata: Extract<ChatStreamPart, { type: 'metadata' }> | undefined;
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
+          upsertMessage({
+            id: uid,
+            content,
+            metadata: {
+              model: thread.settings.model,
+              profile: thread.settings.profile,
+              timestamp,
+              ...(responseMetadata
+                ? {
+                    usage: responseMetadata.metadata.usage,
+                    finishReason: responseMetadata.metadata.finishReason,
+                    responseId: responseMetadata.metadata.responseId,
+                    responseModelId: responseMetadata.metadata.modelId,
+                    responseTimestamp: responseMetadata.metadata.timestamp,
+                  }
+                : {}),
+              ...(finishReason ? { finishReason } : {}),
+              ...(cancelled ? { cancelled: true } : {}),
+            },
+            role: 'assistant',
+            type: 'text',
+          });
+        };
 
         const updateMessage = () => {
           updateTimeoutId = null;
@@ -243,57 +267,52 @@ const useHandleChatResponse = () => {
           }
         };
 
-        while (true) {
-          const { value, done } = await reader.read();
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
 
-          // Stream is completed
-          if (done) {
-            if (updateTimeoutId !== null) {
-              clearTimeout(updateTimeoutId);
-              updateTimeoutId = null;
+            // Stream is completed
+            if (done) {
+              if (updateTimeoutId !== null) {
+                clearTimeout(updateTimeoutId);
+                updateTimeoutId = null;
+              }
+
+              saveAssistantMessage();
+
+              // Feedback
+              navigator.vibrate(100);
+              play();
+              console.log('%cDONE', 'font-size:12px;font-weight:bold;color:aqua');
+              if (thread.settings.isTextToSpeechEnabled) {
+                speak(content, language);
+              }
+              await showStartedToastOnce(openByokSettings);
+              break;
             }
 
-            upsertMessage({
-              id: uid,
-              content,
-              metadata: {
-                model: thread.settings.model,
-                profile: thread.settings.profile,
-                timestamp,
-                ...(responseMetadata && responseMetadata.type === 'metadata'
-                  ? {
-                      usage: responseMetadata.metadata.usage,
-                      finishReason: responseMetadata.metadata.finishReason,
-                      responseId: responseMetadata.metadata.responseId,
-                      responseModelId: responseMetadata.metadata.modelId,
-                      responseTimestamp: responseMetadata.metadata.timestamp,
-                    }
-                  : {}),
-              },
-              role: 'assistant',
-              type: 'text',
-            });
-
-            // Feedback
-            navigator.vibrate(100);
-            play();
-            console.log('%cDONE', 'font-size:12px;font-weight:bold;color:aqua');
-            if (thread.settings.isTextToSpeechEnabled) {
-              speak(content, language);
+            const part = value as ChatStreamPart;
+            if (part.type === 'text') {
+              content += part.text;
+              scheduleMessageUpdate();
+            } else if (part.type === 'metadata') {
+              responseMetadata = part;
+            } else {
+              throw new Error(part.error);
             }
-            await showStartedToastOnce(openByokSettings);
-            break;
+          }
+        } catch (error) {
+          if (!signal?.aborted) throw error;
+
+          if (updateTimeoutId !== null) {
+            clearTimeout(updateTimeoutId);
+            updateTimeoutId = null;
           }
 
-          const part = value as ChatStreamPart;
-          if (part.type === 'text') {
-            content += part.text;
-            scheduleMessageUpdate();
-          } else if (part.type === 'metadata') {
-            responseMetadata = part;
-          } else {
-            throw new Error(part.error);
-          }
+          // Keep the generated portion visible after Stop. If the provider
+          // finished before the abort reached the stream, retain its usage
+          // and response details as well.
+          if (content || responseMetadata) saveAssistantMessage('stop', true);
         }
 
         if (onTextMessageComplete) onTextMessageComplete(content);

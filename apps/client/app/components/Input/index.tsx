@@ -45,7 +45,7 @@ const Text = () => {
             type="button"
             title="Stop generating"
             aria-label="Stop generating"
-            className="size-10 rounded-full bg-destructive p-0 text-destructive-foreground shadow-sm hover:bg-destructive/90 sm:size-11"
+            className="size-10 rounded-full border border-destructive/30 bg-destructive/15 p-0 text-destructive shadow-sm hover:bg-destructive/25 focus-visible:ring-destructive/30 sm:size-11"
             onClick={stopChat}>
             <Square className="size-4 fill-current" />
             <span className="sr-only">Stop generating</span>

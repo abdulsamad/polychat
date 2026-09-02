@@ -35,7 +35,7 @@ const MessageContent = ({
   content,
   image_url: image,
   role,
-  metadata: { model, usage, finishReason },
+  metadata: { model, usage, finishReason, cancelled },
 }: MessageProps) => {
   const shouldReduceMotion = useReducedMotion();
   const showDetailedUsage = useAtomValue(threadAtom)?.settings.showDetailedUsage ?? false;
@@ -127,27 +127,40 @@ const MessageContent = ({
                 isUser ? 'justify-end' : 'justify-start',
                 !isImage && (isUser ? 'pr-11 sm:pr-[4.25rem]' : 'pl-11 sm:pl-[4.25rem]')
               )}>
-              {!isUser && usage && (
-                showDetailedUsage ? (
-                  <span className="flex flex-wrap gap-x-2 gap-y-0.5">
-                    {usage.totalTokens !== undefined && <span>Total: {usage.totalTokens}</span>}
-                    {usage.inputTokens !== undefined && <span>Input: {usage.inputTokens}</span>}
-                    {usage.outputTokens !== undefined && <span>Output: {usage.outputTokens}</span>}
-                    {usage.reasoningTokens !== undefined && (
-                      <span>Reasoning: {usage.reasoningTokens}</span>
-                    )}
-                    {usage.cachedInputTokens !== undefined && (
-                      <span>Cached input: {usage.cachedInputTokens}</span>
-                    )}
-                    {finishReason && <span>Finish: {finishReason}</span>}
-                  </span>
+              {!isUser &&
+                (usage || finishReason) &&
+                (usage ? (
+                  showDetailedUsage ? (
+                    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                      {usage.totalTokens !== undefined && <span>Total: {usage.totalTokens}</span>}
+                      {usage.inputTokens !== undefined && <span>Input: {usage.inputTokens}</span>}
+                      {usage.outputTokens !== undefined && (
+                        <span>Output: {usage.outputTokens}</span>
+                      )}
+                      {usage.reasoningTokens !== undefined && (
+                        <span>Reasoning: {usage.reasoningTokens}</span>
+                      )}
+                      {usage.cachedInputTokens !== undefined && (
+                        <span>Cached input: {usage.cachedInputTokens}</span>
+                      )}
+                      {finishReason && <span>Finish: {finishReason}</span>}
+                    </span>
+                  ) : (
+                    <span>Total: {usage.totalTokens ?? 'Unknown'} tokens</span>
+                  )
                 ) : (
-                  <span>Total: {usage.totalTokens ?? 'Unknown'} tokens</span>
-                )
-              )}
+                  <span>Finish: {finishReason}</span>
+                ))}
               {!isUser && usage && model && ' · '}
               {!isUser && model && (
-                <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">{model}</span>
+                <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
+                  {model}
+                </span>
+              )}
+              {!isUser && cancelled && (
+                <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Cancelled
+                </span>
               )}
             </div>
           </div>
