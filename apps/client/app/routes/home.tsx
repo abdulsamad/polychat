@@ -1,5 +1,5 @@
-import { useEffect, useState, Suspense } from 'react';
-import { useAtom, useSetAtom } from 'jotai';
+import { useEffect, useRef, useState, Suspense } from 'react';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, useUser, RedirectToSignIn } from '@clerk/react-router';
 import { useNavigate } from 'react-router';
 
@@ -9,20 +9,29 @@ import {
   configAtom,
   configSaveEffect,
   defaultConfig,
+  clearThreadMessagesAtom,
+  hydrateThreadMessagesAtom,
   replaceMessagesAtom,
   messageSaveEffect,
+  resetChatQueueAtom,
   threadAtom,
+  threadMessagesAtom,
+  threadSettingsOpenAtom,
   threadSaveEffect,
+  userSettingsOpenAtom,
+  waitForPersistence,
   workspaceReadyAtom,
 } from '@/store';
 import {
   getConfig,
+  getActiveWorkspaceAccount,
   getMessages,
   getThreads,
   getUserSettings,
   setActiveWorkspaceAccount,
   setThreads,
 } from '@/utils/lforage';
+import { abortAllStreams } from '@/utils/chat-stream-registry';
 import Input from '@/components/Input';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
@@ -36,10 +45,19 @@ export const meta = ({}: Route.MetaArgs) => [
 
 const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
+  const hydrateThreadMessages = useSetAtom(hydrateThreadMessagesAtom);
+  const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
+  const messagesByThread = useAtomValue(threadMessagesAtom);
   const setConfig = useSetAtom(configAtom);
+  const resetChatQueue = useSetAtom(resetChatQueueAtom);
+  const setThreadSettingsOpen = useSetAtom(threadSettingsOpenAtom);
+  const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setWorkspaceReady = useSetAtom(workspaceReadyAtom);
   const [isWorkspaceLoaded, setIsWorkspaceLoaded] = useState(false);
+  const messagesByThreadRef = useRef(messagesByThread);
+
+  messagesByThreadRef.current = messagesByThread;
 
   const { isSignedIn, isLoaded } = useAuth();
   const { user } = useUser();
@@ -52,24 +70,60 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoaded || !isSignedIn || !user?.id) {
-      setWorkspaceReady(false);
-      setActiveWorkspaceAccount(null);
-      setConfig(defaultConfig);
-      setThread(null);
-      replaceMessages([]);
-      setIsWorkspaceLoaded(false);
-      return;
-    }
-
     let cancelled = false;
 
+    if (!isLoaded || !isSignedIn || !user?.id) {
+      const previousAccountId = getActiveWorkspaceAccount();
+      setWorkspaceReady(false);
+      abortAllStreams();
+      resetChatQueue();
+      setThreadSettingsOpen(false);
+      setUserSettingsOpen(false);
+      setConfig(defaultConfig);
+      setThread(null);
+      clearThreadMessages();
+      setIsWorkspaceLoaded(false);
+
+      void waitForPersistence().then(
+        () => {
+          if (!cancelled && getActiveWorkspaceAccount() === previousAccountId) {
+            setActiveWorkspaceAccount(null);
+          }
+        },
+        (error) => {
+          console.error('Failed to finish saving the previous workspace', error);
+          if (!cancelled && getActiveWorkspaceAccount() === previousAccountId) {
+            setActiveWorkspaceAccount(null);
+          }
+        }
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const loadWorkspace = async () => {
+      const previousAccountId = getActiveWorkspaceAccount();
+      const isAccountChange = previousAccountId !== user.id;
       setWorkspaceReady(false);
       setThread(null);
-      replaceMessages([]);
-      setConfig(defaultConfig);
       setIsWorkspaceLoaded(false);
+
+      if (isAccountChange) {
+        abortAllStreams();
+        resetChatQueue();
+        setThreadSettingsOpen(false);
+        setUserSettingsOpen(false);
+        clearThreadMessages();
+        setConfig(defaultConfig);
+
+        try {
+          await waitForPersistence();
+        } catch (error) {
+          console.error('Failed to finish saving the previous workspace', error);
+        }
+        if (cancelled) return;
+      }
       setActiveWorkspaceAccount(user.id);
 
       try {
@@ -82,16 +136,33 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         if (cancelled) return;
 
         const storedThreads = threads || [];
-        const storedMessages = messages || {};
+        const storedMessages = Object.fromEntries(
+          Object.entries(messages || {}).map(([id, threadMessages]) => [
+            id,
+            threadMessages.map((message) =>
+              message.metadata.requestState === 'queued' ||
+              message.metadata.requestState === 'streaming'
+                ? {
+                    ...message,
+                    metadata: { ...message.metadata, requestState: 'interrupted' as const },
+                  }
+                : message
+            ),
+          ])
+        );
         const threadData = threadId
           ? storedThreads.find((thread) => thread.id === threadId) || null
           : (() => {
               const latestThread = [...storedThreads].sort(
                 (a, b) => b.metadata.timestamp - a.metadata.timestamp
               )[0];
+              const latestMessages = latestThread
+                ? messagesByThreadRef.current[latestThread.id] ||
+                  storedMessages[latestThread.id] ||
+                  []
+                : [];
               const shouldReuseLatest =
-                latestThread?.metadata.nameSource === 'default' &&
-                !storedMessages[latestThread.id]?.length;
+                latestThread?.metadata.nameSource === 'default' && !latestMessages.length;
 
               return shouldReuseLatest
                 ? {
@@ -123,8 +194,8 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
         if (cancelled) return;
         setConfig({ ...defaultConfig, ...savedConfig });
+        hydrateThreadMessages(storedMessages);
         setThread(threadData);
-        replaceMessages(storedMessages[threadData.id] || []);
         setWorkspaceReady(true);
         setIsWorkspaceLoaded(true);
 
@@ -150,9 +221,14 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     isLoaded,
     isSignedIn,
     navigate,
+    clearThreadMessages,
+    hydrateThreadMessages,
     replaceMessages,
+    resetChatQueue,
     setConfig,
     setThread,
+    setThreadSettingsOpen,
+    setUserSettingsOpen,
     setWorkspaceReady,
     threadId,
     user?.id,
