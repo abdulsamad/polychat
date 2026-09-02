@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { SlidersHorizontal } from 'lucide-react';
 
@@ -17,6 +17,7 @@ import {
   threadSettingsOpenAtom,
   userSettingsOpenAtom,
   userSettingsScrollTargetAtom,
+  type UserSettingsScrollTarget,
 } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
 import { Button } from '@/components/ui/button';
@@ -45,9 +46,36 @@ const SettingsDropdown = () => {
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
+  const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
+    useState<UserSettingsScrollTarget | null>(null);
 
   const { imageSize, style, quality } = config;
   const customInstructions = config.customInstructions || '';
+
+  const openUserSettings = useCallback(
+    (target: UserSettingsScrollTarget) => {
+      setThreadSettingsOpen(false);
+      setPendingUserSettingsTarget(target);
+    },
+    [setThreadSettingsOpen]
+  );
+
+  useEffect(() => {
+    if (isThreadSettingsOpen || !pendingUserSettingsTarget) return;
+
+    const frame = requestAnimationFrame(() => {
+      setUserSettingsScrollTarget(pendingUserSettingsTarget);
+      setUserSettingsOpen(true);
+      setPendingUserSettingsTarget(null);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    isThreadSettingsOpen,
+    pendingUserSettingsTarget,
+    setUserSettingsOpen,
+    setUserSettingsScrollTarget,
+  ]);
 
   const updateSetting = useCallback(
     (name: string, value: string) => {
@@ -243,10 +271,7 @@ const SettingsDropdown = () => {
                         type="button"
                         variant="link"
                         className="h-auto p-0 text-xs font-medium"
-                        onClick={() => {
-                          setUserSettingsScrollTarget('custom-instructions');
-                          setUserSettingsOpen(true);
-                        }}>
+                        onClick={() => openUserSettings('custom-instructions')}>
                         Settings
                       </Button>
                       .
