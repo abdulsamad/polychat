@@ -17,7 +17,7 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
 import type { enabledModelsType } from 'utils';
-import { languages, supportedTextModels, variations } from 'utils';
+import { languages, supportedTextModels, profiles } from 'utils';
 
 import {
   configAtom,
@@ -370,8 +370,8 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 onClick={() => {
                   setCustomInstructionsDraft('');
                   setConfig({ ...config, customInstructions: '' });
-                  if (activeThread?.settings.variation === 'custom') {
-                    updateActiveThreadSettings({ variation: 'normal' });
+                  if (activeThread?.settings.profile === 'custom') {
+                    updateActiveThreadSettings({ profile: 'normal' });
                   }
                 }}>
                 Clear
@@ -585,18 +585,18 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               <label className="text-xs font-medium text-muted-foreground">Assistant profile</label>
               <Select
                 disabled={isLoading}
-                value={threadSettings.variation}
-                onValueChange={(variation) =>
+                value={threadSettings.profile}
+                onValueChange={(profile) =>
                   void updateThreadSetting(
-                    'variation',
-                    variation as IThreadSettings<enabledModelsType>['variation']
+                    'profile',
+                    profile as IThreadSettings<enabledModelsType>['profile']
                   )
                 }>
                 <SelectTrigger className="bg-background/70">
-                  <SelectValue placeholder="Variation" />
+                  <SelectValue placeholder="Profile" />
                 </SelectTrigger>
                 <SelectContent>
-                  {variations.map(({ code, text }) => (
+                  {profiles.map(({ code, text }) => (
                     <SelectItem
                       key={code}
                       value={code}

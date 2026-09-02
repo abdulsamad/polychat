@@ -31,7 +31,7 @@ const useSubmitMessage = () => {
         content: prompt,
         metadata: {
           model: thread.settings.model,
-          variation: null,
+          profile: null,
           timestamp: getTime(new Date()),
         },
         type: 'text',

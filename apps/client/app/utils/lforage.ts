@@ -1,7 +1,7 @@
 import localforage from 'localforage';
 
 import type { enabledModelsType } from 'utils';
-import { variations } from 'utils';
+import { profiles } from 'utils';
 import type { IMessage, IThreadSettings, IThreads } from '@/store';
 
 export const settingsKey = 'config';
@@ -41,8 +41,8 @@ export const getThreads = async (): Promise<IThreads | null> => {
       ...thread,
       settings: {
         ...thread.settings,
-        variation: variations.some(({ code }) => code === thread.settings.variation)
-          ? thread.settings.variation
+        profile: profiles.some(({ code }) => code === thread.settings.profile)
+          ? thread.settings.profile
           : 'normal',
       },
     };
@@ -58,9 +58,9 @@ export const getUserSettings = async (): Promise<Partial<
   if (!settings) return null;
   return {
     ...settings,
-    variation:
-      settings.variation && variations.some(({ code }) => code === settings.variation)
-        ? settings.variation
+    profile:
+      settings.profile && profiles.some(({ code }) => code === settings.profile)
+        ? settings.profile
         : 'normal',
   };
 };

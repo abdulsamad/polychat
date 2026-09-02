@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useAuth } from '@clerk/react-router';
 
-import { chatRequestSchema, enabledModelsType, imageRequestSchema, variationsType } from 'utils';
+import { chatRequestSchema, enabledModelsType, imageRequestSchema, profilesType } from 'utils';
 
 import { IConfig } from '@/store/index';
 import { generateByokImage, streamByokText } from './byok-providers';
@@ -57,7 +57,7 @@ export type ChatStreamPart =
 
 interface IGetGeneratedTextBase {
   model: enabledModelsType;
-  variation: variationsType;
+  profile: profilesType;
   customInstructions?: string;
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
@@ -85,7 +85,7 @@ export const getGeneratedText = async ({
   prompt,
   messages,
   model,
-  variation,
+  profile,
   language,
   getToken,
   apiKey,
@@ -95,7 +95,7 @@ export const getGeneratedText = async ({
     prompt,
     messages,
     language,
-    variation,
+    profile,
     model,
     customInstructions,
   });
@@ -106,7 +106,7 @@ export const getGeneratedText = async ({
     try {
       return await streamByokText({
         model,
-        variation,
+        profile,
         customInstructions,
         language: (language || 'en-US') as Parameters<typeof streamByokText>[0]['language'],
         prompt,

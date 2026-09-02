@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useAtomValue } from 'jotai';
 
-import { variations } from 'utils';
+import { profiles } from 'utils';
 
 import useSubmitMessage from '@/hooks/useSubmitMessage';
 import { threadAtom } from '@/store';
@@ -13,17 +13,17 @@ interface IEmpty {
 
 const Empty = ({ name }: IEmpty) => {
   const thread = useAtomValue(threadAtom);
-  const variation = thread?.settings.variation;
+  const profile = thread?.settings.profile;
 
   const { isChatLoading, submitMessage } = useSubmitMessage();
 
   const hints = useMemo(
-    () => variations.find(({ code }) => code === variation)?.hints,
-    [variation]
+    () => profiles.find(({ code }) => code === profile)?.hints,
+    [profile]
   );
   const description = useMemo(
-    () => variations.find(({ code }) => code === variation)?.description,
-    [variation]
+    () => profiles.find(({ code }) => code === profile)?.description,
+    [profile]
   );
 
   return (

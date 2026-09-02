@@ -4,7 +4,7 @@ import { atomWithStorage } from 'jotai/utils';
 import { getTime, format } from 'date-fns';
 
 import type {
-  variationsType,
+  profilesType,
   supportedLanguagesType,
   enabledModelsType,
   ImageSizeType,
@@ -36,7 +36,7 @@ export interface IMessageCommons {
   role: 'assistant' | 'user';
   content: string; // URL or Text
   metadata: {
-    variation: null | variationsType; // null is for self
+    profile: null | profilesType; // null is for self
     timestamp: number;
     model: enabledModelsType;
     usage?: IMessageUsage;
@@ -125,7 +125,7 @@ export type ConversationContextMode = 'single-turn' | 'multi-turn';
 // Thread Settings interface
 export interface IThreadSettings<T extends enabledModelsType> {
   model: T;
-  variation: variationsType;
+  profile: profilesType;
   conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;
   showDetailedUsage: boolean;
@@ -156,7 +156,7 @@ export const getDefaultThread = (
 ): IThread<enabledModelsType> => {
   const defaultSettings: IThreadSettings<enabledModelsType> = {
     model: defaultModel,
-    variation: 'normal',
+    profile: 'normal',
     conversationContextMode: 'single-turn',
     isTextToSpeechEnabled: false,
     showDetailedUsage: false,

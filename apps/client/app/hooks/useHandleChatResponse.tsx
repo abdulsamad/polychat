@@ -133,7 +133,7 @@ const useHandleChatResponse = () => {
             type: 'image_url',
             metadata: {
               model: thread.settings.model,
-              variation: thread.settings.variation,
+              profile: thread.settings.profile,
               timestamp: getTime(new Date()),
             },
           });
@@ -160,10 +160,10 @@ const useHandleChatResponse = () => {
               }
             : { prompt }),
           model: thread.settings.model,
-          variation: thread.settings.variation,
+          profile: thread.settings.profile,
           language,
           customInstructions:
-            thread.settings.variation === 'custom' ? customInstructions : undefined,
+            thread.settings.profile === 'custom' ? customInstructions : undefined,
           getToken,
           apiKey,
         });
@@ -191,7 +191,7 @@ const useHandleChatResponse = () => {
               metadata: {
                 model: thread.settings.model,
                 timestamp,
-                variation: thread.settings.variation,
+                profile: thread.settings.profile,
               },
               role: 'assistant',
               type: 'text',
@@ -227,7 +227,7 @@ const useHandleChatResponse = () => {
               content,
               metadata: {
                 model: thread.settings.model,
-                variation: thread.settings.variation,
+                profile: thread.settings.profile,
                 timestamp,
                 ...(responseMetadata && responseMetadata.type === 'metadata'
                   ? {

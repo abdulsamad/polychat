@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
 import { languages } from './languages';
-import { supportedImageModels, supportedModels, variations } from './models';
+import { supportedImageModels, supportedModels, profiles } from './models';
 
 const enumFrom = <T extends string>(values: readonly T[]) => z.enum(values as [T, ...T[]]);
 
 export const modelSchema = enumFrom(supportedModels.map(({ name }) => name));
 export const imageModelSchema = enumFrom(supportedImageModels.map(({ name }) => name));
 export const languageSchema = enumFrom(languages.map(({ code }) => code));
-export const variationSchema = enumFrom(variations.map(({ code }) => code));
+export const profileSchema = enumFrom(profiles.map(({ code }) => code));
 
 const messageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
@@ -20,7 +20,7 @@ export const chatRequestSchema = z
     prompt: z.string().max(32_000).optional(),
     messages: z.array(messageSchema).max(100).optional(),
     language: languageSchema.optional(),
-    variation: variationSchema.optional(),
+    profile: profileSchema.optional(),
     customInstructions: z.string().trim().max(4_000).optional(),
     model: modelSchema,
   })
@@ -28,8 +28,8 @@ export const chatRequestSchema = z
     message: 'Prompt or messages not found',
   })
   .refine(
-    ({ variation, customInstructions }) =>
-      variation !== 'custom' || Boolean(customInstructions?.trim()),
+    ({ profile, customInstructions }) =>
+      profile !== 'custom' || Boolean(customInstructions?.trim()),
     { message: 'Custom instructions are required for the Custom profile.' }
   );
 

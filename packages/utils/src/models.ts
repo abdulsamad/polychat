@@ -1,6 +1,6 @@
 import { ToolChoice, ToolSet } from 'ai';
 
-import { availableModelsType, supportedLanguagesType, variationsType } from './types';
+import { availableModelsType, supportedLanguagesType, profilesType } from './types';
 
 export type SupportedModel = {
   name: availableModelsType;
@@ -111,7 +111,7 @@ export interface SystemPromptConfig {
 }
 
 export const getAssistantConfig = (
-  variation: variationsType,
+  profile: profilesType,
   language: supportedLanguagesType = 'en-US',
   customInstructions = ''
 ): SystemPromptConfig => {
@@ -130,7 +130,7 @@ export const getAssistantConfig = (
     stopSequences: undefined,
   };
 
-  switch (variation) {
+  switch (profile) {
     case 'developer':
       return {
         ...defaultConfig,
@@ -215,7 +215,7 @@ export const getAssistantConfig = (
   }
 };
 
-export const variations = [
+export const profiles = [
   {
     code: 'normal',
     text: 'Normal',

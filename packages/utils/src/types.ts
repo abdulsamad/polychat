@@ -4,7 +4,7 @@ import { AnthropicProvider } from '@ai-sdk/anthropic';
 import { MistralProvider } from '@ai-sdk/mistral';
 import { DeepSeekProvider } from '@ai-sdk/deepseek';
 
-import { variations, supportedModels } from './models';
+import { profiles, supportedModels } from './models';
 import { languages } from './languages';
 
 export type enabledModelsType = (typeof supportedModels)[number]['name'];
@@ -18,4 +18,4 @@ export type availableModelsType =
 
 export type supportedLanguagesType = (typeof languages)[number]['code'];
 
-export type variationsType = (typeof variations)[number]['code'];
+export type profilesType = (typeof profiles)[number]['code'];

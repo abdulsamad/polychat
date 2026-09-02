@@ -25,18 +25,18 @@ const chat = async (c: Context<AppContext>) => {
       prompt,
       messages,
       language = 'en-US',
-      variation = 'normal',
+      profile = 'normal',
       customInstructions,
       model,
     } = parsed.data;
 
     console.info(
-      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Variation: ${variation}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length}`}`
+      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Profile: ${profile}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length}`}`
     );
 
     const modelInstance = modelFactory.createModel(model);
     const config = getAssistantConfig(
-      variation as Parameters<typeof getAssistantConfig>[0],
+      profile as Parameters<typeof getAssistantConfig>[0],
       language,
       customInstructions
     );

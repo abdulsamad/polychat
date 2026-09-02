@@ -7,7 +7,7 @@ import { threadLoadingAtom, messagesAtom } from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
-import { variations } from 'utils';
+import { profiles } from 'utils';
 
 import Empty from './Empty';
 import Typing from './Typing';
@@ -77,7 +77,7 @@ const Thread = ({ className }: ThreadProps) => {
   }, [messages]);
 
   const userInfo = useCallback(
-    (variation: string | null): UserInfo => ({
+    (profile: string | null): UserInfo => ({
       user: {
         name: getName(user),
         avatarImageSrc: user?.imageUrl!,
@@ -85,8 +85,8 @@ const Thread = ({ className }: ThreadProps) => {
           'border-primary bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]',
       },
       assistant: {
-        name: variations.find((item) => item.code === variation)?.text || 'Assistant',
-        avatarImageSrc: variation === 'custom' ? '/polychat-mark.png' : `/icons/${variation}.png`,
+        name: profiles.find((item) => item.code === profile)?.text || 'Assistant',
+        avatarImageSrc: profile === 'custom' ? '/polychat-mark.png' : `/icons/${profile}.png`,
         messageClassNames: 'border-border/80 bg-card/80 text-card-foreground shadow-sm',
       },
     }),
@@ -103,7 +103,7 @@ const Thread = ({ className }: ThreadProps) => {
           <>
             {messages.map((chat) => {
               const { role, metadata } = chat;
-              return <Message key={chat.id} {...userInfo(metadata.variation)[role]} {...chat} />;
+              return <Message key={chat.id} {...userInfo(metadata.profile)[role]} {...chat} />;
             })}
             {isChatResponseLoading && <Typing />}
             <UsageStatus />

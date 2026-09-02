@@ -96,7 +96,7 @@ const MessageContent = ({
                 'flex min-w-0 items-start gap-2 sm:gap-3',
                 isUser && 'flex-row-reverse'
               )}>
-              {/* Name and User or Variation Image */}
+              {/* Name and User or Profile Image */}
               {!isImage && (
                 <div className="flex w-9 shrink-0 flex-col items-center justify-center gap-1 sm:w-14">
                   <div className="size-8 overflow-hidden rounded-full border border-border bg-muted sm:size-10">

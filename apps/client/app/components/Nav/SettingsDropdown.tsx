@@ -4,7 +4,7 @@ import { SlidersHorizontal } from 'lucide-react';
 
 import {
   defaultModel,
-  variations,
+  profiles,
   supportedImageModels,
   imageSizes,
   supportedTextModels,
@@ -49,7 +49,7 @@ const SettingsDropdown = () => {
     (name: string, value: string) => {
       if (!thread) return null;
 
-      if (name === 'model' || name === 'variation') {
+      if (name === 'model' || name === 'profile') {
         updateThreadSettings({ [name]: value } as Parameters<typeof updateThreadSettings>[0]);
       } else {
         setConfig({ ...config, [name]: value } as typeof config);
@@ -77,7 +77,7 @@ const SettingsDropdown = () => {
     return imageSize;
   }, [imageSize, updateSetting]);
 
-  const getGroupedItemsByCategory = useCallback((items: typeof variations) => {
+  const getGroupedItemsByCategory = useCallback((items: typeof profiles) => {
     return Object.entries(
       items.reduce<Record<string, Array<{ code: string; text: string }>>>(
         (acc, { code, text, category }) => {
@@ -95,7 +95,7 @@ const SettingsDropdown = () => {
   const {
     settings: {
       model,
-      variation,
+      profile,
       conversationContextMode,
       isTextToSpeechEnabled,
       showDetailedUsage,
@@ -207,13 +207,13 @@ const SettingsDropdown = () => {
                     Assistant profile
                   </label>
                   <Select
-                    value={variation}
-                    onValueChange={(value) => updateSetting('variation', value)}>
+                    value={profile}
+                    onValueChange={(value) => updateSetting('profile', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Assistant profile" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getGroupedItemsByCategory(variations).map(([category, items]) => (
+                      {getGroupedItemsByCategory(profiles).map(([category, items]) => (
                         <SelectGroup key={category}>
                           <SelectLabel className="text-muted-foreground capitalize">
                             {category}
@@ -230,7 +230,7 @@ const SettingsDropdown = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {!customInstructions.trim() || variation === 'custom' ? (
+                  {!customInstructions.trim() || profile === 'custom' ? (
                     <p className="px-1 text-xs text-muted-foreground">
                       {customInstructions.trim()
                         ? 'Custom instructions are managed in '
