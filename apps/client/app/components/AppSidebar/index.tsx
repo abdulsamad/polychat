@@ -107,7 +107,7 @@ const AppSidebar = () => {
                         {user?.emailAddresses[0].emailAddress}
                       </span>
                     </div>
-                    <ChevronDown className="ml-auto size-4 group-has-data-[state=open]:rotate-z-180 transition-transform duration-300" />
+                    <ChevronDown className="ml-auto size-4 transition-transform duration-300 ease-in-out group-data-[state=open]/sidebar-footer:rotate-180" />
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

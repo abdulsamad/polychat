@@ -545,7 +545,9 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold">New thread defaults</h2>
-                <Badge variant="outline" className="rounded-full px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-border bg-muted px-1.5 py-0 text-[10px] text-foreground">
                   New chats
                 </Badge>
               </div>
