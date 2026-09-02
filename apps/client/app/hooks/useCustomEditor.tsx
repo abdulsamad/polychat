@@ -93,7 +93,7 @@ const useCustomEditor = () => {
           ...(draftContent.length ? [{ type: 'paragraph' }, ...draftContent] : []),
         ],
       },
-      false
+      { emitUpdate: false }
     );
     setEditorState(editor.getHTML());
     editor.commands.focus('end');
