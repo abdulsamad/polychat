@@ -18,6 +18,7 @@ required_vars=(
   PORT
   CLERK_ISSUER_BASE_URL
   CLERK_AUTHORIZED_PARTIES
+  ALLOWED_ORIGINS
   GEMINI_API_KEY
   OPENAI_API_KEY
   ANTHROPIC_API_KEY
@@ -28,6 +29,14 @@ required_vars=(
 for variable in "${required_vars[@]}"; do
   if [[ -z "${!variable:-}" ]]; then
     echo "Missing required variable in apps/serverless/.env: $variable" >&2
+    exit 1
+  fi
+done
+
+IFS=',' read -r -a allowed_origins <<< "$ALLOWED_ORIGINS"
+for origin in "${allowed_origins[@]}"; do
+  if [[ ! "$origin" =~ ^https://[^[:space:]]+$ && ! "$origin" =~ ^http://localhost(:[0-9]+)?$ ]]; then
+    echo "ALLOWED_ORIGINS must contain HTTPS origins or localhost HTTP origins; wildcard '*' is not allowed" >&2
     exit 1
   fi
 done

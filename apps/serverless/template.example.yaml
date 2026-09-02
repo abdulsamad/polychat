@@ -36,8 +36,7 @@ Resources:
     Properties:
       AuthType: NONE
       Cors:
-        AllowOrigins:
-          - https://example.com
+        AllowOrigins: !Split [",", !Ref AllowedOrigins]
         AllowMethods:
           - POST
           - GET
@@ -134,6 +133,10 @@ Parameters:
   PORT:
     Type: String
     Default: "3001"
+  AllowedOrigins:
+    Type: String
+    AllowedPattern: '^(https://[^,[:space:]]+|http://localhost(:[0-9]+)?)(,(https://[^,[:space:]]+|http://localhost(:[0-9]+)?))*$'
+    ConstraintDescription: Origins must use HTTPS, except for localhost HTTP origins; wildcard origins are not allowed.
   ClerkIssuerBaseURL:
     Type: String
   ClerkAuthorizedParties:
