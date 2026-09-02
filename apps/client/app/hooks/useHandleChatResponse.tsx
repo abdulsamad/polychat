@@ -28,9 +28,14 @@ const STREAM_UPDATE_INTERVAL_MS = 120;
 const showResponseErrorToast = (
   message: string,
   isSharedApiRequest: boolean,
-  openSettings: () => void
+  openSettings: () => void,
+  status?: number
 ) => {
-  if (!isSharedApiRequest) {
+  const shouldSuggestByok =
+    isSharedApiRequest &&
+    (status === undefined || status === 404 || status === 429 || status >= 500);
+
+  if (!shouldSuggestByok) {
     toast.error(message);
     return;
   }
@@ -45,8 +50,8 @@ const showResponseErrorToast = (
 const showStartedToastOnce = async (openSettings: () => void) => {
   try {
     if (await markStartedToastAsSeen()) {
-      toast.info('Did you know you can use your own key?', {
-        description: 'Try Bring Your Own Key (BYOK) in Settings. Your provider key is encrypted locally and used directly from this browser.',
+      toast.info('Did you know you can use your own API key?', {
+        description: 'Add a provider key in Settings to use your own provider.',
         action: { label: 'Open settings', onClick: openSettings },
         duration: 10000,
       });
@@ -110,7 +115,7 @@ const useHandleChatResponse = () => {
         });
 
         if (!('b64_json' in imageResponse)) {
-          throw new Error(imageResponse.err);
+          throw Object.assign(new Error(imageResponse.err), { status: imageResponse.status });
         }
 
         const { b64_json } = imageResponse;
@@ -167,7 +172,7 @@ const useHandleChatResponse = () => {
 
         // Handle error response
         if ('success' in stream && !stream.success) {
-          throw new Error(stream.err);
+          throw Object.assign(new Error(stream.err), { status: stream.status });
         }
 
         const reader = (stream as ReadableStream<ChatStreamPart>).getReader();
@@ -269,7 +274,8 @@ const useHandleChatResponse = () => {
         return showResponseErrorToast(
           err.response?.data.err || err.message,
           isSharedApiRequest,
-          () => setSettingsOpen(true)
+          () => setSettingsOpen(true),
+          err.response?.status
         );
       }
 
@@ -277,7 +283,8 @@ const useHandleChatResponse = () => {
         return showResponseErrorToast(
           err.message || 'Something went Wrong!',
           isSharedApiRequest,
-          () => setSettingsOpen(true)
+          () => setSettingsOpen(true),
+          'status' in err && typeof err.status === 'number' ? err.status : undefined
         );
       }
 

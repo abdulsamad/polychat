@@ -10,7 +10,7 @@ const baseURL = import.meta.env.VITE_API_ENDPOINT;
 const axiosInstance = axios.create({ baseURL });
 
 type GetTokenOptions = Parameters<ReturnType<typeof useAuth>['getToken']>[0];
-type ErrorType = { success: false; err: string };
+type ErrorType = { success: false; err: string; status?: number };
 
 const getErrorMessage = (data: unknown, fallback: string) => {
   if (typeof data === 'object' && data !== null) {
@@ -141,13 +141,13 @@ export const getGeneratedText = async ({
 
     switch (res.status) {
       case 429:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
       case 401:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
       case 400:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
       default:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
     }
   }
 
@@ -235,11 +235,11 @@ export const getGeneratedImage = async ({
 
     switch (res.status) {
       case 429:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
       case 401:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
       default:
-        return { success: false, err: serverError };
+        return { success: false, err: serverError, status: res.status };
     }
   }
 
