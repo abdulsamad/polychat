@@ -88,12 +88,12 @@ const MessageContent = ({
           data-type={type}>
           <div
             className={clsx(
-              'min-w-0',
+              'w-full min-w-0',
               isUser ? 'ml-auto max-w-[min(92%,46rem)]' : 'w-full max-w-[52rem]'
             )}>
             <div
               className={clsx(
-                'flex min-w-0 items-start gap-2 sm:gap-3',
+                'flex w-full min-w-0 items-start gap-2 sm:gap-3',
                 isUser && 'flex-row-reverse'
               )}>
               {/* Name and User or Profile Image */}

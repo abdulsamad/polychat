@@ -77,6 +77,7 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
     <Card
       className={clsx(
         'message min-w-0 max-w-full overflow-hidden select-none rounded-2xl px-3 py-2.5 [overflow-wrap:anywhere] sm:px-4 sm:py-3',
+        isUser ? 'w-fit' : 'w-full',
         messageClassNames
       )}>
       {isUser ? (
@@ -145,9 +146,11 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
                   {children}
                 </ol>
               ),
-              li: ({ children }) => <li className="pl-1 leading-7">{children}</li>,
+              li: ({ children }) => (
+                <li className="min-w-0 pl-1 leading-7 [overflow-wrap:anywhere]">{children}</li>
+              ),
               blockquote: ({ children }) => (
-                <blockquote className="my-4 border-l-2 border-primary/70 bg-muted/60 px-4 py-2 text-muted-foreground italic">
+                <blockquote className="my-4 min-w-0 border-l-2 border-primary/70 bg-muted/60 px-4 py-2 text-muted-foreground italic [overflow-wrap:anywhere]">
                   {children}
                 </blockquote>
               ),
@@ -156,7 +159,7 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
                   href={href}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="font-medium text-primary underline decoration-primary/40 underline-offset-4 hover:decoration-primary">
+                  className="font-medium text-primary underline decoration-primary/40 underline-offset-4 [overflow-wrap:anywhere] hover:decoration-primary">
                   {children}
                 </a>
               ),
