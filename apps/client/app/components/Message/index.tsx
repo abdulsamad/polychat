@@ -93,7 +93,7 @@ const MessageContent = ({
             )}>
             <div
               className={clsx(
-                'flex w-full min-w-0 items-start gap-2 sm:gap-3',
+                'flex w-full min-w-0 items-start gap-2 overflow-hidden sm:gap-3',
                 isUser && 'flex-row-reverse'
               )}>
               {/* Name and User or Profile Image */}

@@ -77,7 +77,7 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
     <Card
       className={clsx(
         'message min-w-0 max-w-full overflow-hidden select-none rounded-2xl px-3 py-2.5 [overflow-wrap:anywhere] sm:px-4 sm:py-3',
-        isUser ? 'w-fit' : 'min-w-0 flex-1',
+        isUser ? 'w-fit' : 'min-w-0 flex-1 basis-0',
         messageClassNames
       )}>
       {isUser ? (
