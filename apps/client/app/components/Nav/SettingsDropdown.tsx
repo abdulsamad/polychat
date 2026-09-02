@@ -14,6 +14,7 @@ import {
   configAtom,
   threadAtom,
   updateThreadSettingsAtom,
+  threadSettingsOpenAtom,
   userSettingsOpenAtom,
 } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
@@ -40,6 +41,7 @@ const SettingsDropdown = () => {
   const [config, setConfig] = useAtom(configAtom);
   const thread = useAtomValue(threadAtom);
   const updateThreadSettings = useSetAtom(updateThreadSettingsAtom);
+  const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
 
   const { imageSize, style, quality } = config;
@@ -106,7 +108,7 @@ const SettingsDropdown = () => {
   const isDallE3Selected = model === 'dall-e-3';
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={isThreadSettingsOpen} onOpenChange={setThreadSettingsOpen}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
           <SlidersHorizontal className="size-[18px]" />

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 
 import { profiles } from 'utils';
 
 import useSubmitMessage from '@/hooks/useSubmitMessage';
-import { threadAtom } from '@/store';
+import { threadAtom, threadSettingsOpenAtom, userSettingsOpenAtom } from '@/store';
 import { Button } from '@/components/ui/button';
 
 interface IEmpty {
@@ -12,15 +12,37 @@ interface IEmpty {
 }
 
 const emptyTips = [
-  'Open thread settings to switch models or profiles.',
-  'Enable context to keep earlier messages in view.',
-  'Turn on text-to-speech from thread settings.',
-  'Add custom instructions or your own provider key in Settings.',
-];
+  {
+    before: 'Open ',
+    link: 'thread settings',
+    after: ' to switch models or profiles.',
+    target: 'thread',
+  },
+  {
+    before: 'Enable context in ',
+    link: 'thread settings',
+    after: ' to keep earlier messages in view.',
+    target: 'thread',
+  },
+  {
+    before: 'Turn on text-to-speech from ',
+    link: 'thread settings',
+    after: '.',
+    target: 'thread',
+  },
+  {
+    before: 'Add custom instructions or your own provider key in ',
+    link: 'Settings',
+    after: '.',
+    target: 'user',
+  },
+] as const;
 
 const Empty = ({ name }: IEmpty) => {
   const thread = useAtomValue(threadAtom);
   const profile = thread?.settings.profile;
+  const setThreadSettingsOpen = useSetAtom(threadSettingsOpenAtom);
+  const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
 
   const { isChatLoading, submitMessage } = useSubmitMessage();
 
@@ -76,7 +98,19 @@ const Empty = ({ name }: IEmpty) => {
           </>
         )}
         <p className="mx-auto mt-10 max-w-2xl border-t border-border/60 px-4 pt-4 text-xs leading-5 text-muted-foreground/80 sm:text-sm">
-          Tip: {tip}
+          Tip: {tip.before}
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto p-0 text-inherit underline underline-offset-2"
+            onClick={() =>
+              tip.target === 'thread'
+                ? setThreadSettingsOpen(true)
+                : setUserSettingsOpen(true)
+            }>
+            {tip.link}
+          </Button>
+          {tip.after}
         </p>
       </div>
     </div>

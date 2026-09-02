@@ -30,6 +30,7 @@ export const editorAtom = atom('');
 export const threadLoadingAtom = atom(false);
 export const speechPlaybackAtom = atom(false);
 export const userSettingsOpenAtom = atom(false);
+export const threadSettingsOpenAtom = atom(false);
 
 export interface IMessageCommons {
   id: ReturnType<typeof crypto.randomUUID>;

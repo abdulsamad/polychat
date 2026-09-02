@@ -21,6 +21,7 @@ import {
 } from '@/store';
 import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 import { markStartedToastAsSeen } from '@/utils/lforage';
+import { Button } from '@/components/ui/button';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
 const STREAM_UPDATE_INTERVAL_MS = 120;
@@ -41,7 +42,20 @@ const showResponseErrorToast = (
   }
 
   toast.error('The shared server is for testing only', {
-    description: `[Testing only] ${message} This server is not intended for general use. Use Bring Your Own Key (BYOK) in Settings to connect your own provider and continue with your own key.`,
+    description: (
+      <>
+        [Testing only] {message} This server is not intended for general use. Use Bring Your Own Key
+        (BYOK) in{' '}
+        <Button
+          type="button"
+          variant="link"
+          className="h-auto p-0 text-inherit underline underline-offset-2"
+          onClick={openSettings}>
+          Settings
+        </Button>{' '}
+        to connect your own provider and continue with your own key.
+      </>
+    ),
     action: { label: 'Open settings', onClick: openSettings },
     duration: 12000,
   });
@@ -51,7 +65,19 @@ const showStartedToastOnce = async (openSettings: () => void) => {
   try {
     if (await markStartedToastAsSeen()) {
       toast.info('Did you know you can use your own API key?', {
-        description: 'Add a provider key in Settings to use your own provider.',
+        description: (
+          <>
+            Add a provider key in{' '}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-inherit underline underline-offset-2"
+              onClick={openSettings}>
+              Settings
+            </Button>{' '}
+            to use your own provider.
+          </>
+        ),
         action: { label: 'Open settings', onClick: openSettings },
         duration: 10000,
       });
