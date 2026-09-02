@@ -34,25 +34,27 @@ const Thread = ({ className }: ThreadProps) => {
   const hasInitialScroll = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLElement | null>(null);
+  const bottomSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const viewport = rootRef.current?.querySelector<HTMLElement>(
       '[data-slot="scroll-area-viewport"]'
     );
+    const bottomSentinel = bottomSentinelRef.current;
 
-    if (!viewport) return;
+    if (!viewport || !bottomSentinel) return;
     viewportRef.current = viewport;
 
-    const updateScrollIntent = () => {
-      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      shouldStickToBottom.current = distanceFromBottom <= 32;
-    };
-
-    viewport.addEventListener('scroll', updateScrollIntent, { passive: true });
-    updateScrollIntent();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        shouldStickToBottom.current = entry.isIntersecting;
+      },
+      { root: viewport, rootMargin: '0px 0px 32px 0px' }
+    );
+    observer.observe(bottomSentinel);
 
     return () => {
-      viewport.removeEventListener('scroll', updateScrollIntent);
+      observer.disconnect();
       viewportRef.current = null;
     };
   }, []);
@@ -107,6 +109,7 @@ const Thread = ({ className }: ThreadProps) => {
             })}
             {isChatResponseLoading && <Typing />}
             <UsageStatus />
+            <div ref={bottomSentinelRef} aria-hidden="true" className="h-px" />
           </>
         ) : (
           <Empty name={getName(user)} />
