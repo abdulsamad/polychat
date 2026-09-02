@@ -318,9 +318,11 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
 
   const settingsBody = (
     <>
-      <DialogHeader className="border-b border-border/60 bg-muted/20 px-6 py-5">
-        <DialogTitle className="flex items-center gap-2">
-          <SlidersHorizontalIcon className="size-5 text-primary" />
+      <DialogHeader className="border-b border-border/60 bg-background px-6 py-5">
+        <DialogTitle className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <SlidersHorizontalIcon className="size-4" />
+          </span>
           Settings
         </DialogTitle>
         <DialogDescription>Personalize PolyChat and choose how new chats begin.</DialogDescription>
@@ -746,7 +748,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange} shouldScaleBackground>
-        <DrawerContent className="max-h-[92dvh] rounded-t-2xl border-border/70 p-0">
+        <DrawerContent className="max-h-[92dvh] rounded-t-2xl border-t border-border/70 bg-background p-0 shadow-[0_-12px_32px_hsl(var(--foreground)/0.08)]">
           <DrawerHeader className="sr-only">
             <DrawerTitle>Settings</DrawerTitle>
             <DrawerDescription>
