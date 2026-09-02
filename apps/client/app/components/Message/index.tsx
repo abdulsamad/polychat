@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 import { CopyIcon, ShareIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
 import { useAtomValue } from 'jotai';
 
@@ -14,6 +15,7 @@ import {
   ContextMenuItem,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import Image from './Image';
 import Text from './Text';
@@ -25,7 +27,7 @@ interface ExtraProps extends IMessageCommons {
 
 type MessageProps = ExtraProps & UserInfo['user' | 'assistant'] & (ITextMessage | IImageMessage);
 
-const Message = ({
+const MessageContent = ({
   name,
   messageClassNames,
   avatarImageSrc,
@@ -164,5 +166,20 @@ const Message = ({
     </ContextMenu>
   );
 };
+
+const messageFallbackRender = ({}: FallbackProps) => (
+  <Alert role="alert" className="my-5">
+    <AlertTitle>Unable to render this message</AlertTitle>
+    <AlertDescription>
+      This message contains unsupported content. The rest of the conversation is still available.
+    </AlertDescription>
+  </Alert>
+);
+
+const Message = (props: MessageProps) => (
+  <ErrorBoundary fallbackRender={messageFallbackRender}>
+    <MessageContent {...props} />
+  </ErrorBoundary>
+);
 
 export default memo(Message);
