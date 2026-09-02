@@ -6,7 +6,6 @@ import {
   ApiGatewayRequestContextV2,
 } from 'hono/aws-lambda';
 import { logger } from 'hono/logger';
-import { cors } from 'hono/cors';
 import { type JWTPayload } from 'jose';
 
 import chat from '@controllers/chat';
@@ -28,19 +27,8 @@ export type AppContext = {
 
 export const app = new Hono<AppContext>();
 
-const allowedOrigins = (process.env.CLERK_AUTHORIZED_PARTIES || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-app.use(
-  '*',
-  cors({
-    origin: (origin) => (allowedOrigins.includes(origin) ? origin : undefined),
-    allowHeaders: ['Authorization', 'Content-Type'],
-    allowMethods: ['POST', 'GET', 'OPTIONS'],
-  })
-);
+// CORS is enforced by the AWS Lambda Function URL configuration in production.
+// Keeping CORS in one layer prevents duplicate Access-Control-Allow-Origin headers.
 
 app.get('/', (c) => c.text('Hono + Lambda + AI'));
 
