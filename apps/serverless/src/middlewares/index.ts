@@ -8,8 +8,7 @@ const ISSUER_URL = process.env.CLERK_ISSUER_BASE_URL;
 if (!ISSUER_URL) {
   throw new Error('CLERK_ISSUER_BASE_URL is required');
 }
-const AUTHORIZED_PARTIES = process.env.CLERK_AUTHORIZED_PARTIES
-  ?.split(',')
+const AUTHORIZED_PARTIES = process.env.CLERK_AUTHORIZED_PARTIES?.split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
 if (!AUTHORIZED_PARTIES?.length) {
@@ -62,6 +61,7 @@ export const authMiddleware = createMiddleware<AppContext>(async (c, next) => {
 
     await next();
   } catch (err) {
+    console.log(err);
     console.error(
       `[AUTH] Token verification failed - ` +
         `Error: ${err instanceof Error ? err.message : 'Unknown error'}`
