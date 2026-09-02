@@ -233,12 +233,12 @@ const ThreadsList = () => {
                                   setThreadToRename(null);
                                 }
                               }}
-                              className="h-8 min-w-0 bg-background px-2"
+                              className="h-8 min-w-0 flex-1 bg-background px-2"
                             />
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="size-8"
+                              className="size-8 shrink-0"
                               aria-label="Save thread name"
                               onClick={() => void renameThread()}>
                               <CheckIcon className="size-4" />
@@ -246,7 +246,7 @@ const ThreadsList = () => {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="size-8"
+                              className="size-8 shrink-0"
                               aria-label="Cancel rename"
                               onClick={() => setThreadToRename(null)}>
                               <XIcon className="size-4" />
