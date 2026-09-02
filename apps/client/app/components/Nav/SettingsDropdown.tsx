@@ -230,9 +230,11 @@ const SettingsDropdown = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {variation === 'custom' ? (
+                  {!customInstructions.trim() || variation === 'custom' ? (
                     <p className="px-1 text-xs text-muted-foreground">
-                      Custom instructions are managed in{' '}
+                      {customInstructions.trim()
+                        ? 'Custom instructions are managed in '
+                        : 'Custom profile is disabled until you add instructions in '}
                       <Button
                         type="button"
                         variant="link"
