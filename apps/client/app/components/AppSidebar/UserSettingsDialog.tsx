@@ -753,7 +753,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               Personalize PolyChat and choose how new chats begin.
             </DrawerDescription>
           </DrawerHeader>
-          <div className="min-h-0 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+          <div className="min-h-0 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             {settingsBody}
           </div>
         </DrawerContent>
