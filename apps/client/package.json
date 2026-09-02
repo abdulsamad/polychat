@@ -14,7 +14,7 @@
     "@ai-sdk/google": "^4.0.45",
     "@ai-sdk/mistral": "^4.0.29",
     "@ai-sdk/openai": "^4.0.42",
-    "@clerk/react-router": "^2.4.13",
+    "@clerk/react-router": "^3.6.18",
     "@fontsource/fira-code": "^5.2.4",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",
