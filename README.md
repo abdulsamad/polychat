@@ -1,13 +1,20 @@
 # PolyChat
 
-PolyChat is a focused workspace for thinking, creating, and working with AI. Compare language models, generate images, save conversations locally, and keep your preferred workflow in one calm, responsive interface.
+PolyChat is a focused workspace for thinking, creating, and working with AI.
+
+## Features
 
 - **Choose the right model** - Switch between supported language and image models from a single conversation workspace.
-- **Keep your work close** - Threads and generated images are stored locally in your browser, so your conversations remain available between sessions.
-- **Bring your own keys** - Use supported provider keys through an encrypted, browser-local vault when you want direct provider access.
+- **Tune each thread** - Choose a supported model, assistant profile, response language, and whether to send previous messages as multi-turn context.
+- **Use focused profiles** - Switch between Normal, Developer, Snarky Bot, Grammar Corrector, Doctor, Teacher, Historian, Chef, Data Scientist, Legal Advisor, and Custom profiles.
+- **Personalize responses** - Save up to 4,000 characters of custom instructions locally and use them with the Custom profile.
+- **Inspect usage** - Enable detailed token counts for individual messages and the active thread.
+- **Keep your work close** - Store threads, messages, generated images, preferences, and custom instructions locally in your browser.
+- **Manage local data** - Rename or delete individual threads, delete all chats, or reset all local data from Settings.
+- **Bring your own keys** - Use Google Gemini, OpenAI, Anthropic, Mistral, or DeepSeek keys through a browser-local session key or encrypted vault.
 - **Write and read naturally** - Use a responsive TipTap composer, voice input, and speech playback where your browser supports them.
 - **Work with rich answers** - Stream Markdown responses with tables, links, lists, syntax-highlighted code, copy actions, and downloadable files.
-- **Create visuals** - Generate images from prompts and download the results for use elsewhere.
+- **Create visuals** - Generate images from prompts, choose supported image options, and download the results.
 - **Stay comfortable anywhere** - Light, dark, and system themes, keyboard-friendly controls, and layouts that adapt from desktop to mobile.
 
 ## A considered chat experience
@@ -40,7 +47,7 @@ PolyChat uses Node.js 22+, pnpm 11+, a Clerk development instance, and at least 
 - Node.js 22 or newer
 - pnpm 11 or newer
 - A Clerk development application
-- At least one provider key for Gemini, OpenAI, Anthropic, Mistral, or DeepSeek
+- At least one provider key for Gemini, OpenAI, Anthropic, Mistral, or DeepSeek if you are using the server-backed API. Signed-in users can alternatively configure a supported provider key through the browser-local BYOK settings.
 
 Install workspace dependencies from the repository root:
 
@@ -101,22 +108,3 @@ pnpm serverless:dev:test
 ### Streaming behavior
 
 `pnpm serverless:dev:test` starts the Hono application through Node's HTTP server. It preserves the `/chat` newline-delimited JSON response stream, so token updates appear in the client as they arrive.
-
-### Optional SAM verification
-
-Use SAM only when validating the Lambda proxy integration. It is not the streaming development server because API Gateway local emulation uses a standard Lambda proxy response.
-
-```bash
-cp apps/serverless/env.test.json.example apps/serverless/env.test.json
-# Add the same Clerk and provider values as above in JSON form.
-pnpm serverless:sam
-```
-
-### Troubleshooting
-
-- `401 Unauthorized`: Verify the client publishable key, `CLERK_ISSUER_BASE_URL`, and that the Clerk token's authorized party exactly matches `http://localhost:3000`.
-- Browser CORS error: Add the exact client origin to `CLERK_AUTHORIZED_PARTIES`, then restart the local API.
-- `Invalid chat request` or provider error: Check that the selected model has a corresponding provider key in `apps/serverless/.env.test`.
-- Port already in use: Stop the existing process or run `pnpm kill-ports` before starting again.
-
-Never commit real credentials, `.env.test`, or `env.test.json` files.
