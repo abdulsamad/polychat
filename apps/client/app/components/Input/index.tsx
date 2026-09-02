@@ -1,5 +1,5 @@
 import { EditorContent, useEditorState } from '@tiptap/react';
-import { SendHorizonal, Square, VolumeX } from 'lucide-react';
+import { SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
@@ -10,7 +10,7 @@ import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
 
 const Text = () => {
-  const { editor, handleSubmit, isChatLoading, stopChat } = useCustomTiptapEditor();
+  const { editor, handleSubmit, isChatLoading, isQueued, stopChat, cancelQueued } = useCustomTiptapEditor();
   const isSpeaking = useAtomValue(speechPlaybackAtom);
   const { cancel } = useSpeechSynthesis();
   const hasText = useEditorState({
@@ -49,6 +49,19 @@ const Text = () => {
             onClick={stopChat}>
             <Square className="size-4 fill-current" />
             <span className="sr-only">Stop generating</span>
+          </Button>
+        ) : isQueued ? (
+          <Button
+            type="button"
+            title="Cancel queued message"
+            aria-label="Cancel queued message"
+            className="size-10 rounded-full border border-muted-foreground/30 bg-muted p-0 sm:size-11"
+            onClick={(event) => {
+              event.preventDefault();
+              cancelQueued();
+            }}>
+            <XIcon className="size-4" />
+            <span className="sr-only">Cancel queued message</span>
           </Button>
         ) : !hasText && IS_SPEECH_RECOGNITION_SUPPORTED() ? (
           <Voice />

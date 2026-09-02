@@ -3,7 +3,7 @@ import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
 import clsx from 'clsx';
 
-import { threadLoadingAtom, messagesAtom } from '@/store';
+import { threadLoadingAtom, messagesAtom, threadQueuedJobAtom } from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
@@ -29,6 +29,7 @@ interface ThreadProps {
 const Thread = ({ className }: ThreadProps) => {
   const messages = useAtomValue(messagesAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
+  const queuedJob = useAtomValue(threadQueuedJobAtom);
   const { user } = useUser();
   const shouldStickToBottom = useRef(true);
   const hasInitialScroll = useRef(false);
@@ -108,6 +109,11 @@ const Thread = ({ className }: ThreadProps) => {
               return <Message key={chat.id} {...userInfo(metadata.profile)[role]} {...chat} />;
             })}
             {isChatResponseLoading && <Typing />}
+            {queuedJob && (
+              <p className="px-2 py-3 text-center text-sm text-muted-foreground" role="status">
+                Queued - waiting for the current response to finish.
+              </p>
+            )}
             <UsageStatus />
             <div ref={bottomSentinelRef} aria-hidden="true" className="h-px" />
           </>

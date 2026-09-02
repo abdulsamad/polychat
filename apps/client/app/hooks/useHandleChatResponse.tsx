@@ -11,16 +11,14 @@ import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfigured } from '@/utils/byok-vault';
 
 import {
-  threadAtom,
-  messagesAtom,
-  upsertMessageAtom,
-  threadLoadingAtom,
-  configAtom,
-  IMessage,
+  type ChatJob,
+  type IMessage,
+  upsertThreadMessageAtom,
   userSettingsOpenAtom,
   userSettingsScrollTargetAtom,
 } from '@/store';
 import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
+import { isDiscardedStream } from '@/utils/chat-stream-registry';
 import { markStartedToastAsSeen } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import useSpeechSynthesis from './useSpeechSynthesis';
@@ -89,20 +87,12 @@ const showStartedToastOnce = async (openSettings: () => void) => {
 };
 
 interface handleChatResponseProps {
-  prompt: string;
+  job: ChatJob;
   signal?: AbortSignal;
-  onTextMessageComplete?: (content: string) => void;
-  onImageMessageComplete?: () => void;
 }
 
 const useHandleChatResponse = () => {
-  const config = useAtomValue(configAtom);
-  const { imageSize, language, quality, style } = config;
-  const customInstructions = config.customInstructions || '';
-  const thread = useAtomValue(threadAtom);
-  const messages = useAtomValue(messagesAtom);
-  const upsertMessage = useSetAtom(upsertMessageAtom);
-  const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
+  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
   const [isPending, startTransition] = useTransition();
@@ -117,15 +107,17 @@ const useHandleChatResponse = () => {
   };
 
   const handleChatResponse = async ({
-    prompt,
+    job,
     signal,
-    onTextMessageComplete,
-    onImageMessageComplete,
   }: handleChatResponseProps) => {
+    const { prompt, thread, messages, config } = job;
+    const { imageSize, language, quality, style } = config;
+    const customInstructions = config.customInstructions || '';
     let isSharedApiRequest = true;
 
     try {
-      if (!thread) throw new Error('Thread not created');
+      if (user?.id !== job.accountId) return { status: 'discarded' as const };
+
       const provider = providerForModel(thread.settings.model);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
       isSharedApiRequest = !apiKey;
@@ -136,6 +128,7 @@ const useHandleChatResponse = () => {
         isSharedApiRequest = false;
         throw new Error(`Unlock your ${provider} BYOK vault key before chatting.`);
       }
+      if (signal?.aborted) return { status: 'cancelled' as const };
 
       if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
         const imageResponse = await getGeneratedImage({
@@ -152,28 +145,31 @@ const useHandleChatResponse = () => {
         if (!('b64_json' in imageResponse)) {
           throw Object.assign(new Error(imageResponse.err), { status: imageResponse.status });
         }
+        if (signal?.aborted) return { status: 'cancelled' as const };
 
         const { b64_json } = imageResponse;
 
         startTransition(() => {
-          upsertMessage({
-            id: crypto.randomUUID(),
-            content: ``,
-            image_url: {
-              url: `data:image/png;base64,${b64_json}`,
-              alt: prompt,
-              size: imageSize,
-            },
-            role: 'assistant',
-            type: 'image_url',
-            metadata: {
-              model: thread.settings.model,
-              profile: thread.settings.profile,
-              timestamp: getTime(new Date()),
+          upsertThreadMessage({
+            threadId: thread.id,
+            message: {
+              id: job.assistantMessageId,
+              content: ``,
+              image_url: {
+                url: `data:image/png;base64,${b64_json}`,
+                alt: prompt,
+                size: imageSize,
+              },
+              role: 'assistant',
+              type: 'image_url',
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp: getTime(new Date()),
+                requestId: job.id,
+              },
             },
           });
-
-          setIsChatResponseLoading(false);
           // Haptic feedback and sound
           navigator.vibrate(100);
           play();
@@ -181,7 +177,7 @@ const useHandleChatResponse = () => {
 
         await showStartedToastOnce(openByokSettings);
 
-        if (onImageMessageComplete) onImageMessageComplete();
+        return { status: 'completed' as const };
       } else {
         const stream = await getGeneratedText({
           ...(thread.settings.conversationContextMode === 'multi-turn'
@@ -211,50 +207,61 @@ const useHandleChatResponse = () => {
         }
 
         const reader = (stream as ReadableStream<ChatStreamPart>).getReader();
-        const uid = crypto.randomUUID();
         const timestamp = getTime(new Date());
         let content = '';
         let responseMetadata: Extract<ChatStreamPart, { type: 'metadata' }> | undefined;
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
-          upsertMessage({
-            id: uid,
-            content,
-            metadata: {
-              model: thread.settings.model,
-              profile: thread.settings.profile,
-              timestamp,
-              ...(responseMetadata
-                ? {
-                  usage: responseMetadata.metadata.usage,
-                  finishReason: responseMetadata.metadata.finishReason,
-                  responseId: responseMetadata.metadata.responseId,
-                  responseModelId: responseMetadata.metadata.modelId,
-                  responseTimestamp: responseMetadata.metadata.timestamp,
-                }
-                : {}),
-              ...(finishReason ? { finishReason } : {}),
-              ...(cancelled ? { cancelled: true } : {}),
+          if (isDiscardedStream(signal)) return;
+
+          upsertThreadMessage({
+            threadId: thread.id,
+            message: {
+              id: job.assistantMessageId,
+              content,
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp,
+                requestId: job.id,
+                ...(responseMetadata
+                  ? {
+                      usage: responseMetadata.metadata.usage,
+                      finishReason: responseMetadata.metadata.finishReason,
+                      responseId: responseMetadata.metadata.responseId,
+                      responseModelId: responseMetadata.metadata.modelId,
+                      responseTimestamp: responseMetadata.metadata.timestamp,
+                    }
+                  : {}),
+                ...(finishReason ? { finishReason } : {}),
+                ...(cancelled ? { cancelled: true } : {}),
+              },
+              role: 'assistant',
+              type: 'text',
             },
-            role: 'assistant',
-            type: 'text',
           });
         };
 
         const updateMessage = () => {
           updateTimeoutId = null;
+          if (isDiscardedStream(signal)) return;
+
           startTransition(() => {
-            upsertMessage({
-              id: uid,
-              content,
-              metadata: {
-                model: thread.settings.model,
-                timestamp,
-                profile: thread.settings.profile,
+            upsertThreadMessage({
+              threadId: thread.id,
+              message: {
+                id: job.assistantMessageId,
+                content,
+                metadata: {
+                  model: thread.settings.model,
+                  timestamp,
+                  profile: thread.settings.profile,
+                  requestId: job.id,
+                },
+                role: 'assistant',
+                type: 'text',
               },
-              role: 'assistant',
-              type: 'text',
             });
           });
         };
@@ -270,6 +277,15 @@ const useHandleChatResponse = () => {
         try {
           while (true) {
             const { value, done } = await reader.read();
+
+            if (signal?.aborted) {
+              if (updateTimeoutId !== null) {
+                clearTimeout(updateTimeoutId);
+                updateTimeoutId = null;
+              }
+              if (content || responseMetadata) saveAssistantMessage('stop', true);
+              return { status: 'cancelled' as const };
+            }
 
             // Stream is completed
             if (done) {
@@ -302,11 +318,20 @@ const useHandleChatResponse = () => {
             }
           }
         } catch (error) {
-          if (!signal?.aborted) throw error;
-
           if (updateTimeoutId !== null) {
             clearTimeout(updateTimeoutId);
             updateTimeoutId = null;
+          }
+
+          try {
+            await reader.cancel();
+          } catch {
+            // The request may already have closed the reader while aborting.
+          }
+
+          if (!signal?.aborted) {
+            if (content || responseMetadata) saveAssistantMessage('error');
+            throw error;
           }
 
           // Keep the generated portion visible after Stop. If the provider
@@ -315,32 +340,35 @@ const useHandleChatResponse = () => {
           if (content || responseMetadata) saveAssistantMessage('stop', true);
         }
 
-        if (onTextMessageComplete) onTextMessageComplete(content);
+        return { status: signal?.aborted ? ('cancelled' as const) : ('completed' as const) };
       }
     } catch (err) {
-      if (signal?.aborted) return;
+      if (signal?.aborted) return { status: 'cancelled' as const };
 
       console.error(err);
 
       if (axios.isAxiosError(err)) {
-        return showResponseErrorToast(
+        showResponseErrorToast(
           err.response?.data.err || err.message,
           isSharedApiRequest,
           openByokSettings,
           err.response?.status
         );
+        return { status: 'failed' as const, error: err.response?.data.err || err.message };
       }
 
       if (err instanceof Error) {
-        return showResponseErrorToast(
+        showResponseErrorToast(
           err.message || 'Something went Wrong!',
           isSharedApiRequest,
           openByokSettings,
           'status' in err && typeof err.status === 'number' ? err.status : undefined
         );
+        return { status: 'failed' as const, error: err.message || 'Something went Wrong!' };
       }
 
       showResponseErrorToast('Something went Wrong!', isSharedApiRequest, openByokSettings);
+      return { status: 'failed' as const, error: 'Something went Wrong!' };
     }
   };
 

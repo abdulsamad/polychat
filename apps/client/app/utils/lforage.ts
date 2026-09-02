@@ -26,6 +26,8 @@ export const setActiveWorkspaceAccount = (accountId: string | null) => {
   activeWorkspaceAccount = accountId;
 };
 
+export const getActiveWorkspaceAccount = () => activeWorkspaceAccount;
+
 export const getConfig = async (): Promise<IConfig | null> => {
   const key = scopedKey(settingsKey);
   return key ? ((await lforage.getItem(key)) as IConfig | null) : null;
