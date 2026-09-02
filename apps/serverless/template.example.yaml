@@ -143,14 +143,19 @@ Parameters:
     Type: String
   GeminiAPIKey:
     Type: String
+    NoEcho: true
   OpenAIAPIKey:
     Type: String
+    NoEcho: true
   AnthropicAPIKey:
     Type: String
+    NoEcho: true
   MistralAPIKey:
     Type: String
+    NoEcho: true
   DeepSeekAPIKey:
     Type: String
+    NoEcho: true
 
 Outputs:
   FunctionUrl:

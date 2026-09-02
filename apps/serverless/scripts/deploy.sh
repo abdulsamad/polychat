@@ -2,6 +2,23 @@
 
 set -euo pipefail
 
+# Do not leak sourced secrets or expanded deploy arguments if the caller
+# enabled Bash tracing. Restore the caller's tracing state when we exit.
+xtrace_was_enabled=0
+case $- in
+  *x*)
+    xtrace_was_enabled=1
+    set +x
+    ;;
+esac
+
+restore_xtrace() {
+  if ((xtrace_was_enabled)); then
+    set -x
+  fi
+}
+trap restore_xtrace EXIT
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$script_dir/.."
 
