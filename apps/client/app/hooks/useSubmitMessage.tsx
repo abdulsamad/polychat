@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { getTime } from 'date-fns';
-import { useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { toast } from 'sonner';
 
-import { threadAtom, threadLoadingAtom, upsertMessageAtom } from '@/store';
+import { chatAbortControllerAtom, threadAtom, threadLoadingAtom, upsertMessageAtom } from '@/store';
 
 import useHandleChatResponse from './useHandleChatResponse';
 
@@ -12,6 +12,7 @@ const useSubmitMessage = () => {
   const isChatLoading = useAtomValue(threadLoadingAtom);
   const addChat = useSetAtom(upsertMessageAtom);
   const setIsChatResponseLoading = useSetAtom(threadLoadingAtom);
+  const [abortController, setAbortController] = useAtom(chatAbortControllerAtom);
   const { handleChatResponse } = useHandleChatResponse();
 
   const submitMessage = useCallback(
@@ -37,21 +38,41 @@ const useSubmitMessage = () => {
         type: 'text',
       });
 
+      const controller = new AbortController();
+      setAbortController(controller);
       setIsChatResponseLoading(true);
 
-      void handleChatResponse({ prompt })
+      void handleChatResponse({ prompt, signal: controller.signal })
         .catch((error) => {
-          console.error(error);
-          toast.error('The message could not be sent.');
+          if (!controller.signal.aborted) {
+            console.error(error);
+            toast.error('The message could not be sent.');
+          }
         })
-        .finally(() => setIsChatResponseLoading(false));
+        .finally(() => {
+          setAbortController((currentController) =>
+            currentController === controller ? null : currentController
+          );
+          setIsChatResponseLoading(false);
+        });
 
       return true;
     },
-    [addChat, handleChatResponse, isChatLoading, setIsChatResponseLoading, thread]
+    [
+      addChat,
+      handleChatResponse,
+      isChatLoading,
+      setAbortController,
+      setIsChatResponseLoading,
+      thread,
+    ]
   );
 
-  return { isChatLoading, submitMessage };
+  const stopChat = useCallback(() => {
+    abortController?.abort();
+  }, [abortController]);
+
+  return { isChatLoading, submitMessage, stopChat };
 };
 
 export default useSubmitMessage;

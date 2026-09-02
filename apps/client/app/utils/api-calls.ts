@@ -62,6 +62,7 @@ interface IGetGeneratedTextBase {
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
+  signal?: AbortSignal;
 }
 
 interface IGetGeneratedTextWithMessages extends IGetGeneratedTextBase {
@@ -90,6 +91,7 @@ export const getGeneratedText = async ({
   getToken,
   apiKey,
   customInstructions,
+  signal,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
   const requestBody = chatRequestSchema.safeParse({
     prompt,
@@ -112,6 +114,7 @@ export const getGeneratedText = async ({
         prompt,
         messages,
         apiKey,
+        signal,
       });
     } catch {
       return {
@@ -126,6 +129,7 @@ export const getGeneratedText = async ({
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody.data),
+    signal,
   });
 
   if (!res.ok || !res.body) {
@@ -186,6 +190,7 @@ interface IGetGeneratedImage {
   size?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
+  signal?: AbortSignal;
 }
 
 interface GeneratedImageResponse {
@@ -200,6 +205,7 @@ export const getGeneratedImage = async ({
   size,
   getToken,
   apiKey,
+  signal,
 }: IGetGeneratedImage): Promise<GeneratedImageResponse | ErrorType> => {
   const requestBody = imageRequestSchema.safeParse({ prompt, model, quality, style, size });
   if (!requestBody.success) {
@@ -207,7 +213,7 @@ export const getGeneratedImage = async ({
   }
   if (apiKey) {
     try {
-      return await generateByokImage({ prompt, model, quality, style, size, apiKey });
+      return await generateByokImage({ prompt, model, quality, style, size, apiKey, signal });
     } catch {
       return {
         success: false,
@@ -220,6 +226,7 @@ export const getGeneratedImage = async ({
   const res = await axiosInstance.post('/image', requestBody.data, {
     headers: { Authorization: `Bearer ${token}` },
     validateStatus: () => true,
+    signal,
   });
 
   if (res.status < 200 || res.status >= 300 || !res.data) {

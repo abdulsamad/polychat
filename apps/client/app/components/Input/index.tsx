@@ -1,5 +1,5 @@
 import { EditorContent, useEditorState } from '@tiptap/react';
-import { SendHorizonal, VolumeX } from 'lucide-react';
+import { SendHorizonal, Square, VolumeX } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
@@ -10,7 +10,7 @@ import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
 
 const Text = () => {
-  const { editor, handleSubmit, isChatLoading } = useCustomTiptapEditor();
+  const { editor, handleSubmit, isChatLoading, stopChat } = useCustomTiptapEditor();
   const isSpeaking = useAtomValue(speechPlaybackAtom);
   const { cancel } = useSpeechSynthesis();
   const hasText = useEditorState({
@@ -39,7 +39,18 @@ const Text = () => {
             <span className="hidden text-xs sm:inline">Stop speaking</span>
           </Button>
         )}
-        {!hasText && IS_SPEECH_RECOGNITION_SUPPORTED() ? (
+        {isChatLoading ? (
+          <Button
+            id="text-stop-btn"
+            type="button"
+            title="Stop generating"
+            aria-label="Stop generating"
+            className="size-10 rounded-full bg-destructive p-0 text-destructive-foreground shadow-sm hover:bg-destructive/90 sm:size-11"
+            onClick={stopChat}>
+            <Square className="size-4 fill-current" />
+            <span className="sr-only">Stop generating</span>
+          </Button>
+        ) : !hasText && IS_SPEECH_RECOGNITION_SUPPORTED() ? (
           <Voice />
         ) : (
           <Button
@@ -47,7 +58,7 @@ const Text = () => {
             type="submit"
             title="Send message"
             className="size-10 rounded-full bg-primary p-0 text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground hover:shadow-lg sm:size-11"
-            disabled={!hasText || isChatLoading}>
+            disabled={!hasText}>
             <SendHorizonal className="size-4" />
             <span className="sr-only">Send message</span>
           </Button>

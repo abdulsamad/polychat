@@ -190,6 +190,7 @@ export const getDefaultThread = (
 };
 
 export const threadAtom = atom<IThread<enabledModelsType> | null>(null);
+export const chatAbortControllerAtom = atom<AbortController | null>(null);
 export const threadsRefreshAtom = atom(0);
 export const refreshThreadsAtom = atom(null, (_get, set) => {
   set(threadsRefreshAtom, (value) => value + 1);

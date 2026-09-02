@@ -19,7 +19,7 @@ const extensions = [
 
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
-  const { isChatLoading, submitMessage } = useSubmitMessage();
+  const { isChatLoading, submitMessage, stopChat } = useSubmitMessage();
 
   const editor = useEditor({
     extensions,
@@ -84,7 +84,7 @@ const useCustomEditor = () => {
     editor.commands.focus('end');
   }, [editor, editorState]);
 
-  return { editor, handleSubmit, isChatLoading };
+  return { editor, handleSubmit, isChatLoading, stopChat };
 };
 
 export default useCustomEditor;

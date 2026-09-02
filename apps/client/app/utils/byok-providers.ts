@@ -47,6 +47,7 @@ export const streamByokText = async ({
   prompt,
   messages,
   customInstructions,
+  signal,
 }: {
   model: availableModelsType;
   apiKey: string;
@@ -55,6 +56,7 @@ export const streamByokText = async ({
   prompt?: string;
   messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   customInstructions?: string;
+  signal?: AbortSignal;
 }): Promise<ReadableStream<ChatStreamPart>> => {
   const config = getAssistantConfig(profile, language, customInstructions);
   const result = streamText({
@@ -69,6 +71,7 @@ export const streamByokText = async ({
     topP: config.topP,
     frequencyPenalty: config.frequencyPenalty,
     presencePenalty: config.presencePenalty,
+    abortSignal: signal,
     stopSequences: config.stopSequences,
     providerOptions: model.startsWith('gemini')
       ? {
@@ -132,6 +135,7 @@ export const generateByokImage = async ({
   quality,
   style,
   size,
+  signal,
 }: {
   model: availableModelsType;
   apiKey: string;
@@ -139,6 +143,7 @@ export const generateByokImage = async ({
   quality: 'standard' | 'hd';
   style: 'vivid' | 'natural';
   size?: string;
+  signal?: AbortSignal;
 }) => {
   const provider = createProvider(providerForModel(model), apiKey) as any;
   const result = await generateImage({
@@ -147,6 +152,7 @@ export const generateByokImage = async ({
     n: 1,
     size: size as `${number}x${number}` | undefined,
     aspectRatio: '16:9',
+    abortSignal: signal,
     providerOptions: { openai: { style, quality } },
   });
   return { b64_json: result.image.base64 };

@@ -11,6 +11,9 @@ const MAX_IMAGE_REQUEST_BYTES = 32 * 1024;
 const image = async (c: Context<AppContext>) => {
   const startTime = Date.now();
   const user = c.get('user');
+  const controller = new AbortController();
+  if (c.req.raw.signal.aborted) controller.abort();
+  c.req.raw.signal.addEventListener('abort', () => controller.abort(), { once: true });
 
   try {
     const requestBody = await readJsonBody(c.req.raw, MAX_IMAGE_REQUEST_BYTES);
@@ -35,6 +38,7 @@ const image = async (c: Context<AppContext>) => {
       n,
       size,
       aspectRatio: '16:9',
+      abortSignal: controller.signal,
       providerOptions: {
         openai: {
           style,

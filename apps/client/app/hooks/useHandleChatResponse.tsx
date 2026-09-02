@@ -90,6 +90,7 @@ const showStartedToastOnce = async (openSettings: () => void) => {
 
 interface handleChatResponseProps {
   prompt: string;
+  signal?: AbortSignal;
   onTextMessageComplete?: (content: string) => void;
   onImageMessageComplete?: () => void;
 }
@@ -117,6 +118,7 @@ const useHandleChatResponse = () => {
 
   const handleChatResponse = async ({
     prompt,
+    signal,
     onTextMessageComplete,
     onImageMessageComplete,
   }: handleChatResponseProps) => {
@@ -144,6 +146,7 @@ const useHandleChatResponse = () => {
           style,
           getToken,
           apiKey,
+          signal,
         });
 
         if (!('b64_json' in imageResponse)) {
@@ -198,6 +201,7 @@ const useHandleChatResponse = () => {
             thread.settings.profile === 'custom' ? customInstructions : undefined,
           getToken,
           apiKey,
+          signal,
         });
 
         if (!stream) throw new Error();
@@ -238,11 +242,6 @@ const useHandleChatResponse = () => {
             updateTimeoutId = setTimeout(updateMessage, STREAM_UPDATE_INTERVAL_MS);
           }
         };
-
-        // Close Loader
-        startTransition(() => {
-          setIsChatResponseLoading(false);
-        });
 
         while (true) {
           const { value, done } = await reader.read();
@@ -300,6 +299,8 @@ const useHandleChatResponse = () => {
         if (onTextMessageComplete) onTextMessageComplete(content);
       }
     } catch (err) {
+      if (signal?.aborted) return;
+
       console.error(err);
 
       if (axios.isAxiosError(err)) {
