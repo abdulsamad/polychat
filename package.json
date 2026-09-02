@@ -11,9 +11,12 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "kill-ports": "kill-port 3000 3001",
     "client:dev": "pnpm --filter=client run dev",
+    "client:dev:test": "pnpm --filter=client run dev:test",
     "serverless:sam": "pnpm --filter=serverless run sam:local",
     "client:build": "turbo run build --filter=client",
     "serverless:dev": "pnpm --filter=serverless run dev",
+    "serverless:dev:test": "pnpm --filter=serverless run dev:test",
+    "dev:local": "pnpm --parallel --filter client --filter serverless run dev:test",
     "serverless:build": "turbo run build --filter=serverless",
     "serverless:deploy": "pnpm --filter=serverless run deploy"
   },

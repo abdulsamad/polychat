@@ -2,9 +2,10 @@
   "name": "serverless",
   "private": true,
   "scripts": {
-    "dev": "pnpm run sam:local",
-    "sam:local": "pnpm run build && sam local start-api --template template.local.yaml --env-vars .env --port 3001 --warm-containers eager",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node22 --outfile=dist/index.js --external:@aws-sdk/*",
+    "dev": "pnpm run dev:test",
+    "dev:test": "pnpm run build && node --env-file=.env.test dist/local.js",
+    "sam:local": "pnpm run build && sam local start-api --template template.local.yaml --env-vars env.test.json --port 3001 --warm-containers eager",
+    "build": "esbuild src/index.ts src/local.ts --bundle --platform=node --target=node22 --outdir=dist \"--external:@aws-sdk/*\"",
     "deploy": "./scripts/deploy.sh"
   },
   "dependencies": {

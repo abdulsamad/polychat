@@ -2,7 +2,7 @@
 
 declare namespace NodeJS {
   interface ProcessEnv {
-    PORT: number;
+    PORT: string;
     ALLOWED_ORIGINS: string;
     CLERK_ISSUER_BASE_URL: string;
     CLERK_AUTHORIZED_PARTIES: string;

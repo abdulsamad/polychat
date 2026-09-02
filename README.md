@@ -33,13 +33,90 @@ PolyChat works in current evergreen browsers. Voice input depends on browser spe
 
 ## Local Development
 
-The repository is a pnpm/Turborepo monorepo. With Node.js 22+ and pnpm 11 available, install dependencies and start the local app from the repository root:
+PolyChat uses Node.js 22+, pnpm 11+, a Clerk development instance, and at least one supported AI provider key for server-backed chat. Native local development uses Hono directly so responses stream exactly as they do in the client. Docker and AWS SAM are not required for this workflow.
+
+### 1. Install prerequisites
+
+- Node.js 22 or newer
+- pnpm 11 or newer
+- A Clerk development application
+- At least one provider key for Gemini, OpenAI, Anthropic, Mistral, or DeepSeek
+
+Install workspace dependencies from the repository root:
 
 ```bash
 pnpm install
-pnpm dev
 ```
 
-The frontend runs at <http://localhost:3000>. The local authenticated API runs at <http://localhost:3001> and is proxied through `/api`.
+### 2. Create local test environment files
 
-For local API work, AWS SAM CLI and Docker Desktop are required. Copy the example environment files in `apps/client` and `apps/serverless`, then configure the Clerk values and provider credentials for your environment. Never commit real credentials or `.env` files.
+Test credentials are deliberately separate from any deployed or personal local configuration. Copy the templates, then edit the ignored files:
+
+```bash
+cp apps/client/.env.test.example apps/client/.env.test
+cp apps/serverless/.env.test.example apps/serverless/.env.test
+```
+
+Configure `apps/client/.env.test`:
+
+```dotenv
+VITE_API_ENDPOINT=http://localhost:3001
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key
+```
+
+Configure `apps/serverless/.env.test`:
+
+```dotenv
+PORT=3001
+CLERK_ISSUER_BASE_URL=https://your-clerk-instance.clerk.accounts.dev
+CLERK_AUTHORIZED_PARTIES=http://localhost:3000
+
+# Supply only the providers you intend to use locally.
+GEMINI_API_KEY=your_key
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+MISTRAL_API_KEY=
+DEEPSEEK_API_KEY=
+```
+
+`CLERK_AUTHORIZED_PARTIES` must be an exact comma-separated list of frontend origins, including protocol and port. For the default local client, use `http://localhost:3000`.
+
+### 3. Start the app
+
+Run the client and streaming local API together:
+
+```bash
+pnpm dev:local
+```
+
+Open <http://localhost:3000>, sign in through Clerk, and send a message using a model backed by one of the configured provider keys. The client runs on port 3000 and calls the native streaming Hono API on port 3001.
+
+To run each process separately:
+
+```bash
+pnpm client:dev:test
+pnpm serverless:dev:test
+```
+
+### Streaming behavior
+
+`pnpm serverless:dev:test` starts the Hono application through Node's HTTP server. It preserves the `/chat` newline-delimited JSON response stream, so token updates appear in the client as they arrive.
+
+### Optional SAM verification
+
+Use SAM only when validating the Lambda proxy integration. It is not the streaming development server because API Gateway local emulation uses a standard Lambda proxy response.
+
+```bash
+cp apps/serverless/env.test.json.example apps/serverless/env.test.json
+# Add the same Clerk and provider values as above in JSON form.
+pnpm serverless:sam
+```
+
+### Troubleshooting
+
+- `401 Unauthorized`: Verify the client publishable key, `CLERK_ISSUER_BASE_URL`, and that the Clerk token's authorized party exactly matches `http://localhost:3000`.
+- Browser CORS error: Add the exact client origin to `CLERK_AUTHORIZED_PARTIES`, then restart the local API.
+- `Invalid chat request` or provider error: Check that the selected model has a corresponding provider key in `apps/serverless/.env.test`.
+- Port already in use: Stop the existing process or run `pnpm kill-ports` before starting again.
+
+Never commit real credentials, `.env.test`, or `env.test.json` files.
