@@ -15,7 +15,14 @@ const chat = async (c: Context<AppContext>) => {
   const controller = new AbortController();
   const { signal } = controller;
   if (c.req.raw.signal.aborted) controller.abort();
-  c.req.raw.signal.addEventListener('abort', () => controller.abort(), { once: true });
+  c.req.raw.signal.addEventListener(
+    'abort',
+    () => {
+      console.warn(`[CHAT] Client disconnected - User: ${user.id}`);
+      controller.abort();
+    },
+    { once: true }
+  );
 
   try {
     const requestBody = await readJsonBody(c.req.raw, MAX_CHAT_REQUEST_BYTES);

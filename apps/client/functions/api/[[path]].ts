@@ -32,7 +32,10 @@ const handler: PagesFunction = async ({ request, env, params }) => {
     // A client cancellation is expected and should not be turned into a new
     // response. For an upstream failure before headers arrive, provide the
     // same error shape used by the API so the client can show its failover UI.
-    if (request.signal.aborted) throw error;
+    if (request.signal.aborted) {
+      console.warn(`[API_PROXY] Client disconnected - Path: ${request.url}`);
+      throw error;
+    }
 
     console.error('[API_PROXY] Lambda request failed:', error);
     return Response.json(
