@@ -81,8 +81,8 @@ const parseModels = (
       if (
         capabilities &&
         typeof capabilities === 'object' &&
-        'completion' in capabilities &&
-        capabilities.completion !== true
+        'completion_chat' in capabilities &&
+        capabilities.completion_chat !== true
       ) {
         return [];
       }
