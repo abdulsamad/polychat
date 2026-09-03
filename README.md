@@ -88,6 +88,10 @@ DEEPSEEK_API_KEY=
 
 `CLERK_AUTHORIZED_PARTIES` must be an exact comma-separated list of frontend origins, including protocol and port. For the default local client, use `http://localhost:3000`.
 
+### Production API proxy security
+
+Production requests should use the Pages `/api` proxy, with `VITE_API_ENDPOINT=/api`. Use [`apps/client/.dev.vars.example`](apps/client/.dev.vars.example) as the reference for the Pages Function runtime bindings: set `API_ORIGIN` to the Lambda Function URL and create an encrypted Pages secret named `LAMBDA_PROXY_SECRET`. Set the same random value in `apps/serverless/.env` before running the serverless deploy script. The Lambda rejects requests that do not carry the secret injected by the Pages Function.
+
 ### 3. Start the app
 
 Run the client and streaming local API together:

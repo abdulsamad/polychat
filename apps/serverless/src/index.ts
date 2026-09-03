@@ -10,7 +10,7 @@ import { type JWTPayload } from 'jose';
 
 import chat from '@controllers/chat';
 import image from '@controllers/image';
-import { authMiddleware } from '@middlewares/index';
+import { authMiddleware, proxyMiddleware } from '@middlewares/index';
 
 import type { User } from '@types';
 
@@ -29,6 +29,8 @@ export const app = new Hono<AppContext>();
 
 // CORS is enforced by the AWS Lambda Function URL configuration in production.
 // Keeping CORS in one layer prevents duplicate Access-Control-Allow-Origin headers.
+
+app.use(proxyMiddleware);
 
 app.get('/', (c) => c.text('Hono + Lambda + AI'));
 

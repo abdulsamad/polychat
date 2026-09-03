@@ -1,2 +1,5 @@
-# Cloudflare Pages Function local runtime configuration.
+# Cloudflare Pages Functions runtime bindings.
+# Copy this to .dev.vars for local Pages development, or configure the same
+# names in the Cloudflare Pages dashboard under Variables and Secrets.
 API_ORIGIN=https://your-lambda-function-url.lambda-url.us-east-1.on.aws
+LAMBDA_PROXY_SECRET=

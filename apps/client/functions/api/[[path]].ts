@@ -1,5 +1,6 @@
 interface Env {
   API_ORIGIN?: string;
+  LAMBDA_PROXY_SECRET?: string;
 }
 
 type PagesFunction = (context: {
@@ -9,7 +10,7 @@ type PagesFunction = (context: {
 }) => Promise<Response>;
 
 const handler: PagesFunction = async ({ request, env, params }) => {
-  if (!env.API_ORIGIN) {
+  if (!env.API_ORIGIN || !env.LAMBDA_PROXY_SECRET) {
     return Response.json({ err: 'API proxy is not configured.' }, { status: 500 });
   }
 
@@ -19,6 +20,7 @@ const handler: PagesFunction = async ({ request, env, params }) => {
 
   const proxyRequest = new Request(origin, request);
   proxyRequest.headers.delete('host');
+  proxyRequest.headers.set('x-polychat-proxy-secret', env.LAMBDA_PROXY_SECRET);
 
   // Returning the upstream Response directly preserves Lambda's streamed body.
   return fetch(proxyRequest);

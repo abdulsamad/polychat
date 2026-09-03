@@ -1,5 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
+import { timingSafeEqual } from 'node:crypto';
 
 import { AppContext } from '@/index';
 
@@ -16,12 +17,33 @@ if (!AUTHORIZED_PARTIES?.length) {
 }
 
 const JWKS_URI = `${ISSUER_URL}/.well-known/jwks.json`;
+const PROXY_SECRET = process.env.LAMBDA_PROXY_SECRET;
+
+if (process.env.AWS_LAMBDA_FUNCTION_NAME && !PROXY_SECRET) {
+  throw new Error('LAMBDA_PROXY_SECRET is required in AWS Lambda');
+}
 
 // Create a Remote JWKS client
 const JWKS = createRemoteJWKSet(new URL(JWKS_URI));
 
+export const proxyMiddleware = createMiddleware<AppContext>(async (c, next) => {
+  if (PROXY_SECRET) {
+    const providedSecret = c.req.header('x-polychat-proxy-secret');
+    const expected = Buffer.from(PROXY_SECRET);
+    const provided = Buffer.from(providedSecret || '');
+
+    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+      console.warn('[AUTH] Request did not come through the trusted API proxy');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+  }
+
+  await next();
+});
+
 // JWT Authentication Middleware
 export const authMiddleware = createMiddleware<AppContext>(async (c, next) => {
+
   const authHeader = c.req.header('Authorization');
 
   if (!authHeader?.startsWith('Bearer ')) {

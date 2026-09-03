@@ -35,6 +35,7 @@ required_vars=(
   PORT
   CLERK_ISSUER_BASE_URL
   CLERK_AUTHORIZED_PARTIES
+  LAMBDA_PROXY_SECRET
   ALLOWED_ORIGINS
   GEMINI_API_KEY
   OPENAI_API_KEY
@@ -65,6 +66,7 @@ sam deploy \
   "PORT=${PORT}" \
   "ClerkIssuerBaseURL=${CLERK_ISSUER_BASE_URL}" \
   "ClerkAuthorizedParties=${CLERK_AUTHORIZED_PARTIES}" \
+  "LambdaProxySecret=${LAMBDA_PROXY_SECRET}" \
   "GeminiAPIKey=${GEMINI_API_KEY}" \
   "OpenAIAPIKey=${OPENAI_API_KEY}" \
   "AnthropicAPIKey=${ANTHROPIC_API_KEY}" \

@@ -23,6 +23,7 @@ Resources:
           PORT: !Ref PORT
           CLERK_ISSUER_BASE_URL: !Ref ClerkIssuerBaseURL
           CLERK_AUTHORIZED_PARTIES: !Ref ClerkAuthorizedParties
+          LAMBDA_PROXY_SECRET: !Ref LambdaProxySecret
           GEMINI_API_KEY: !Ref GeminiAPIKey
           OPENAI_API_KEY: !Ref OpenAIAPIKey
           ANTHROPIC_API_KEY: !Ref AnthropicAPIKey
@@ -141,6 +142,9 @@ Parameters:
     Type: String
   ClerkAuthorizedParties:
     Type: String
+  LambdaProxySecret:
+    Type: String
+    NoEcho: true
   GeminiAPIKey:
     Type: String
     NoEcho: true
