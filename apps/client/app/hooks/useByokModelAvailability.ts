@@ -55,10 +55,7 @@ const toModelOption = (
 const isOpenAITextModel = (modelId: string) =>
   !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|image|search)/i.test(modelId);
 
-const parseModels = (
-  provider: ByokProvider,
-  response: ProviderModelResponse
-): ModelOption[] => {
+const parseModels = (provider: ByokProvider, response: ProviderModelResponse): ModelOption[] => {
   const entries = response.data || response.models || [];
 
   return entries.flatMap((entry) => {
@@ -89,17 +86,11 @@ const parseModels = (
       }
     }
 
-    return [
-      toModelOption(provider, rawId, getString(entry.display_name) || getString(entry.name)),
-    ];
+    return [toModelOption(provider, rawId, getString(entry.display_name) || getString(entry.name))];
   });
 };
 
-const fetchProviderModels = async (
-  provider: ByokProvider,
-  apiKey: string,
-  signal: AbortSignal
-) => {
+const fetchProviderModels = async (provider: ByokProvider, apiKey: string, signal: AbortSignal) => {
   const headers: Record<string, string> = { Accept: 'application/json' };
   let endpoint = providerEndpoints[provider];
 
@@ -131,6 +122,9 @@ const fetchProviderModels = async (
 };
 
 const catalogOptions = supportedModels.map((model) => ({ ...model })) as ModelOption[];
+const imageModelNames = new Set(
+  catalogOptions.filter(({ type }) => type === 'image').map(({ name }) => name)
+);
 
 export const useByokModelAvailability = () => {
   const { user } = useUser();
@@ -166,13 +160,21 @@ export const useByokModelAvailability = () => {
 
   const models = useMemo(() => {
     const catalogNames = new Set(catalogOptions.map(({ name }) => name));
-    return [...catalogOptions, ...discoveredModels.filter(({ name }) => !catalogNames.has(name))];
-  }, [discoveredModels]);
+    return [
+      ...catalogOptions,
+      ...discoveredModels.filter(({ name }) => !catalogNames.has(name)),
+    ].map((model) => ({
+      ...model,
+      disabled:
+        model.disabled ||
+        (model.type === 'image' && !getProviderKey(user?.id || '', model.provider)),
+    }));
+  }, [discoveredModels, user?.id, vaultVersion]);
 
   const isModelAvailable = useCallback(
     (model: ModelOption) =>
       Boolean(user?.id && getProviderKey(user.id, model.provider)) ||
-      (!model.isDiscovered && !model.disabled),
+      (!model.isDiscovered && !model.disabled && !imageModelNames.has(model.name)),
     [user?.id, vaultVersion]
   );
 

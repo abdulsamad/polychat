@@ -106,10 +106,7 @@ const useHandleChatResponse = () => {
     setSettingsOpen(true);
   };
 
-  const handleChatResponse = async ({
-    job,
-    signal,
-  }: handleChatResponseProps) => {
+  const handleChatResponse = async ({ job, signal }: handleChatResponseProps) => {
     const { prompt, thread, messages, config } = job;
     const { imageSize, language, quality, style } = config;
     const customInstructions = config.customInstructions || '';
@@ -120,7 +117,12 @@ const useHandleChatResponse = () => {
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
+      const isImageModel = supportedImageModels.some(({ name }) => name === thread.settings.model);
       isSharedApiRequest = !apiKey;
+      if (isImageModel && !apiKey) {
+        isSharedApiRequest = false;
+        throw new Error(`Add your ${provider} BYOK key before using this image model.`);
+      }
       const hasConfiguredProvider = user?.id
         ? await isProviderConfigured(user.id, provider)
         : false;
@@ -130,7 +132,7 @@ const useHandleChatResponse = () => {
       }
       if (signal?.aborted) return { status: 'cancelled' as const };
 
-      if (supportedImageModels.map(({ name }) => name).includes(thread.settings.model)) {
+      if (isImageModel) {
         const imageResponse = await getGeneratedImage({
           prompt,
           model: thread.settings.model,
@@ -183,13 +185,13 @@ const useHandleChatResponse = () => {
         const stream = await getGeneratedText({
           ...(thread.settings.conversationContextMode === 'multi-turn'
             ? {
-              messages: [
-                ...messages
-                  .filter(({ type }) => type === 'text')
-                  .map(({ role, content }) => ({ role, content })),
-                { role: 'user', content: prompt },
-              ] as Array<Pick<IMessage, 'role' | 'content'>>,
-            }
+                messages: [
+                  ...messages
+                    .filter(({ type }) => type === 'text')
+                    .map(({ role, content }) => ({ role, content })),
+                  { role: 'user', content: prompt },
+                ] as Array<Pick<IMessage, 'role' | 'content'>>,
+              }
             : { prompt }),
           model: thread.settings.model,
           provider,
@@ -229,12 +231,12 @@ const useHandleChatResponse = () => {
                 requestId: job.id,
                 ...(responseMetadata
                   ? {
-                    usage: responseMetadata.metadata.usage,
-                    finishReason: responseMetadata.metadata.finishReason,
-                    responseId: responseMetadata.metadata.responseId,
-                    responseModelId: responseMetadata.metadata.modelId,
-                    responseTimestamp: responseMetadata.metadata.timestamp,
-                  }
+                      usage: responseMetadata.metadata.usage,
+                      finishReason: responseMetadata.metadata.finishReason,
+                      responseId: responseMetadata.metadata.responseId,
+                      responseModelId: responseMetadata.metadata.modelId,
+                      responseTimestamp: responseMetadata.metadata.timestamp,
+                    }
                   : {}),
                 ...(finishReason ? { finishReason } : {}),
                 ...(cancelled ? { cancelled: true } : {}),
