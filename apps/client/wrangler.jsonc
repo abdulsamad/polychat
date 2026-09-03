@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "polychat",
+  "pages_build_output_dir": "./build/client",
+  "compatibility_date": "2026-09-03",
+  "compatibility_flags": [
+    "enable_request_signal",
+    "request_signal_passthrough"
+  ]
+}
