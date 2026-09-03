@@ -22,6 +22,16 @@ const handler: PagesFunction = async ({ request, env, params }) => {
   proxyRequest.headers.delete('host');
   proxyRequest.headers.set('x-polychat-proxy-secret', env.LAMBDA_PROXY_SECRET);
 
+  const logClientDisconnect = () => {
+    console.warn(`[API_PROXY] Client disconnected - Path: ${request.url}`);
+  };
+
+  if (request.signal.aborted) {
+    logClientDisconnect();
+  } else {
+    request.signal.addEventListener('abort', logClientDisconnect, { once: true });
+  }
+
   try {
     // Returning the upstream Response directly preserves Lambda's streamed body.
     // Pass the Pages request signal explicitly so cancelling the browser fetch
@@ -33,7 +43,6 @@ const handler: PagesFunction = async ({ request, env, params }) => {
     // response. For an upstream failure before headers arrive, provide the
     // same error shape used by the API so the client can show its failover UI.
     if (request.signal.aborted) {
-      console.warn(`[API_PROXY] Client disconnected - Path: ${request.url}`);
       throw error;
     }
 
