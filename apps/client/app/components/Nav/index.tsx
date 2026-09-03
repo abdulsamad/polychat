@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/react-router';
 import { KeyRound, Loader2 } from 'lucide-react';
+import { useAtom } from 'jotai';
 import { toast } from 'sonner';
 
 import { hasVault, isVaultUnlocked, subscribeVault, unlockVault } from '@/utils/byok-vault';
+import { byokUnlockOpenAtom } from '@/store';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,7 +24,7 @@ const Nav = () => {
   const { user } = useUser();
   const [vaultExists, setVaultExists] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(false);
-  const [isUnlockDialogOpen, setIsUnlockDialogOpen] = useState(false);
+  const [isUnlockDialogOpen, setIsUnlockDialogOpen] = useAtom(byokUnlockOpenAtom);
   const [passphrase, setPassphrase] = useState('');
   const [isUnlocking, setIsUnlocking] = useState(false);
 
@@ -70,7 +72,7 @@ const Nav = () => {
             <span className="font-mono text-primary">Poly</span>Chat
           </span>
         </h1>
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex flex-col items-center gap-2 sm:flex-row">
           {vaultExists && !vaultUnlocked ? (
             <Button
               type="button"

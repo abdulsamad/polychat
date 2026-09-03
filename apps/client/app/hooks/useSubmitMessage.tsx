@@ -14,6 +14,8 @@ import {
   threadQueuedJobAtom,
 } from '@/store';
 import { abortThreadStream } from '@/utils/chat-stream-registry';
+import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
+import { providerForModel } from '@/utils/byok-providers';
 
 const useSubmitMessage = () => {
   const thread = useAtomValue(threadAtom);
@@ -35,6 +37,12 @@ const useSubmitMessage = () => {
       }
 
       if (!prompt) return false;
+
+      const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
+      if (isProviderConfiguredSync(user.id, provider) && !getProviderKey(user.id, provider)) {
+        toast.error(`Unlock your ${provider} BYOK vault key before chatting.`);
+        return false;
+      }
 
       const id = crypto.randomUUID();
       const assistantMessageId = crypto.randomUUID();

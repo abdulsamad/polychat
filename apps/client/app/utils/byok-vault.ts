@@ -218,6 +218,9 @@ export const isProviderConfigured = async (accountId: string, provider: ByokProv
   return configuredProviders.get(accountId)?.has(provider) ?? false;
 };
 
+export const isProviderConfiguredSync = (accountId: string, provider: ByokProvider) =>
+  configuredProviders.get(accountId)?.has(provider) ?? false;
+
 export const getVaultSnapshot = (accountId: string) => ({
   hasVault: activeAccount === accountId ? true : false,
   unlocked: isVaultUnlocked(accountId),
