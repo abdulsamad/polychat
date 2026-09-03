@@ -1,0 +1,2 @@
+# Cloudflare Pages Function local runtime configuration.
+API_ORIGIN=https://your-lambda-function-url.lambda-url.us-east-1.on.aws
