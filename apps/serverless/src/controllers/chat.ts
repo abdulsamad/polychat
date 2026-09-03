@@ -21,7 +21,10 @@ const chat = async (c: Context<AppContext>) => {
     const requestBody = await readJsonBody(c.req.raw, MAX_CHAT_REQUEST_BYTES);
     if (!requestBody.success) {
       return c.json(
-        { success: false, err: requestBody.status === 413 ? 'Chat request is too large.' : 'Invalid chat request.' },
+        {
+          success: false,
+          err: requestBody.status === 413 ? 'Chat request is too large.' : 'Invalid chat request.',
+        },
         requestBody.status
       );
     }
@@ -38,7 +41,7 @@ const chat = async (c: Context<AppContext>) => {
     } = parsed.data;
 
     console.info(
-      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Profile: ${profile}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length}`}`
+      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Profile: ${profile}, ${messages ? `Messages length: ${messages?.length}` : `Prompt: ${prompt}`}`
     );
 
     const modelInstance = modelFactory.createModel(model);

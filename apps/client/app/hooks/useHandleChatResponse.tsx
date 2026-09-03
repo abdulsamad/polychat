@@ -23,7 +23,7 @@ import { markStartedToastAsSeen } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
-const STREAM_UPDATE_INTERVAL_MS = 80;
+const STREAM_UPDATE_INTERVAL_MS = 60;
 
 const showResponseErrorToast = (
   message: string,
@@ -227,12 +227,12 @@ const useHandleChatResponse = () => {
                 requestId: job.id,
                 ...(responseMetadata
                   ? {
-                      usage: responseMetadata.metadata.usage,
-                      finishReason: responseMetadata.metadata.finishReason,
-                      responseId: responseMetadata.metadata.responseId,
-                      responseModelId: responseMetadata.metadata.modelId,
-                      responseTimestamp: responseMetadata.metadata.timestamp,
-                    }
+                    usage: responseMetadata.metadata.usage,
+                    finishReason: responseMetadata.metadata.finishReason,
+                    responseId: responseMetadata.metadata.responseId,
+                    responseModelId: responseMetadata.metadata.modelId,
+                    responseTimestamp: responseMetadata.metadata.timestamp,
+                  }
                   : {}),
                 ...(finishReason ? { finishReason } : {}),
                 ...(cancelled ? { cancelled: true } : {}),
