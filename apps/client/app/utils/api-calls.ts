@@ -1,7 +1,13 @@
 import axios from 'axios';
 import { useAuth } from '@clerk/react-router';
 
-import { chatRequestSchema, enabledModelsType, imageRequestSchema, profilesType } from 'utils';
+import {
+  chatRequestSchema,
+  enabledModelsType,
+  imageRequestSchema,
+  profilesType,
+  type modelProviderType,
+} from 'utils';
 
 import { IConfig } from '@/store/index';
 import { generateByokImage, streamByokText } from './byok-providers';
@@ -58,6 +64,7 @@ export type ChatStreamPart =
 
 interface IGetGeneratedTextBase {
   model: enabledModelsType;
+  provider?: modelProviderType;
   profile: profilesType;
   customInstructions?: string;
   language?: string;
@@ -87,6 +94,7 @@ export const getGeneratedText = async ({
   prompt,
   messages,
   model,
+  provider,
   profile,
   language,
   getToken,
@@ -94,14 +102,17 @@ export const getGeneratedText = async ({
   customInstructions,
   signal,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
-  const requestBody = chatRequestSchema.safeParse({
+  const requestPayload = {
     prompt,
     messages,
     language,
     profile,
     model,
     customInstructions,
-  });
+  };
+  const requestBody = apiKey
+    ? { success: true as const, data: requestPayload }
+    : chatRequestSchema.safeParse(requestPayload);
   if (!requestBody.success) {
     return { success: false, err: 'Invalid chat request.' };
   }
@@ -109,6 +120,7 @@ export const getGeneratedText = async ({
     try {
       return await streamByokText({
         model,
+        provider,
         profile,
         customInstructions,
         language: (language || 'en-US') as Parameters<typeof streamByokText>[0]['language'],
@@ -186,6 +198,7 @@ export const getGeneratedText = async ({
 interface IGetGeneratedImage {
   prompt: string;
   model: enabledModelsType;
+  provider?: modelProviderType;
   quality: IConfig['quality'];
   style: IConfig['style'];
   size?: string;
@@ -201,6 +214,7 @@ interface GeneratedImageResponse {
 export const getGeneratedImage = async ({
   prompt,
   model,
+  provider,
   quality,
   style,
   size,
@@ -214,7 +228,16 @@ export const getGeneratedImage = async ({
   }
   if (apiKey) {
     try {
-      return await generateByokImage({ prompt, model, quality, style, size, apiKey, signal });
+      return await generateByokImage({
+        prompt,
+        model,
+        provider,
+        quality,
+        style,
+        size,
+        apiKey,
+        signal,
+      });
     } catch {
       return {
         success: false,

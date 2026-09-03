@@ -2,7 +2,13 @@ import { atom } from 'jotai';
 import { atomEffect } from 'jotai-effect';
 import { getTime, format } from 'date-fns';
 
-import type { profilesType, supportedLanguagesType, enabledModelsType, ImageSizeType } from 'utils';
+import type {
+  profilesType,
+  supportedLanguagesType,
+  enabledModelsType,
+  ImageSizeType,
+  modelProviderType,
+} from 'utils';
 
 import { defaultModel } from 'utils';
 
@@ -189,6 +195,7 @@ export type ConversationContextMode = 'single-turn' | 'multi-turn';
 // Thread Settings interface
 export interface IThreadSettings<T extends enabledModelsType> {
   model: T;
+  modelProvider?: modelProviderType;
   profile: profilesType;
   conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;

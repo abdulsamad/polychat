@@ -1,6 +1,8 @@
 import localforage from 'localforage';
 
-export type ByokProvider = 'google' | 'openai' | 'anthropic' | 'mistral' | 'deepseek';
+import type { modelProviderType } from 'utils';
+
+export type ByokProvider = modelProviderType;
 
 export type ProviderKeys = Partial<Record<ByokProvider, string>>;
 

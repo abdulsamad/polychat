@@ -5,11 +5,20 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
 
-import { getAssistantConfig, supportedModels, type availableModelsType } from 'utils';
+import {
+  getAssistantConfig,
+  supportedModels,
+  type availableModelsType,
+  type modelProviderType,
+} from 'utils';
 import type { ByokProvider } from './byok-vault';
 import type { ChatResponseMetadata, ChatStreamPart } from './api-calls';
 
-export const providerForModel = (model: availableModelsType): ByokProvider => {
+export const providerForModel = (
+  model: availableModelsType,
+  explicitProvider?: modelProviderType
+): ByokProvider => {
+  if (explicitProvider) return explicitProvider;
   const definition = supportedModels.find((entry) => entry.name === model);
   if (!definition) throw new Error(`Unsupported model: ${model}`);
   return definition.provider;
@@ -30,17 +39,18 @@ const createProvider = (provider: ByokProvider, apiKey: string) => {
   }
 };
 
-const modelInstance = (model: availableModelsType, apiKey: string) => {
-  const provider = createProvider(providerForModel(model), apiKey) as any;
-  return model.startsWith('gpt') || model.startsWith('claude') || model.startsWith('deepseek')
-    ? provider.chat(model)
-    : model.startsWith('mistral') || model.startsWith('gemini')
-      ? provider.chat(model)
-      : provider.languageModel(model);
+const modelInstance = (
+  model: availableModelsType,
+  apiKey: string,
+  explicitProvider?: modelProviderType
+) => {
+  const provider = createProvider(providerForModel(model, explicitProvider), apiKey) as any;
+  return provider.chat(model);
 };
 
 export const streamByokText = async ({
   model,
+  provider,
   apiKey,
   profile,
   language,
@@ -50,6 +60,7 @@ export const streamByokText = async ({
   signal,
 }: {
   model: availableModelsType;
+  provider?: modelProviderType;
   apiKey: string;
   profile: Parameters<typeof getAssistantConfig>[0];
   language: Parameters<typeof getAssistantConfig>[1];
@@ -60,7 +71,7 @@ export const streamByokText = async ({
 }): Promise<ReadableStream<ChatStreamPart>> => {
   const config = getAssistantConfig(profile, language, customInstructions);
   const result = streamText({
-    model: modelInstance(model, apiKey),
+    model: modelInstance(model, apiKey, provider),
     instructions: config.prompt,
     messages: messages || [{ role: 'user', content: prompt || '' }],
     temperature: config.temperature,
@@ -130,6 +141,7 @@ export const streamByokText = async ({
 
 export const generateByokImage = async ({
   model,
+  provider,
   apiKey,
   prompt,
   quality,
@@ -138,6 +150,7 @@ export const generateByokImage = async ({
   signal,
 }: {
   model: availableModelsType;
+  provider?: modelProviderType;
   apiKey: string;
   prompt: string;
   quality: 'standard' | 'hd';
@@ -145,9 +158,9 @@ export const generateByokImage = async ({
   size?: string;
   signal?: AbortSignal;
 }) => {
-  const provider = createProvider(providerForModel(model), apiKey) as any;
+  const providerClient = createProvider(providerForModel(model, provider), apiKey) as any;
   const result = await generateImage({
-    model: provider.imageModel(model),
+    model: providerClient.imageModel(model),
     prompt,
     n: 1,
     size: size as `${number}x${number}` | undefined,

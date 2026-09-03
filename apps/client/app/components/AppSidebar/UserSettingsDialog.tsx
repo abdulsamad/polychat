@@ -17,7 +17,7 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
 import type { enabledModelsType } from 'utils';
-import { languages, supportedTextModels, profiles } from 'utils';
+import { defaultModel, languages, profiles } from 'utils';
 
 import {
   configAtom,
@@ -75,6 +75,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,6 +130,8 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const updateActiveThreadSettings = useSetAtom(updateThreadSettingsAtom);
   const customInstructionsRef = useRef<HTMLElement>(null);
   const byokRef = useRef<HTMLElement>(null);
+  const { textModels, findModel, isModelAvailable, isProviderAvailable } =
+    useByokModelAvailability();
 
   useEffect(() => {
     if (!open || !scrollTarget) return;
@@ -312,11 +315,37 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     };
   }, [config.customInstructions, open]);
 
+  useEffect(() => {
+    const currentModel = findModel(threadSettings.model);
+    const modelProviderAvailable = threadSettings.modelProvider
+      ? isProviderAvailable(threadSettings.modelProvider)
+      : false;
+    if (
+      isLoading ||
+      (currentModel && isModelAvailable(currentModel)) ||
+      (!currentModel && (!threadSettings.modelProvider || modelProviderAvailable))
+    ) {
+      return;
+    }
+
+    const nextSettings: IThreadSettings<enabledModelsType> = {
+      ...threadSettings,
+      model: defaultModel,
+    };
+    setThreadSettings(nextSettings);
+    void setUserSettings(nextSettings).catch((error) => {
+      console.error('Failed to restore an available default model', error);
+    });
+  }, [findModel, isLoading, isModelAvailable, isProviderAvailable, threadSettings]);
+
   const updateThreadSetting = async <K extends keyof IThreadSettings<enabledModelsType>>(
     key: K,
     value: IThreadSettings<enabledModelsType>[K]
   ) => {
     const nextSettings = { ...threadSettings, [key]: value };
+    if (key === 'model') {
+      nextSettings.modelProvider = findModel(String(value))?.provider;
+    }
     setThreadSettings(nextSettings);
     try {
       await setUserSettings(nextSettings);
@@ -604,9 +633,12 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
                 <SelectContent>
-                  {supportedTextModels.map(({ name, text, disabled }) => (
-                    <SelectItem key={name} value={name} disabled={disabled}>
-                      {text}
+                  {textModels.map((modelDefinition) => (
+                    <SelectItem
+                      key={modelDefinition.name}
+                      value={modelDefinition.name}
+                      disabled={!isModelAvailable(modelDefinition)}>
+                      {modelDefinition.text}
                     </SelectItem>
                   ))}
                 </SelectContent>
