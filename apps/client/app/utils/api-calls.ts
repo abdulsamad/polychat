@@ -6,8 +6,7 @@ import { chatRequestSchema, enabledModelsType, imageRequestSchema, profilesType 
 import { IConfig } from '@/store/index';
 import { generateByokImage, streamByokText } from './byok-providers';
 
-const configuredBaseURL = import.meta.env.VITE_API_ENDPOINT?.trim();
-const baseURL = configuredBaseURL ? configuredBaseURL.replace(/\/+$/, '') : '/api';
+const baseURL = '/api';
 const axiosInstance = axios.create({ baseURL });
 
 type GetTokenOptions = Parameters<ReturnType<typeof useAuth>['getToken']>[0];
