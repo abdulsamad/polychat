@@ -67,7 +67,7 @@ cp apps/serverless/.env.test.example apps/serverless/.env.test
 Configure `apps/client/.env.test`:
 
 ```dotenv
-VITE_API_ENDPOINT=http://localhost:3001
+VITE_API_ENDPOINT=/api
 VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_clerk_publishable_key
 ```
 
