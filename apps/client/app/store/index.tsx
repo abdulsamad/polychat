@@ -22,7 +22,6 @@ export const editorAtom = atom('');
 
 export const speechPlaybackAtom = atom(false);
 export const userSettingsOpenAtom = atom(false);
-export const byokUnlockOpenAtom = atom(false);
 export const threadSettingsOpenAtom = atom(false);
 export type UserSettingsScrollTarget = 'custom-instructions' | 'byok';
 export const userSettingsScrollTargetAtom = atom<UserSettingsScrollTarget | null>(null);

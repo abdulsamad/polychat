@@ -1,55 +1,19 @@
-import { useEffect, useState } from 'react';
 import { EditorContent, useEditorState } from '@tiptap/react';
-import { LockKeyhole, SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
-import { useAtomValue, useSetAtom } from 'jotai';
-import { useUser } from '@clerk/react-router';
+import { SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
+import { useAtomValue } from 'jotai';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
 import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
 import { speechPlaybackAtom } from '@/store';
-import { byokUnlockOpenAtom, threadAtom } from '@/store';
-import { getProviderKey, isProviderConfigured, subscribeVault } from '@/utils/byok-vault';
-import { providerForModel } from '@/utils/byok-providers';
 import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
 import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
 
 const Text = () => {
-  const { editor, handleSubmit, isChatLoading, isQueued, stopChat, cancelQueued } = useCustomTiptapEditor();
+  const { editor, handleSubmit, isChatLoading, isQueued, stopChat, cancelQueued } =
+    useCustomTiptapEditor();
   const isSpeaking = useAtomValue(speechPlaybackAtom);
-  const thread = useAtomValue(threadAtom);
-  const setByokUnlockOpen = useSetAtom(byokUnlockOpenAtom);
-  const { user } = useUser();
-  const [requiresUnlock, setRequiresUnlock] = useState(false);
   const { cancel } = useSpeechSynthesis();
-
-  useEffect(() => {
-    let cancelled = false;
-    const accountId = user?.id;
-    if (!accountId || !thread) {
-      setRequiresUnlock(false);
-      return;
-    }
-
-    const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
-    const refresh = async () => {
-      const configured = await isProviderConfigured(accountId, provider);
-      if (!cancelled) setRequiresUnlock(configured && !getProviderKey(accountId, provider));
-    };
-
-    void refresh();
-    return () => {
-      cancelled = true;
-    };
-  }, [thread, user?.id]);
-
-  useEffect(() => subscribeVault(() => {
-    if (!user?.id || !thread) return;
-    const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
-    void isProviderConfigured(user.id, provider).then((configured) => {
-      setRequiresUnlock(configured && !getProviderKey(user.id, provider));
-    });
-  }), [thread, user?.id]);
   const hasText = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => Boolean(currentEditor?.getText().trim()),
@@ -108,27 +72,15 @@ const Text = () => {
         ) : !hasText && IS_SPEECH_RECOGNITION_SUPPORTED() ? (
           <Voice />
         ) : (
-          requiresUnlock ? (
-            <Button
-              type="button"
-              title="Unlock BYOK keys to send"
-              aria-label="Unlock BYOK keys to send"
-              variant="outline"
-              className="size-10 rounded-full border-destructive/30 bg-destructive/10 p-0 text-destructive hover:bg-destructive/15 sm:size-11"
-              onClick={() => setByokUnlockOpen(true)}>
-              <LockKeyhole className="size-4" />
-            </Button>
-          ) : (
-            <Button
-              id="text-submit-btn"
-              type="submit"
-              title="Send message"
-              className="size-10 rounded-full bg-primary p-0 text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground hover:shadow-lg sm:size-11"
-              disabled={!hasText}>
-              <SendHorizonal className="size-4" />
-              <span className="sr-only">Send message</span>
-            </Button>
-          )
+          <Button
+            id="text-submit-btn"
+            type="submit"
+            title="Send message"
+            className="size-10 rounded-full bg-primary p-0 text-primary-foreground shadow-sm hover:bg-primary/90 hover:text-primary-foreground hover:shadow-lg sm:size-11"
+            disabled={!hasText}>
+            <SendHorizonal className="size-4" />
+            <span className="sr-only">Send message</span>
+          </Button>
         )}
       </div>
       <p id="composer-help" className="sr-only">
