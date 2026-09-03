@@ -362,23 +362,23 @@ importers:
   packages/utils:
     devDependencies:
       '@ai-sdk/anthropic':
-        specifier: ^4.0.39
-        version: 4.0.39(zod@4.4.3)
+        specifier: ^4.0.47
+        version: 4.0.47(zod@4.5.4)
       '@ai-sdk/deepseek':
-        specifier: ^3.0.28
-        version: 3.0.28(zod@4.4.3)
+        specifier: ^3.0.38
+        version: 3.0.38(zod@4.5.4)
       '@ai-sdk/google':
-        specifier: ^4.0.45
-        version: 4.0.45(zod@4.4.3)
+        specifier: ^4.0.61
+        version: 4.0.61(zod@4.5.4)
       '@ai-sdk/mistral':
-        specifier: ^4.0.29
-        version: 4.0.29(zod@4.4.3)
+        specifier: ^4.0.38
+        version: 4.0.38(zod@4.5.4)
       '@ai-sdk/openai':
-        specifier: ^4.0.42
-        version: 4.0.42(zod@4.4.3)
+        specifier: ^4.0.55
+        version: 4.0.55(zod@4.5.4)
       ai:
-        specifier: ^7.0.67
-        version: 7.0.67(zod@4.4.3)
+        specifier: ^7.0.89
+        version: 7.0.89(zod@4.5.4)
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
