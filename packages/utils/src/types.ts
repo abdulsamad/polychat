@@ -7,7 +7,11 @@ import { DeepSeekProvider } from '@ai-sdk/deepseek';
 import { profiles, supportedModels } from './models';
 import { languages } from './languages';
 
-export type enabledModelsType = (typeof supportedModels)[number]['name'];
+// The curated catalog remains literal-friendly, while BYOK model discovery may
+// return provider model IDs that are not known at build time.
+export type enabledModelsType = (typeof supportedModels)[number]['name'] | (string & {});
+
+export type modelProviderType = 'google' | 'openai' | 'anthropic' | 'mistral' | 'deepseek';
 
 export type availableModelsType =
   | Parameters<GoogleGenerativeAIProvider['chat']>[0]
@@ -15,6 +19,7 @@ export type availableModelsType =
   | Parameters<AnthropicProvider['languageModel']>[0]
   | Parameters<MistralProvider['chat']>[0]
   | Parameters<DeepSeekProvider['languageModel']>[0]
+  | (string & {});
 
 export type supportedLanguagesType = (typeof languages)[number]['code'];
 

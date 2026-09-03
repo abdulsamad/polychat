@@ -1,6 +1,6 @@
 import { ToolChoice, ToolSet } from 'ai';
 
-import { availableModelsType, supportedLanguagesType, profilesType } from './types';
+import { availableModelsType, modelProviderType, supportedLanguagesType, profilesType } from './types';
 
 export type SupportedModel = {
   name: availableModelsType;
@@ -9,7 +9,7 @@ export type SupportedModel = {
   disabled: boolean;
   isSpecial?: boolean;
   isExperimental?: boolean;
-  provider: 'google' | 'openai' | 'anthropic' | 'mistral' | 'deepseek';
+  provider: modelProviderType;
 };
 
 export const supportedModels = [

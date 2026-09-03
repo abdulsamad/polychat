@@ -118,7 +118,7 @@ const useHandleChatResponse = () => {
     try {
       if (user?.id !== job.accountId) return { status: 'discarded' as const };
 
-      const provider = providerForModel(thread.settings.model);
+      const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
       isSharedApiRequest = !apiKey;
       const hasConfiguredProvider = user?.id
@@ -134,6 +134,7 @@ const useHandleChatResponse = () => {
         const imageResponse = await getGeneratedImage({
           prompt,
           model: thread.settings.model,
+          provider,
           size: imageSize,
           quality,
           style,
@@ -191,6 +192,7 @@ const useHandleChatResponse = () => {
             }
             : { prompt }),
           model: thread.settings.model,
+          provider,
           profile: thread.settings.profile,
           language,
           customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,

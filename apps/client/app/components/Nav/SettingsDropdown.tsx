@@ -5,9 +5,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import {
   defaultModel,
   profiles,
-  supportedImageModels,
   imageSizes,
-  supportedTextModels,
 } from 'utils';
 
 import {
@@ -20,6 +18,7 @@ import {
   type UserSettingsScrollTarget,
 } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
+import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -46,6 +45,7 @@ const SettingsDropdown = () => {
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
+  const { textModels, imageModels, findModel, isModelAvailable } = useByokModelAvailability();
   const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
     useState<UserSettingsScrollTarget | null>(null);
 
@@ -82,12 +82,15 @@ const SettingsDropdown = () => {
       if (!thread) return null;
 
       if (name === 'model' || name === 'profile') {
-        updateThreadSettings({ [name]: value } as Parameters<typeof updateThreadSettings>[0]);
+        updateThreadSettings({
+          [name]: value,
+          ...(name === 'model' ? { modelProvider: findModel(value)?.provider } : {}),
+        } as Parameters<typeof updateThreadSettings>[0]);
       } else {
         setConfig({ ...config, [name]: value } as typeof config);
       }
     },
-    [config, setConfig, thread, updateThreadSettings]
+    [config, findModel, setConfig, thread, updateThreadSettings]
   );
 
   const updateCheckSetting = useCallback(
@@ -133,8 +136,8 @@ const SettingsDropdown = () => {
       showDetailedUsage,
     },
   } = thread!;
-  const hasImageModels = supportedImageModels.length;
-  const isImageModelSelected = supportedImageModels.map(({ name }) => name).includes(model);
+  const hasImageModels = imageModels.length;
+  const isImageModelSelected = imageModels.some(({ name }) => name === model);
   const isDallE3Selected = model === 'dall-e-3';
 
   return (
@@ -175,19 +178,22 @@ const SettingsDropdown = () => {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel className="text-muted-foreground">Text</SelectLabel>
-                    {supportedTextModels.map(
-                      ({ name, text, isSpecial, isExperimental, disabled }) => (
-                        <SelectItem key={name} value={name} disabled={disabled}>
+                    {textModels.map(
+                      (modelDefinition) => (
+                        <SelectItem
+                          key={modelDefinition.name}
+                          value={modelDefinition.name}
+                          disabled={!isModelAvailable(modelDefinition)}>
                           <div className="flex items-center gap-2">
-                            {text}
-                            {isSpecial && (
+                            {modelDefinition.text}
+                            {modelDefinition.isSpecial && (
                               <Badge
                                 variant="outline"
                                 className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
                                 Special
                               </Badge>
                             )}
-                            {isExperimental && (
+                            {modelDefinition.isExperimental && (
                               <Badge
                                 variant="outline"
                                 className="bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
@@ -202,19 +208,23 @@ const SettingsDropdown = () => {
                   {hasImageModels ? (
                     <SelectGroup>
                       <SelectLabel className="text-muted-foreground">Image</SelectLabel>
-                      {supportedImageModels.map(
-                        ({ name, text, isSpecial, isExperimental, disabled }) => (
-                          <SelectItem key={name} value={name} disabled={disabled} className="gap-2">
+                      {imageModels.map(
+                        (modelDefinition) => (
+                          <SelectItem
+                            key={modelDefinition.name}
+                            value={modelDefinition.name}
+                            disabled={!isModelAvailable(modelDefinition)}
+                            className="gap-2">
                             <div className="flex items-center gap-2">
-                              {text}
-                              {isSpecial && (
+                              {modelDefinition.text}
+                              {modelDefinition.isSpecial && (
                                 <Badge
                                   variant="outline"
                                   className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
                                   Special
                                 </Badge>
                               )}
-                              {isExperimental && (
+                              {modelDefinition.isExperimental && (
                                 <Badge
                                   variant="outline"
                                   className="bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
