@@ -40,6 +40,11 @@ const Text = () => {
           </Button>
         )}
         {isChatLoading ? (
+          // Cancels the active frontend AbortController and closes the frontend stream while
+          // keeping any partial response visible. The Pages proxy can close its upstream fetch,
+          // but AWS Lambda/provider work may continue because disconnects do not cancel Lambda.
+          // This is a current limitation to revisit when cooperative server-side cancellation
+          // is added.
           <Button
             id="text-stop-btn"
             type="button"
