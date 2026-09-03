@@ -17,12 +17,6 @@ PolyChat is a focused workspace for thinking, creating, and working with AI.
 - **Create visuals** - Generate images from prompts, choose supported image options, and download the results.
 - **Stay comfortable anywhere** - Light, dark, and system themes, keyboard-friendly controls, and layouts that adapt from desktop to mobile.
 
-## A considered chat experience
-
-PolyChat keeps the interface out of the way while giving detailed responses room to breathe. Press `Enter` to send and `Shift+Enter` for a new line. The composer grows as you write, then scrolls internally when the message gets longer. Long URLs, tables, code, and images stay contained on smaller screens, while fenced code blocks retain their own useful copy and download controls.
-
-Voice input is available in supported browsers, and responses can be read aloud with browser speech synthesis. Voice playback removes formatting that is not useful when listening, such as code blocks, links, and table markup.
-
 ## Built with
 
 PolyChat is a local-first React application backed by a small authenticated API:
