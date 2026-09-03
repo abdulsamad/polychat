@@ -102,6 +102,7 @@ const byokProviders: Array<{ id: ByokProvider; label: string }> = [
   { id: 'anthropic', label: 'Anthropic' },
   { id: 'mistral', label: 'Mistral' },
   { id: 'deepseek', label: 'DeepSeek' },
+  { id: 'openrouter', label: 'OpenRouter' },
 ];
 interface UserSettingsDialogProps {
   open: boolean;

@@ -64,7 +64,7 @@ const chat = async (c: Context<AppContext>) => {
       messages: messages || [{ role: 'user', content: prompt || '' }],
       temperature: config.temperature,
       seed: config.seed,
-      tools: config.tools,
+      tools: config.tools as any,
       toolChoice: config.toolChoice,
       maxOutputTokens: config.maxTokens,
       topP: config.topP,

@@ -2,7 +2,14 @@ import { LanguageModel } from 'ai';
 
 import type { availableModelsType } from 'utils';
 
-import { googleClient, openAiClient, anthropicClient, mistralClient, deepseekClient } from '.';
+import {
+  googleClient,
+  openAiClient,
+  anthropicClient,
+  mistralClient,
+  deepseekClient,
+  openRouterClient,
+} from '.';
 
 class ModelFactory {
   private static instance: ModelFactory;
@@ -56,6 +63,12 @@ class ModelFactory {
 
       case modelName.startsWith('deepseek'): {
         model = deepseekClient(modelName);
+
+        break;
+      }
+
+      case modelName.includes('/'): {
+        model = openRouterClient(modelName);
 
         break;
       }

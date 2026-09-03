@@ -28,6 +28,7 @@ const providerEndpoints: Record<ByokProvider, string> = {
   anthropic: 'https://api.anthropic.com/v1/models',
   mistral: 'https://api.mistral.ai/v1/models',
   deepseek: 'https://api.deepseek.com/models',
+  openrouter: 'https://openrouter.ai/api/v1/models',
 };
 
 const getString = (value: unknown) => (typeof value === 'string' ? value : undefined);

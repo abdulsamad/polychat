@@ -29,6 +29,7 @@ Resources:
           ANTHROPIC_API_KEY: !Ref AnthropicAPIKey
           MISTRAL_API_KEY: !Ref MistralAPIKey
           DEEPSEEK_API_KEY: !Ref DeepSeekAPIKey
+          OPENROUTER_API_KEY: !Ref OpenRouterAPIKey
     Metadata:
       BuildMethod: esbuild
 
@@ -158,6 +159,9 @@ Parameters:
     Type: String
     NoEcho: true
   DeepSeekAPIKey:
+    Type: String
+    NoEcho: true
+  OpenRouterAPIKey:
     Type: String
     NoEcho: true
 

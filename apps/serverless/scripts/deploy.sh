@@ -42,6 +42,7 @@ required_vars=(
   ANTHROPIC_API_KEY
   MISTRAL_API_KEY
   DEEPSEEK_API_KEY
+  OPENROUTER_API_KEY
 )
 
 for variable in "${required_vars[@]}"; do
@@ -72,6 +73,7 @@ sam deploy \
   "AnthropicAPIKey=${ANTHROPIC_API_KEY}" \
   "MistralAPIKey=${MISTRAL_API_KEY}" \
   "DeepSeekAPIKey=${DEEPSEEK_API_KEY}" \
+  "OpenRouterAPIKey=${OPENROUTER_API_KEY}" \
     "AllowedOrigins=${ALLOWED_ORIGINS:-*}"
 
 rm -rf dist/*

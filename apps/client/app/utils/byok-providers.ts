@@ -4,6 +4,7 @@ import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 import {
   getAssistantConfig,
@@ -36,6 +37,8 @@ const createProvider = (provider: ByokProvider, apiKey: string) => {
       return createMistral({ apiKey });
     case 'deepseek':
       return createDeepSeek({ apiKey });
+    case 'openrouter':
+      return createOpenRouter({ apiKey });
   }
 };
 
@@ -44,8 +47,9 @@ const modelInstance = (
   apiKey: string,
   explicitProvider?: modelProviderType
 ) => {
-  const provider = createProvider(providerForModel(model, explicitProvider), apiKey) as any;
-  return provider.chat(model);
+  const providerName = providerForModel(model, explicitProvider);
+  const provider = createProvider(providerName, apiKey) as any;
+  return providerName === 'openrouter' ? provider(model) : provider.chat(model);
 };
 
 export const streamByokText = async ({

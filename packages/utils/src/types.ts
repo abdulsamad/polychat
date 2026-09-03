@@ -11,7 +11,13 @@ import { languages } from './languages';
 // return provider model IDs that are not known at build time.
 export type enabledModelsType = (typeof supportedModels)[number]['name'] | (string & {});
 
-export type modelProviderType = 'google' | 'openai' | 'anthropic' | 'mistral' | 'deepseek';
+export type modelProviderType =
+  | 'google'
+  | 'openai'
+  | 'anthropic'
+  | 'mistral'
+  | 'deepseek'
+  | 'openrouter';
 
 export type availableModelsType =
   | Parameters<GoogleGenerativeAIProvider['chat']>[0]

@@ -1,13 +1,21 @@
 packages:
   - "apps/*"
   - "packages/*"
+catalog:
+  '@ai-sdk/anthropic': ^4.0.47
+  '@ai-sdk/deepseek': ^3.0.38
+  '@ai-sdk/google': ^4.0.61
+  '@ai-sdk/mistral': ^4.0.38
+  '@ai-sdk/openai': ^4.0.55
+  '@openrouter/ai-sdk-provider': ^3.0.0
+  ai: ^7.0.92
 allowBuilds:
   '@clerk/shared': false
   esbuild: false
 minimumReleaseAgeExclude:
-  - '@ai-sdk/gateway@4.0.53'
+  - '@ai-sdk/gateway@4.0.53 || 4.0.74'
   - '@ai-sdk/google@4.0.45'
-  - ai@7.0.67
+  - ai@7.0.67 || 7.0.92
 overrides:
   fast-uri: 3.1.6
   prismjs: '>=1.30.0'

@@ -78,6 +78,7 @@ OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 MISTRAL_API_KEY=
 DEEPSEEK_API_KEY=
+OPENROUTER_API_KEY=
 ```
 
 `CLERK_AUTHORIZED_PARTIES` must be an exact comma-separated list of frontend origins, including protocol and port. For the default local client, use `http://localhost:3000`.

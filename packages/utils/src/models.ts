@@ -12,7 +12,14 @@ export type SupportedModel = {
   provider: modelProviderType;
 };
 
-export const modelProviders = ['google', 'openai', 'anthropic', 'mistral', 'deepseek'] as const;
+export const modelProviders = [
+  'google',
+  'openai',
+  'anthropic',
+  'mistral',
+  'deepseek',
+  'openrouter',
+] as const;
 
 export const modelProviderLabels: Record<SupportedModel['provider'], string> = {
   google: 'Google Gemini',
@@ -20,6 +27,7 @@ export const modelProviderLabels: Record<SupportedModel['provider'], string> = {
   anthropic: 'Anthropic',
   mistral: 'Mistral',
   deepseek: 'DeepSeek',
+  openrouter: 'OpenRouter',
 };
 
 export const supportedModels = [
