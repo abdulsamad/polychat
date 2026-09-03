@@ -3,7 +3,6 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   KeyRoundIcon,
   LanguagesIcon,
-  LockKeyholeIcon,
   Loader2Icon,
   ClipboardPasteIcon,
   MoonIcon,
@@ -156,7 +155,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   }, [open, scrollTarget, setScrollTarget]);
 
   const refreshVault = async () => {
-    if (!user?.id) return;
+    if (!user?.id || !passphrase) return;
     setVaultExists(await hasVault(user.id));
     setVaultUnlocked(isVaultUnlocked(user.id));
   };
@@ -171,13 +170,17 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   }, [open, user?.id]);
 
   const handleUnlock = async () => {
-    if (!user?.id || !passphrase) return;
+    if (!user?.id) return;
     try {
       await unlockVault(user.id, passphrase);
       setPassphrase('');
       toast.success('BYOK vault unlocked');
-    } catch {
-      toast.error('Could not unlock the BYOK vault. Check your passphrase.');
+    } catch (error) {
+      console.error('[BYOK vault] Device unlock failed', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      toast.error(error instanceof Error ? error.message : 'Could not unlock the BYOK vault.');
     }
   };
 
@@ -191,6 +194,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             return;
           }
           await createVault(user.id, passphrase, provider, apiKey);
+          setPassphrase('');
           setConfirmPassphrase('');
         } else {
           if (!vaultUnlocked) {
@@ -199,7 +203,6 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           }
           await saveProviderKey(user.id, provider, apiKey);
         }
-        setPassphrase('');
       } else {
         setSessionProviderKey(user.id, provider, apiKey);
       }
@@ -208,8 +211,19 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
       toast.success(
         persistent ? 'Provider key saved securely' : 'Provider key active for this session'
       );
-    } catch {
-      toast.error('Could not save this provider key.');
+    } catch (error) {
+      console.error('[BYOK vault] Provider key save failed', {
+        persistent,
+        vaultExists,
+        vaultUnlocked,
+        name: error instanceof Error ? error.name : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not save this provider key with device lock.'
+      );
     }
   };
 
@@ -293,7 +307,9 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
       else await handleResetAllData();
     } catch {
       toast.error(
-        dangerAction === 'delete-chats' ? 'Could not delete all chats' : 'Could not reset all local data'
+        dangerAction === 'delete-chats'
+          ? 'Could not delete all chats'
+          : 'Could not reset all local data'
       );
     } finally {
       setIsDangerActionPending(false);
@@ -458,7 +474,9 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           </div>
         </section>
 
-        <section ref={byokRef} className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
+        <section
+          ref={byokRef}
+          className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-4">
           <div className="mb-4 flex items-start gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300">
               <KeyRoundIcon className="size-4" />
@@ -466,8 +484,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <div>
               <h2 className="text-sm font-semibold">Bring your own keys</h2>
               <p className="text-xs text-muted-foreground">
-                Keys are encrypted locally and used directly from this browser. PolyChat cannot
-                recover a forgotten vault passphrase.
+                Saved keys require device verification and your vault passphrase to decrypt.
               </p>
             </div>
           </div>
@@ -482,8 +499,8 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 autoComplete="current-password"
               />
               <Button type="button" onClick={() => void handleUnlock()}>
-                <LockKeyholeIcon className="mr-2 size-4" />
-                Unlock
+                <KeyRoundIcon className="mr-2 size-4" />
+                Verify and unlock
               </Button>
             </div>
           ) : null}
@@ -537,7 +554,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 type="password"
                 value={confirmPassphrase}
                 onChange={(event) => setConfirmPassphrase(event.target.value)}
-                placeholder="Confirm passphrase"
+                placeholder="Confirm vault passphrase"
                 autoComplete="new-password"
               />
             </div>
@@ -548,7 +565,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               Use this session
             </Button>
             <Button type="button" onClick={() => void handleSaveKey(true)}>
-              Save encrypted key
+              Save with device and passphrase
             </Button>
             {vaultUnlocked ? (
               <Button type="button" variant="outline" onClick={handleRemoveKey}>

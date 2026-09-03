@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import {
   hasVault,
   isVaultUnlocked,
+  lockVault,
   resetVault,
   setActiveAccount,
   subscribeVault,
@@ -108,8 +109,7 @@ const VaultLockOverlay = () => {
     return subscribeVault(() => void refresh());
   }, [user?.id]);
 
-  const handleUnlock = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleUnlock = async () => {
     if (!user?.id || !passphrase) return;
 
     setIsUnlocking(true);
@@ -118,8 +118,8 @@ const VaultLockOverlay = () => {
       setPassphrase('');
       setVaultUnlocked(true);
       toast.success('BYOK vault unlocked');
-    } catch {
-      toast.error('Could not unlock the BYOK vault. Check your passphrase.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not unlock the BYOK vault.');
     } finally {
       setIsUnlocking(false);
     }
@@ -163,12 +163,12 @@ const VaultLockOverlay = () => {
             BYOK vault locked
           </h2>
           <p id="vault-lock-description" className="mt-2 text-sm leading-6 text-muted-foreground">
-            Enter your passphrase to continue using your saved provider keys, or reset the vault.
+            Verify with your device, then enter your passphrase to decrypt your saved provider keys.
           </p>
           {isChecking ? (
             <p className="mt-6 text-sm text-muted-foreground">Checking your saved keys...</p>
           ) : (
-            <form onSubmit={handleUnlock} className="mt-6 grid gap-3">
+            <div className="mt-6 grid gap-3">
               <Input
                 type="password"
                 autoFocus
@@ -177,14 +177,14 @@ const VaultLockOverlay = () => {
                 placeholder="Vault passphrase"
                 autoComplete="current-password"
                 disabled={isUnlocking}
-                className="h-11 rounded-xl border-border/70 bg-background/55 backdrop-blur-xl"
               />
               <Button
-                type="submit"
+                type="button"
                 className="h-11 rounded-xl"
+                onClick={() => void handleUnlock()}
                 disabled={!passphrase || isUnlocking}>
                 {isUnlocking ? <Loader2 className="size-4 animate-spin" /> : null}
-                Enter passphrase
+                Verify device and unlock
               </Button>
               <Button
                 type="button"
@@ -195,7 +195,7 @@ const VaultLockOverlay = () => {
                 <RotateCcw className="size-4" />
                 Reset vault
               </Button>
-            </form>
+            </div>
           )}
         </div>
       </div>
@@ -209,6 +209,18 @@ const VaultLifecycle = () => {
   useEffect(() => {
     setActiveAccount(user?.id ?? null);
   }, [user?.id]);
+
+  useEffect(() => {
+    const lockWhenHidden = () => {
+      if (document.visibilityState === 'hidden') lockVault();
+    };
+    document.addEventListener('visibilitychange', lockWhenHidden);
+    window.addEventListener('pagehide', lockVault);
+    return () => {
+      document.removeEventListener('visibilitychange', lockWhenHidden);
+      window.removeEventListener('pagehide', lockVault);
+    };
+  }, []);
 
   return null;
 };
