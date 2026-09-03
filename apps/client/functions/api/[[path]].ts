@@ -22,6 +22,9 @@ const handler: PagesFunction = async ({ request, env, params }) => {
   proxyRequest.headers.delete('host');
   proxyRequest.headers.set('x-polychat-proxy-secret', env.LAMBDA_PROXY_SECRET);
 
+  // TODO: Cloudflare detects the client disconnect, but AWS Lambda response
+  // streaming can continue after the upstream connection closes. Add
+  // cooperative server-side cancellation to stop the Lambda/provider request.
   const logClientDisconnect = () => {
     console.warn(`[API_PROXY] Client disconnected - Path: ${request.url}`);
   };
