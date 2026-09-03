@@ -214,9 +214,8 @@ const ThreadsList = () => {
                   <ContextMenu key={id}>
                     <ContextMenuTrigger asChild>
                       <SidebarMenuItem
-                        className={`flex w-full cursor-default rounded-none hover:bg-transparent ${
-                          threadToRename === id ? 'px-2' : 'px-4'
-                        }`}>
+                        className={`flex w-full cursor-default rounded-none hover:bg-transparent ${threadToRename === id ? 'px-2' : 'px-4'
+                          }`}>
                         {threadToRename === id ? (
                           <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_1.75rem_1.75rem] items-center gap-1">
                             <Input
@@ -271,11 +270,11 @@ const ThreadsList = () => {
                               preventScrollReset
                               className={({ isActive, isPending, isTransitioning }) =>
                                 [
-                                  'relative flex w-0 min-w-0 flex-1 items-center justify-between gap-2 overflow-hidden rounded-[8px] p-2',
+                                  'relative flex w-0 min-w-0 flex-1 items-center justify-between gap-2 overflow-hidden rounded-lg p-2',
                                   isPending ? 'bg-primary/20' : '',
                                   isActive
-                                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.3)]'
-                                    : '',
+                                    ? 'bg-sidebar-accent font-medium text-sidebar-foreground shadow-[inset_0_0_0_1px_hsl(var(--sidebar-primary)/0.3)]'
+                                    : 'text-sidebar-foreground',
                                   isTransitioning ? 'transitioning' : '',
                                 ].join(' ')
                               }
