@@ -4,7 +4,10 @@ import { SlidersHorizontal } from 'lucide-react';
 
 import {
   defaultModel,
-  profiles,
+  modelProviderLabels,
+  modelProviders,
+  modelsForProvider,
+  profileGroups,
   imageSizes,
 } from 'utils';
 
@@ -45,7 +48,7 @@ const SettingsDropdown = () => {
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
-  const { textModels, imageModels, findModel, isModelAvailable } = useByokModelAvailability();
+  const { textModels, imageModels, findModel } = useByokModelAvailability();
   const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
     useState<UserSettingsScrollTarget | null>(null);
 
@@ -112,19 +115,6 @@ const SettingsDropdown = () => {
     return imageSize;
   }, [imageSize, updateSetting]);
 
-  const getGroupedItemsByCategory = useCallback((items: typeof profiles) => {
-    return Object.entries(
-      items.reduce<Record<string, Array<{ code: string; text: string }>>>(
-        (acc, { code, text, category }) => {
-          if (!acc[category]) acc[category] = [];
-          acc[category].push({ code, text });
-          return acc;
-        },
-        {}
-      )
-    );
-  }, []);
-
   if (!thread) return null;
 
   const {
@@ -178,63 +168,48 @@ const SettingsDropdown = () => {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel className="text-muted-foreground">Text</SelectLabel>
-                    {textModels.map(
-                      (modelDefinition) => (
-                        <SelectItem
-                          key={modelDefinition.name}
-                          value={modelDefinition.name}
-                          disabled={!isModelAvailable(modelDefinition)}>
-                          <div className="flex items-center gap-2">
-                            {modelDefinition.text}
-                            {modelDefinition.isSpecial && (
-                              <Badge
-                                variant="outline"
-                                className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
-                                Special
-                              </Badge>
-                            )}
-                            {modelDefinition.isExperimental && (
-                              <Badge
-                                variant="outline"
-                                className="bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-                                Experimental
-                              </Badge>
-                            )}
-                          </div>
-                        </SelectItem>
-                      )
-                    )}
+                    {modelProviders.map((provider) => {
+                      const models = modelsForProvider(textModels, provider);
+                      if (!models.length) return null;
+
+                      return (
+                        <SelectGroup key={provider}>
+                          <SelectLabel className="pl-4 text-xs">{modelProviderLabels[provider]}</SelectLabel>
+                          {models.map(({ name, text, isSpecial, isExperimental, disabled }) => (
+                            <SelectItem key={name} value={name} disabled={disabled}>
+                              <div className="flex items-center gap-2">
+                                {text}
+                                {isSpecial && <Badge variant="outline">Special</Badge>}
+                                {isExperimental && <Badge variant="outline">Experimental</Badge>}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      );
+                    })}
                   </SelectGroup>
                   {hasImageModels ? (
                     <SelectGroup>
                       <SelectLabel className="text-muted-foreground">Image</SelectLabel>
-                      {imageModels.map(
-                        (modelDefinition) => (
-                          <SelectItem
-                            key={modelDefinition.name}
-                            value={modelDefinition.name}
-                            disabled={!isModelAvailable(modelDefinition)}
-                            className="gap-2">
-                            <div className="flex items-center gap-2">
-                              {modelDefinition.text}
-                              {modelDefinition.isSpecial && (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800">
-                                  Special
-                                </Badge>
-                              )}
-                              {modelDefinition.isExperimental && (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-                                  Experimental
-                                </Badge>
-                              )}
-                            </div>
-                          </SelectItem>
-                        )
-                      )}
+                      {modelProviders.map((provider) => {
+                        const models = modelsForProvider(imageModels, provider);
+                        if (!models.length) return null;
+
+                        return (
+                          <SelectGroup key={provider}>
+                            <SelectLabel className="pl-4 text-xs">{modelProviderLabels[provider]}</SelectLabel>
+                            {models.map(({ name, text, isSpecial, isExperimental, disabled }) => (
+                              <SelectItem key={name} value={name} disabled={disabled} className="gap-2">
+                                <div className="flex items-center gap-2">
+                                  {text}
+                                  {isSpecial && <Badge variant="outline">Special</Badge>}
+                                  {isExperimental && <Badge variant="outline">Experimental</Badge>}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })}
                     </SelectGroup>
                   ) : null}
                 </SelectContent>
@@ -255,7 +230,7 @@ const SettingsDropdown = () => {
                       <SelectValue placeholder="Assistant profile" />
                     </SelectTrigger>
                     <SelectContent>
-                      {getGroupedItemsByCategory(profiles).map(([category, items]) => (
+                      {profileGroups.map(([category, items]) => (
                         <SelectGroup key={category}>
                           <SelectLabel className="text-muted-foreground capitalize">
                             {category}

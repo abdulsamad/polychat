@@ -17,7 +17,14 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
 import type { enabledModelsType } from 'utils';
-import { defaultModel, languages, profiles } from 'utils';
+import {
+  defaultModel,
+  languages,
+  modelProviderLabels,
+  modelProviders,
+  modelsForProvider,
+  profileGroups,
+} from 'utils';
 
 import {
   configAtom,
@@ -67,7 +74,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -633,14 +642,21 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                   <SelectValue placeholder="Model" />
                 </SelectTrigger>
                 <SelectContent>
-                  {textModels.map((modelDefinition) => (
-                    <SelectItem
-                      key={modelDefinition.name}
-                      value={modelDefinition.name}
-                      disabled={!isModelAvailable(modelDefinition)}>
-                      {modelDefinition.text}
-                    </SelectItem>
-                  ))}
+                  {modelProviders.map((provider) => {
+                    const models = modelsForProvider(textModels, provider);
+                    if (!models.length) return null;
+
+                    return (
+                      <SelectGroup key={provider}>
+                        <SelectLabel>{modelProviderLabels[provider]}</SelectLabel>
+                        {models.map(({ name, text, disabled }) => (
+                          <SelectItem key={name} value={name} disabled={disabled}>
+                            {text}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -659,13 +675,18 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                   <SelectValue placeholder="Profile" />
                 </SelectTrigger>
                 <SelectContent>
-                  {profiles.map(({ code, text }) => (
-                    <SelectItem
-                      key={code}
-                      value={code}
-                      disabled={code === 'custom' && !customInstructions.trim()}>
-                      {text}
-                    </SelectItem>
+                  {profileGroups.map(([category, items]) => (
+                    <SelectGroup key={category}>
+                      <SelectLabel className="capitalize">{category}</SelectLabel>
+                      {items.map(({ code, text }) => (
+                        <SelectItem
+                          key={code}
+                          value={code}
+                          disabled={code === 'custom' && !customInstructions.trim()}>
+                          {text}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>

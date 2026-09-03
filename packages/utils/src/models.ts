@@ -12,6 +12,16 @@ export type SupportedModel = {
   provider: modelProviderType;
 };
 
+export const modelProviders = ['google', 'openai', 'anthropic', 'mistral', 'deepseek'] as const;
+
+export const modelProviderLabels: Record<SupportedModel['provider'], string> = {
+  google: 'Google Gemini',
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  mistral: 'Mistral',
+  deepseek: 'DeepSeek',
+};
+
 export const supportedModels = [
   {
     name: 'gemini-3.7-flash',
@@ -34,12 +44,12 @@ export const supportedModels = [
     disabled: false,
     provider: 'google',
   },
-  { name: 'gpt-5.6-luna', text: 'GPT-5.6 Luna', type: 'text', disabled: true, provider: 'openai' },
+  { name: 'gpt-5.6-luna', text: 'GPT-5.6 Luna', type: 'text', disabled: false, provider: 'openai' },
   {
     name: 'gpt-5.6-terra',
     text: 'GPT-5.6 Terra',
     type: 'text',
-    disabled: true,
+    disabled: false,
     provider: 'openai',
   },
   // {
@@ -82,7 +92,7 @@ export const supportedModels = [
     disabled: false,
     provider: 'mistral',
   },
-  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: true, provider: 'openai' },
+  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: false, provider: 'openai' },
 ] as const satisfies readonly SupportedModel[];
 
 export const defaultModel =
@@ -95,6 +105,11 @@ export const supportedTextModels: SupportedModel[] = supportedModels.filter(
 export const supportedImageModels: SupportedModel[] = supportedModels.filter(
   ({ type }) => type === 'image'
 );
+
+export const modelsForProvider = (
+  models: readonly SupportedModel[],
+  provider: SupportedModel['provider']
+) => models.filter((model) => model.provider === provider);
 
 export interface SystemPromptConfig {
   prompt: string;
@@ -355,6 +370,13 @@ export const profiles = [
     ],
   },
 ] as const;
+
+export const profileGroups = Object.entries(
+  profiles.reduce<Record<string, (typeof profiles)[number][]>>((groups, profile) => {
+    (groups[profile.category] ||= []).push(profile);
+    return groups;
+  }, {})
+);
 
 type ImageSizeConfig = {
   default: string;
