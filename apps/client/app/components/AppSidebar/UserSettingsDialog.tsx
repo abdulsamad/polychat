@@ -10,6 +10,8 @@ import {
   SlidersHorizontalIcon,
   SunIcon,
   Trash2Icon,
+  EyeIcon,
+  EyeOffIcon,
 } from 'lucide-react';
 import { useUser } from '@clerk/react-router';
 import { useTheme } from 'next-themes';
@@ -52,6 +54,7 @@ import {
   setSessionProviderKey,
   subscribeVault,
   unlockVault,
+  isPrfSupported,
   type ByokProvider,
 } from '@/utils/byok-vault';
 import { Badge } from '@/components/ui/badge';
@@ -125,6 +128,8 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [provider, setProvider] = useState<ByokProvider>('google');
   const [apiKey, setApiKey] = useState('');
+  const [prfSupported, setPrfSupported] = useState(false);
+  const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
   const [isDangerActionPending, setIsDangerActionPending] = useState(false);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState('');
@@ -169,6 +174,11 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     });
   }, [open, user?.id]);
 
+  useEffect(() => {
+    if (!open) return;
+    void isPrfSupported().then(setPrfSupported);
+  }, [open]);
+
   const handleUnlock = async () => {
     if (!user?.id) return;
     try {
@@ -193,7 +203,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             toast.error('Enter and confirm a vault passphrase.');
             return;
           }
-          await createVault(user.id, passphrase, provider, apiKey);
+          await createVault(user.id, passphrase, provider, apiKey, prfSupported);
           setPassphrase('');
           setConfirmPassphrase('');
         } else {
@@ -484,7 +494,9 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <div>
               <h2 className="text-sm font-semibold">Bring your own keys</h2>
               <p className="text-xs text-muted-foreground">
-                Saved keys unlock with your device. Your passphrase is kept as a recovery option.
+                {prfSupported
+                  ? 'Saved keys unlock with your device. Your passphrase is kept as a recovery option.'
+                  : 'This device cannot use secure passkey encryption. Saved keys require your passphrase.'}
               </p>
             </div>
           </div>
@@ -498,7 +510,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 placeholder="Vault passphrase"
                 autoComplete="current-password"
               />
-              <Button type="button" onClick={() => void handleUnlock()}>
+              <Button
+                type="button"
+                onClick={() => void handleUnlock()}
+                disabled={!prfSupported && !passphrase}>
                 <KeyRoundIcon className="mr-2 size-4" />
                 {passphrase ? 'Use passphrase backup' : 'Unlock with device'}
               </Button>
@@ -550,13 +565,25 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                 placeholder="Create vault passphrase"
                 autoComplete="new-password"
               />
-              <Input
-                type="password"
-                value={confirmPassphrase}
-                onChange={(event) => setConfirmPassphrase(event.target.value)}
-                placeholder="Confirm vault passphrase"
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirmPassphrase ? 'text' : 'password'}
+                  value={confirmPassphrase}
+                  onChange={(event) => setConfirmPassphrase(event.target.value)}
+                  placeholder="Confirm vault passphrase"
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={showConfirmPassphrase ? 'Hide confirmation passphrase' : 'Show confirmation passphrase'}
+                  className="absolute right-1 top-1/2 size-7 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowConfirmPassphrase((visible) => !visible)}>
+                  {showConfirmPassphrase ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
+                </Button>
+              </div>
             </div>
           ) : null}
 
@@ -565,7 +592,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               Use this session
             </Button>
             <Button type="button" onClick={() => void handleSaveKey(true)}>
-              Save with device (passphrase backup)
+              {prfSupported ? 'Save with device (passphrase backup)' : 'Save with passphrase'}
             </Button>
             {vaultUnlocked ? (
               <Button type="button" variant="outline" onClick={handleRemoveKey}>

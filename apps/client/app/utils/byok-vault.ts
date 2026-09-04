@@ -172,6 +172,21 @@ export const isDeviceUnlockSupported = () =>
   typeof PublicKeyCredential !== 'undefined' &&
   Boolean(navigator.credentials?.create) &&
   Boolean(navigator.credentials?.get);
+export const isPrfSupported = async () => {
+  if (!isDeviceUnlockSupported()) return false;
+  const getClientCapabilities = (
+    PublicKeyCredential as typeof PublicKeyCredential & {
+      getClientCapabilities?: (kind?: string) => Promise<{ extensions?: string[] }>;
+    }
+  ).getClientCapabilities;
+  if (!getClientCapabilities) return false;
+  try {
+    const capabilities = await getClientCapabilities('public-key');
+    return capabilities.extensions?.includes('prf') ?? false;
+  } catch {
+    return false;
+  }
+};
 export const subscribeVault = (listener: () => void) => {
   listeners.add(listener);
   return () => {
@@ -213,12 +228,13 @@ export const createVault = async (
   accountId: string,
   passphrase: string,
   provider: ByokProvider,
-  value: string
+  value: string,
+  useDevice = true
 ) => {
   if (!passphrase.trim() || !value.trim()) throw new Error('Passphrase and API key are required');
-  if (!isDeviceUnlockSupported())
+  if (useDevice && !isDeviceUnlockSupported())
     throw new Error('Device authentication requires HTTPS and WebAuthn support.');
-  const deviceCredential = await createDeviceCredential(accountId);
+  const deviceCredential = useDevice ? await createDeviceCredential(accountId) : null;
   const vaultKeyRaw = randomBytes(32);
   const vaultKey = await importAesKey(vaultKeyRaw);
   const salt = randomBytes(16);

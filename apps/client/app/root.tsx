@@ -21,6 +21,7 @@ import {
   setActiveAccount,
   subscribeVault,
   unlockVault,
+  isPrfSupported,
 } from '@/utils/byok-vault';
 
 export const meta: MetaFunction = () => [
@@ -86,6 +87,7 @@ const VaultLockOverlay = () => {
   const [passphrase, setPassphrase] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [prfSupported, setPrfSupported] = useState(false);
 
   useEffect(() => {
     if (!user?.id) {
@@ -107,6 +109,11 @@ const VaultLockOverlay = () => {
 
     void refresh();
     return subscribeVault(() => void refresh());
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    void isPrfSupported().then(setPrfSupported);
   }, [user?.id]);
 
   const handleUnlock = async () => {
@@ -163,7 +170,9 @@ const VaultLockOverlay = () => {
             BYOK vault locked
           </h2>
           <p id="vault-lock-description" className="mt-2 text-sm leading-6 text-muted-foreground">
-            Unlock with your device. If device-only unlock is unavailable, use your passphrase as a backup.
+            {prfSupported
+              ? 'Unlock with your device. Your passphrase is available as a backup.'
+              : 'This device does not support secure passkey encryption. Enter your vault passphrase.'}
           </p>
           {isChecking ? (
             <p className="mt-6 text-sm text-muted-foreground">Checking your saved keys...</p>
@@ -182,9 +191,9 @@ const VaultLockOverlay = () => {
                 type="button"
                 className="h-11 rounded-xl"
                 onClick={() => void handleUnlock()}
-                disabled={isUnlocking}>
+                disabled={isUnlocking || (!prfSupported && !passphrase)}>
                 {isUnlocking ? <Loader2 className="size-4 animate-spin" /> : null}
-                {passphrase ? 'Use passphrase backup' : 'Unlock with device'}
+                {passphrase || !prfSupported ? 'Unlock with passphrase' : 'Unlock with device'}
               </Button>
               <Button
                 type="button"
