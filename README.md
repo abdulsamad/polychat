@@ -28,6 +28,34 @@ PolyChat is a local-first React application backed by a small authenticated API:
 - Hono, Node.js 22, and AWS Lambda for authenticated chat and image requests
 - IndexedDB via localForage for local threads, images, and the encrypted BYOK vault
 
+## BYOK vault and device unlock
+
+BYOK provider keys are managed in the browser. PolyChat does not store the vault or its
+passphrase on the server. The vault is persisted in IndexedDB through localForage and is
+scoped to the signed-in Clerk account.
+
+The vault uses envelope encryption:
+
+1. Provider keys are encrypted with a randomly generated AES-GCM vault key.
+2. The vault key is wrapped with a passphrase-derived AES-GCM key using PBKDF2-SHA-256
+   with 600,000 iterations.
+3. When the browser and authenticator support WebAuthn PRF, the vault key is also wrapped
+   with a device-derived key. Device unlock requires HTTPS, user verification, and a
+   discoverable passkey on the current relying-party hostname.
+
+Unlock first attempts the device-wrapped key and falls back to the passphrase-wrapped key.
+The passphrase is therefore a recovery mechanism, not something required on every unlock
+when device PRF is available. In-memory vault keys are cleared when the vault is locked,
+when the page is hidden or unloaded, and when the active account changes.
+
+WebAuthn passkeys used for ordinary website login are not equivalent to PolyChat device
+unlock. Standard passkey login returns a server-verifiable assertion, while PolyChat needs
+the WebAuthn PRF extension to derive local encryption-key material. Password managers such
+as Bitwarden or Apple Passwords may store and present a passkey for standard login without
+supporting PRF for vault unlock. When PRF is unavailable, PolyChat keeps passphrase recovery
+available. Losing both the device credential and the vault passphrase makes the encrypted
+provider keys unrecoverable by design.
+
 ## Browser support
 
 PolyChat works in current evergreen browsers. Voice input depends on browser speech-recognition support, while voice playback depends on the Web Speech API and the voices installed on your device.
