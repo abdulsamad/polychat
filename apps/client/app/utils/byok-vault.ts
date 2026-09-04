@@ -273,9 +273,14 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
     if (!passphrase) throw new Error('Enter your vault passphrase to migrate this older vault.');
     await verifyDeviceLegacy(decode((envelope as any).device.credentialId));
     const passphraseKey = await derivePassphraseKey(passphrase, decode((envelope as any).recovery.kdf.salt));
-    const legacyVaultKey = await importAesKey(
-      await decrypt(passphraseKey, (envelope as any).recovery.wrappedVaultKey, accountId, 'vault-key')
-    );
+    let legacyVaultKey: CryptoKey;
+    try {
+      legacyVaultKey = await importAesKey(
+        await decrypt(passphraseKey, (envelope as any).recovery.wrappedVaultKey, accountId, 'vault-key')
+      );
+    } catch {
+      throw new Error('Incorrect vault passphrase.');
+    }
     const plaintext = await decrypt(legacyVaultKey, (envelope as any).cipher, accountId, 'payload');
     const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
     if (!keys || typeof keys !== 'object') throw new Error('Invalid BYOK vault');
@@ -295,11 +300,19 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
       await decrypt(vaultKey, envelope.device.wrappedVaultKey!, accountId, 'vault-key')
     );
   } catch (deviceError) {
-    if (!passphrase) throw deviceError;
+    if (!passphrase) {
+      throw new Error(
+        'This passkey does not support device-only unlock. Enter your vault passphrase instead.'
+      );
+    }
     const passphraseKey = await derivePassphraseKey(passphrase, decode(envelope.recovery.kdf.salt));
-    vaultKey = await importAesKey(
-      await decrypt(passphraseKey, envelope.recovery.wrappedVaultKey, accountId, 'vault-key')
-    );
+    try {
+      vaultKey = await importAesKey(
+        await decrypt(passphraseKey, envelope.recovery.wrappedVaultKey, accountId, 'vault-key')
+      );
+    } catch {
+      throw new Error('Incorrect vault passphrase.');
+    }
   }
   const plaintext = await decrypt(vaultKey, envelope.cipher, accountId, 'payload');
   const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
