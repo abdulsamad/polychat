@@ -84,6 +84,7 @@ const VaultLockOverlay = () => {
   const { user } = useUser();
   const [vaultExists, setVaultExists] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(false);
+  const [resolvedVaultAccountId, setResolvedVaultAccountId] = useState<string | null>(null);
   const [passphrase, setPassphrase] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -93,6 +94,7 @@ const VaultLockOverlay = () => {
     if (!user?.id) {
       setVaultExists(false);
       setVaultUnlocked(false);
+      setResolvedVaultAccountId(null);
       setIsChecking(false);
       return;
     }
@@ -104,6 +106,7 @@ const VaultLockOverlay = () => {
       if (cancelled) return;
       setVaultExists(exists);
       setVaultUnlocked(isVaultUnlocked(user.id));
+      setResolvedVaultAccountId(user.id);
       setIsChecking(false);
     };
 
@@ -146,7 +149,14 @@ const VaultLockOverlay = () => {
     toast.success('BYOK vault reset');
   };
 
-  if (!user?.id || (!isChecking && (!vaultExists || vaultUnlocked))) return null;
+  if (
+    !user?.id ||
+    resolvedVaultAccountId !== user.id ||
+    !vaultExists ||
+    vaultUnlocked
+  ) {
+    return null;
+  }
 
   return (
     <div
