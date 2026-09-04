@@ -110,7 +110,7 @@ const VaultLockOverlay = () => {
   }, [user?.id]);
 
   const handleUnlock = async () => {
-    if (!user?.id || !passphrase) return;
+    if (!user?.id) return;
 
     setIsUnlocking(true);
     try {
@@ -163,7 +163,7 @@ const VaultLockOverlay = () => {
             BYOK vault locked
           </h2>
           <p id="vault-lock-description" className="mt-2 text-sm leading-6 text-muted-foreground">
-            Verify with your device, then enter your passphrase to decrypt your saved provider keys.
+            Unlock with your device. If device-only unlock is unavailable, use your passphrase as a backup.
           </p>
           {isChecking ? (
             <p className="mt-6 text-sm text-muted-foreground">Checking your saved keys...</p>
@@ -182,9 +182,9 @@ const VaultLockOverlay = () => {
                 type="button"
                 className="h-11 rounded-xl"
                 onClick={() => void handleUnlock()}
-                disabled={!passphrase || isUnlocking}>
+                disabled={isUnlocking}>
                 {isUnlocking ? <Loader2 className="size-4 animate-spin" /> : null}
-                Verify device and unlock
+                {passphrase ? 'Use passphrase backup' : 'Unlock with device'}
               </Button>
               <Button
                 type="button"

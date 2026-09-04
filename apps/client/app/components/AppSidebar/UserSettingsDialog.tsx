@@ -155,7 +155,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   }, [open, scrollTarget, setScrollTarget]);
 
   const refreshVault = async () => {
-    if (!user?.id || !passphrase) return;
+    if (!user?.id) return;
     setVaultExists(await hasVault(user.id));
     setVaultUnlocked(isVaultUnlocked(user.id));
   };
@@ -484,7 +484,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <div>
               <h2 className="text-sm font-semibold">Bring your own keys</h2>
               <p className="text-xs text-muted-foreground">
-                Saved keys require device verification and your vault passphrase to decrypt.
+                Saved keys unlock with your device. Your passphrase is kept as a recovery option.
               </p>
             </div>
           </div>
@@ -500,7 +500,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               />
               <Button type="button" onClick={() => void handleUnlock()}>
                 <KeyRoundIcon className="mr-2 size-4" />
-                Verify and unlock
+                {passphrase ? 'Use passphrase backup' : 'Unlock with device'}
               </Button>
             </div>
           ) : null}
@@ -565,7 +565,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               Use this session
             </Button>
             <Button type="button" onClick={() => void handleSaveKey(true)}>
-              Save with device and passphrase
+              Save with device (passphrase backup)
             </Button>
             {vaultUnlocked ? (
               <Button type="button" variant="outline" onClick={handleRemoveKey}>

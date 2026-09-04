@@ -6,9 +6,9 @@ export type ByokProvider = modelProviderType;
 export type ProviderKeys = Partial<Record<ByokProvider, string>>;
 
 interface VaultEnvelope {
-  version: 3;
+  version: 4;
   cipher: { name: 'AES-GCM'; iv: string; ciphertext: string };
-  device: { credentialId: string };
+  device?: { credentialId: string; prfSalt: string; wrappedVaultKey?: { iv: string; ciphertext: string } };
   recovery: {
     kdf: { name: 'PBKDF2'; hash: 'SHA-256'; iterations: number; salt: string };
     wrappedVaultKey: { iv: string; ciphertext: string };
@@ -101,6 +101,7 @@ const decrypt = (
   );
 
 const createDeviceCredential = async (accountId: string) => {
+  const prfSalt = randomBytes(32);
   try {
     const credential = (await navigator.credentials.create({
       publicKey: {
@@ -115,16 +116,21 @@ const createDeviceCredential = async (accountId: string) => {
         authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
         attestation: 'none',
         timeout: 60_000,
+        extensions: { prf: { eval: { first: prfSalt as unknown as BufferSource } } },
       },
     })) as PublicKeyCredential | null;
     if (!credential) throw new Error('Device authentication setup was not completed.');
-    return new Uint8Array(credential.rawId);
+    const extensions = (credential as PublicKeyCredential & { getClientExtensionResults?: () => any })
+      .getClientExtensionResults?.();
+    return extensions?.prf?.enabled
+      ? { credentialId: new Uint8Array(credential.rawId), prfSalt }
+      : null;
   } catch (error) {
     logVaultError('WebAuthn device credential setup', error);
     throw error;
   }
 };
-const verifyDevice = async (credentialId: Uint8Array) => {
+const verifyDevice = async (credentialId: Uint8Array, prfSalt: Uint8Array) => {
   try {
     const credential = await navigator.credentials.get({
       publicKey: {
@@ -132,13 +138,29 @@ const verifyDevice = async (credentialId: Uint8Array) => {
         allowCredentials: [{ id: credentialId as unknown as BufferSource, type: 'public-key' }],
         userVerification: 'required',
         timeout: 60_000,
+        extensions: { prf: { eval: { first: prfSalt as unknown as BufferSource } } },
       },
     });
     if (!credential) throw new Error('Device authentication was not completed.');
+    const extensions = (credential as PublicKeyCredential & { getClientExtensionResults?: () => any })
+      .getClientExtensionResults?.();
+    const output = extensions?.prf?.results?.first;
+    if (!output) throw new Error('This device could not provide a secure unlock secret.');
+    return importAesKey(output as BufferSource);
   } catch (error) {
     logVaultError('WebAuthn device assertion', error);
     throw error;
   }
+};
+const verifyDeviceLegacy = async (credentialId: Uint8Array) => {
+  await navigator.credentials.get({
+    publicKey: {
+      challenge: randomBytes(32) as unknown as BufferSource,
+      allowCredentials: [{ id: credentialId as unknown as BufferSource, type: 'public-key' }],
+      userVerification: 'required',
+      timeout: 60_000,
+    },
+  });
 };
 const ensureAccount = (accountId: string) => {
   if (activeAccount !== accountId || !activeKey) throw new Error('Unlock your BYOK vault first');
@@ -196,7 +218,7 @@ export const createVault = async (
   if (!passphrase.trim() || !value.trim()) throw new Error('Passphrase and API key are required');
   if (!isDeviceUnlockSupported())
     throw new Error('Device authentication requires HTTPS and WebAuthn support.');
-  const credentialId = await createDeviceCredential(accountId);
+  const deviceCredential = await createDeviceCredential(accountId);
   const vaultKeyRaw = randomBytes(32);
   const vaultKey = await importAesKey(vaultKeyRaw);
   const salt = randomBytes(16);
@@ -209,10 +231,26 @@ export const createVault = async (
     'payload'
   );
   const wrappedVaultKey = await encrypt(passphraseKey, vaultKeyRaw, accountId, 'vault-key');
+  const deviceWrappedVaultKey = deviceCredential
+    ? await encrypt(
+        await verifyDevice(deviceCredential.credentialId, deviceCredential.prfSalt),
+        vaultKeyRaw,
+        accountId,
+        'vault-key'
+      )
+    : undefined;
   await vaultStore.setItem(storageKey(accountId), {
-    version: 3,
+    version: 4,
     cipher: { name: 'AES-GCM', ...cipher },
-    device: { credentialId: encode(credentialId) },
+    ...(deviceCredential
+      ? {
+          device: {
+            credentialId: encode(deviceCredential.credentialId),
+            prfSalt: encode(deviceCredential.prfSalt),
+            wrappedVaultKey: deviceWrappedVaultKey,
+          },
+        }
+      : {}),
     recovery: {
       kdf: { name: 'PBKDF2', hash: 'SHA-256', iterations: ITERATIONS, salt: encode(salt) },
       wrappedVaultKey,
@@ -226,19 +264,43 @@ export const createVault = async (
   sessionKeys = {};
   notify();
 };
-export const unlockVault = async (accountId: string, passphrase: string) => {
+export const unlockVault = async (accountId: string, passphrase?: string) => {
   const envelope = await vaultStore.getItem<VaultEnvelope | LegacyVaultEnvelope>(
     storageKey(accountId)
   );
   if (!envelope) throw new Error('No saved BYOK vault exists');
-  if (envelope.version !== 3)
-    throw new Error('This older BYOK vault must be reset before it can be unlocked.');
-  if (!passphrase) throw new Error('Enter your vault passphrase.');
-  await verifyDevice(decode(envelope.device.credentialId));
-  const passphraseKey = await derivePassphraseKey(passphrase, decode(envelope.recovery.kdf.salt));
-  const vaultKey = await importAesKey(
-    await decrypt(passphraseKey, envelope.recovery.wrappedVaultKey, accountId, 'vault-key')
-  );
+  if (envelope.version === 3) {
+    if (!passphrase) throw new Error('Enter your vault passphrase to migrate this older vault.');
+    await verifyDeviceLegacy(decode((envelope as any).device.credentialId));
+    const passphraseKey = await derivePassphraseKey(passphrase, decode((envelope as any).recovery.kdf.salt));
+    const legacyVaultKey = await importAesKey(
+      await decrypt(passphraseKey, (envelope as any).recovery.wrappedVaultKey, accountId, 'vault-key')
+    );
+    const plaintext = await decrypt(legacyVaultKey, (envelope as any).cipher, accountId, 'payload');
+    const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
+    if (!keys || typeof keys !== 'object') throw new Error('Invalid BYOK vault');
+    activeAccount = accountId;
+    activeKey = legacyVaultKey;
+    activeKeys = keys as ProviderKeys;
+    sessionKeys = {};
+    notify();
+    return;
+  }
+  if (envelope.version !== 4) throw new Error('Unsupported BYOK vault version.');
+  let vaultKey: CryptoKey;
+  try {
+    if (!envelope.device?.wrappedVaultKey) throw new Error('Device PRF is unavailable');
+    vaultKey = await verifyDevice(decode(envelope.device.credentialId), decode(envelope.device.prfSalt));
+    vaultKey = await importAesKey(
+      await decrypt(vaultKey, envelope.device.wrappedVaultKey!, accountId, 'vault-key')
+    );
+  } catch (deviceError) {
+    if (!passphrase) throw deviceError;
+    const passphraseKey = await derivePassphraseKey(passphrase, decode(envelope.recovery.kdf.salt));
+    vaultKey = await importAesKey(
+      await decrypt(passphraseKey, envelope.recovery.wrappedVaultKey, accountId, 'vault-key')
+    );
+  }
   const plaintext = await decrypt(vaultKey, envelope.cipher, accountId, 'payload');
   const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
   if (!keys || typeof keys !== 'object') throw new Error('Invalid BYOK vault');
@@ -252,7 +314,7 @@ export const saveProviderKey = async (accountId: string, provider: ByokProvider,
   ensureAccount(accountId);
   if (!value.trim()) throw new Error('API key is required');
   const envelope = await vaultStore.getItem<VaultEnvelope>(storageKey(accountId));
-  if (!envelope || envelope.version !== 3 || !activeKey)
+  if (!envelope || envelope.version !== 4 || !activeKey)
     throw new Error('Unlock your BYOK vault first');
   const nextKeys = { ...activeKeys, [provider]: value.trim() };
   const cipher = await encrypt(
@@ -273,7 +335,7 @@ export const saveProviderKey = async (accountId: string, provider: ByokProvider,
 export const removeProviderKey = async (accountId: string, provider: ByokProvider) => {
   ensureAccount(accountId);
   const envelope = await vaultStore.getItem<VaultEnvelope>(storageKey(accountId));
-  if (!envelope || envelope.version !== 3 || !activeKey)
+  if (!envelope || envelope.version !== 4 || !activeKey)
     throw new Error('Unlock your BYOK vault first');
   const nextKeys = { ...activeKeys };
   delete nextKeys[provider];
