@@ -129,6 +129,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [provider, setProvider] = useState<ByokProvider>('google');
   const [apiKey, setApiKey] = useState('');
   const [prfSupported, setPrfSupported] = useState(false);
+  const [isPrfSupportResolved, setIsPrfSupportResolved] = useState(false);
   const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
   const [isDangerActionPending, setIsDangerActionPending] = useState(false);
@@ -144,6 +145,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const updateActiveThreadSettings = useSetAtom(updateThreadSettingsAtom);
   const customInstructionsRef = useRef<HTMLElement>(null);
   const byokRef = useRef<HTMLElement>(null);
+  const unlockPassphraseRef = useRef<HTMLInputElement>(null);
   const { textModels, findModel, isModelAvailable, isProviderAvailable } =
     useByokModelAvailability();
 
@@ -176,8 +178,19 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
 
   useEffect(() => {
     if (!open) return;
-    void isPrfSupported().then(setPrfSupported);
+    setIsPrfSupportResolved(false);
+    void isPrfSupported().then((supported) => {
+      setPrfSupported(supported);
+      setIsPrfSupportResolved(true);
+    });
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !vaultExists || vaultUnlocked || !isPrfSupportResolved || prfSupported) return;
+
+    const frame = requestAnimationFrame(() => unlockPassphraseRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, vaultExists, vaultUnlocked, isPrfSupportResolved, prfSupported]);
 
   const handleUnlock = async () => {
     if (!user?.id) return;
@@ -504,6 +517,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           {vaultExists && !vaultUnlocked ? (
             <div className="mb-4 flex gap-2">
               <Input
+                ref={unlockPassphraseRef}
                 type="password"
                 value={passphrase}
                 onChange={(event) => setPassphrase(event.target.value)}

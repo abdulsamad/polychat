@@ -164,7 +164,7 @@ const VaultLockOverlay = () => {
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="vault-lock-title"
-      aria-describedby="vault-lock-description">
+      aria-describedby={prfSupported ? 'vault-lock-description' : undefined}>
       <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-border/70 bg-card/75 p-6 text-card-foreground shadow-[0_24px_100px_hsl(var(--foreground)/0.25)] backdrop-blur-3xl sm:p-8">
         <div className="pointer-events-none absolute -top-24 -right-16 size-48 rounded-full bg-primary/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-28 -left-16 size-56 rounded-full bg-accent/30 blur-3xl" />
@@ -179,15 +179,20 @@ const VaultLockOverlay = () => {
           <h2 id="vault-lock-title" className="text-xl font-semibold tracking-tight">
             BYOK vault locked
           </h2>
-          <p id="vault-lock-description" className="mt-2 text-sm leading-6 text-muted-foreground">
-            {prfSupported
-              ? 'Unlock with your device. Your passphrase is available as a backup.'
-              : 'This device does not support secure passkey encryption. Enter your vault passphrase.'}
-          </p>
+          {prfSupported ? (
+            <p id="vault-lock-description" className="mt-2 text-sm leading-6 text-muted-foreground">
+              Unlock with your device. Your passphrase is available as a backup.
+            </p>
+          ) : null}
           {isChecking ? (
             <p className="mt-6 text-sm text-muted-foreground">Checking your saved keys...</p>
           ) : (
-            <div className="mt-6 grid gap-3">
+            <form
+              className="mt-6 grid gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleUnlock();
+              }}>
               <Input
                 type="password"
                 autoFocus
@@ -198,9 +203,8 @@ const VaultLockOverlay = () => {
                 disabled={isUnlocking}
               />
               <Button
-                type="button"
+                type="submit"
                 className="h-11 rounded-xl"
-                onClick={() => void handleUnlock()}
                 disabled={isUnlocking || (!prfSupported && !passphrase)}>
                 {isUnlocking ? <Loader2 className="size-4 animate-spin" /> : null}
                 {passphrase || !prfSupported ? 'Unlock with passphrase' : 'Unlock with device'}
@@ -214,7 +218,7 @@ const VaultLockOverlay = () => {
                 <RotateCcw className="size-4" />
                 Reset vault
               </Button>
-            </div>
+            </form>
           )}
         </div>
       </div>
