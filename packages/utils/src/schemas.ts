@@ -1,12 +1,14 @@
 import { z } from 'zod';
 
 import { languages } from './languages';
-import { supportedImageModels, supportedModels, profiles } from './models';
+import { supportedModels, profiles } from './models';
 
 const enumFrom = <T extends string>(values: readonly T[]) => z.enum(values as [T, ...T[]]);
 
 export const modelSchema = enumFrom(supportedModels.map(({ name }) => name));
-export const imageModelSchema = enumFrom(supportedImageModels.map(({ name }) => name));
+// BYOK providers expose image model IDs at runtime, so this cannot be a
+// build-time enum. The server still applies its curated-model check.
+export const imageModelSchema = z.string().trim().min(1).max(200);
 export const languageSchema = enumFrom(languages.map(({ code }) => code));
 export const profileSchema = enumFrom(profiles.map(({ code }) => code));
 

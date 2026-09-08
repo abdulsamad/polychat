@@ -162,7 +162,8 @@ export const generateByokImage = async ({
   size?: string;
   signal?: AbortSignal;
 }) => {
-  const providerClient = createProvider(providerForModel(model, provider), apiKey) as any;
+  const providerName = providerForModel(model, provider);
+  const providerClient = createProvider(providerName, apiKey) as any;
   const result = await generateImage({
     model: providerClient.imageModel(model),
     prompt,
@@ -170,7 +171,7 @@ export const generateByokImage = async ({
     size: size as `${number}x${number}` | undefined,
     aspectRatio: '16:9',
     abortSignal: signal,
-    providerOptions: { openai: { style, quality } },
+    providerOptions: providerName === 'openai' ? { openai: { style, quality } } : undefined,
   });
   return { b64_json: result.image.base64 };
 };

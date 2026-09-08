@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { generateImage, APICallError } from 'ai';
 
-import { imageRequestSchema } from 'utils';
+import { imageRequestSchema, supportedImageModels } from 'utils';
 import { openAiClient } from '@models/index';
 import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
@@ -27,6 +27,10 @@ const image = async (c: Context<AppContext>) => {
     const parsed = imageRequestSchema.safeParse(requestBody.body);
     if (!parsed.success) return c.json({ success: false, err: 'Invalid image request.' }, 400);
     const { model, prompt, n, quality, style, size = '1024x1024' } = parsed.data;
+
+    if (!supportedImageModels.some((entry) => entry.name === model)) {
+      return c.json({ success: false, err: 'This image model requires BYOK.' }, 400);
+    }
 
     console.info(
       `[IMAGE] New request - User: ${user.id}, Model: ${model}, Size: ${size}, Quality: ${quality}, Style: ${style}, Prompt length: ${prompt.length}, Number of images: ${n}`

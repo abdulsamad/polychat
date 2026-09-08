@@ -22,6 +22,19 @@ interface ProviderModelResponse {
   nextPageToken?: string;
 }
 
+const hasImageOutput = (entry: Record<string, unknown>) => {
+  const architecture = entry.architecture;
+  if (architecture && typeof architecture === 'object') {
+    const outputModalities = (architecture as { output_modalities?: unknown }).output_modalities;
+    if (Array.isArray(outputModalities) && outputModalities.some((value) => value === 'image')) {
+      return true;
+    }
+  }
+
+  const supportedActions = entry.supportedActions;
+  return Array.isArray(supportedActions) && supportedActions.some((value) => /image/i.test(String(value)));
+};
+
 const providerEndpoints: Record<ByokProvider, string> = {
   google: 'https://generativelanguage.googleapis.com/v1beta/models',
   openai: 'https://api.openai.com/v1/models',
@@ -53,7 +66,15 @@ const toModelOption = (
 });
 
 const isOpenAITextModel = (modelId: string) =>
-  !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|image|search)/i.test(modelId);
+  !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|gpt-image|image|search)/i.test(modelId);
+
+const isOpenAIImageModel = (modelId: string) =>
+  /(dall-e|gpt-image|chatgpt-image)/i.test(modelId);
+
+const isImageModelId = (modelId: string) =>
+  /(dall-e|gpt-image|chatgpt-image|imagen|image|nano-banana|flux|stable-diffusion|recraft|ideogram)/i.test(
+    modelId
+  );
 
 const parseModels = (provider: ByokProvider, response: ProviderModelResponse): ModelOption[] => {
   const entries = response.data || response.models || [];
@@ -69,11 +90,22 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
         : Array.isArray(entry.supportedActions)
           ? entry.supportedActions
           : [];
-      if (actions.length && !actions.includes('generateContent')) return [];
-      return [toModelOption(provider, modelId, getString(entry.displayName))];
+      const isImage =
+        actions.some((action) => /generateImages?|image/i.test(String(action))) || isImageModelId(modelId);
+      if (actions.length && !actions.includes('generateContent') && !isImage) return [];
+      return [
+        {
+          ...toModelOption(provider, modelId, getString(entry.displayName)),
+          type: isImage ? 'image' : 'text',
+        },
+      ];
     }
 
-    if (provider === 'openai' && !isOpenAITextModel(rawId)) return [];
+    const isImage =
+      (provider === 'openai' && isOpenAIImageModel(rawId)) ||
+      (provider !== 'openai' && (hasImageOutput(entry) || isImageModelId(rawId)));
+
+    if (provider === 'openai' && !isOpenAITextModel(rawId) && !isImage) return [];
     if (provider === 'mistral') {
       const capabilities = entry.capabilities;
       if (
@@ -86,7 +118,12 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
       }
     }
 
-    return [toModelOption(provider, rawId, getString(entry.display_name) || getString(entry.name))];
+    return [
+      {
+        ...toModelOption(provider, rawId, getString(entry.display_name) || getString(entry.name)),
+        type: isImage ? 'image' : 'text',
+      },
+    ];
   });
 };
 

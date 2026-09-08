@@ -81,7 +81,12 @@ const SettingsDropdown = () => {
       if (name === 'model' || name === 'profile') {
         updateThreadSettings({
           [name]: value,
-          ...(name === 'model' ? { modelProvider: findModel(value)?.provider } : {}),
+          ...(name === 'model'
+            ? {
+                modelProvider: findModel(value)?.provider,
+                modelType: findModel(value)?.type,
+              }
+            : {}),
         } as Parameters<typeof updateThreadSettings>[0]);
       } else {
         setConfig({ ...config, [name]: value } as typeof config);

@@ -196,6 +196,7 @@ export type ConversationContextMode = 'single-turn' | 'multi-turn';
 export interface IThreadSettings<T extends enabledModelsType> {
   model: T;
   modelProvider?: modelProviderType;
+  modelType?: 'text' | 'image';
   profile: profilesType;
   conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;

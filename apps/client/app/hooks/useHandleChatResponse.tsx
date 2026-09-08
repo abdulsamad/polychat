@@ -117,7 +117,9 @@ const useHandleChatResponse = () => {
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
-      const isImageModel = supportedImageModels.some(({ name }) => name === thread.settings.model);
+      const isImageModel =
+        thread.settings.modelType === 'image' ||
+        supportedImageModels.some(({ name }) => name === thread.settings.model);
       isSharedApiRequest = !apiKey;
       if (isImageModel && !apiKey) {
         isSharedApiRequest = false;
