@@ -34,6 +34,19 @@ const readImageAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+const getClipboardImageFiles = (clipboardData: DataTransfer | null) => {
+  if (!clipboardData) return [];
+
+  const itemFiles = Array.from(clipboardData.items)
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => Boolean(file));
+
+  return itemFiles.length
+    ? itemFiles
+    : Array.from(clipboardData.files).filter((file) => file.type.startsWith('image/'));
+};
+
 const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
   const thread = useAtomValue(threadAtom);
@@ -121,9 +134,7 @@ const useCustomEditor = () => {
       handleDOMEvents: {
         paste: (_view, event) => {
           const clipboardEvent = event as ClipboardEvent;
-          const imageFiles = Array.from(clipboardEvent.clipboardData?.files ?? []).filter((file) =>
-            file.type.startsWith('image/')
-          );
+          const imageFiles = getClipboardImageFiles(clipboardEvent.clipboardData);
 
           if (!imageFiles.length) return false;
 

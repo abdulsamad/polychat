@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { EditorContent, useEditorState } from '@tiptap/react';
-import { ImagePlus, SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
+import { Camera, ImagePlus, SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
@@ -25,6 +25,7 @@ const Text = () => {
     removeImageAttachment,
   } = useCustomTiptapEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const isSpeaking = useAtomValue(speechPlaybackAtom);
   const { cancel } = useSpeechSynthesis();
   const hasText = useEditorState({
@@ -54,6 +55,18 @@ const Text = () => {
                 event.target.value = '';
               }}
             />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              capture="environment"
+              className="sr-only"
+              tabIndex={-1}
+              onChange={(event) => {
+                if (event.target.files) void addImageFiles(event.target.files);
+                event.target.value = '';
+              }}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -62,6 +75,15 @@ const Text = () => {
               className="size-10 shrink-0 rounded-full p-0 sm:size-11"
               onClick={() => fileInputRef.current?.click()}>
               <ImagePlus className="size-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              title="Take a photo"
+              aria-label="Take a photo"
+              className="size-10 shrink-0 rounded-full p-0 sm:size-11"
+              onClick={() => cameraInputRef.current?.click()}>
+              <Camera className="size-5" />
             </Button>
           </>
         )}

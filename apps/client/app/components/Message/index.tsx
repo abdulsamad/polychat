@@ -69,6 +69,16 @@ const MessageContent = ({
     : [content, ...(imageAttachments || []).map(({ name }) => name)].filter(Boolean).join('\n');
   const imageSource = isImage ? image?.url : imageAttachments?.[0]?.dataUrl;
 
+  const getAttachmentFiles = async () =>
+    Promise.all(
+      (imageAttachments || []).map(async ({ dataUrl, name, mediaType }) => {
+        const response = await fetch(dataUrl);
+        if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
+        const blob = await response.blob();
+        return new File([blob], name, { type: mediaType || blob.type });
+      })
+    );
+
   const copyMessage = async () => {
     try {
       await navigator.clipboard.writeText(shareText);
@@ -84,7 +94,17 @@ const MessageContent = ({
 
     if (navigator.share) {
       try {
-        await navigator.share({ text: shareText });
+        const files = isImage ? [] : await getAttachmentFiles();
+        const canShareFiles =
+          files.length > 0 &&
+          typeof navigator.canShare === 'function' &&
+          navigator.canShare({ files });
+
+        await navigator.share(
+          canShareFiles
+            ? { text: content.trim() || undefined, files }
+            : { text: shareText }
+        );
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         console.error('Failed to share message:', error);
