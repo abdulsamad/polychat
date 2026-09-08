@@ -1,9 +1,3 @@
-// react-image-gallery
-declare module 'react-image-gallery' {
-  import { Component } from 'react';
-  export default class ReactImageGallery extends Component<any> {}
-}
-
 // react-copy-to-clipboard
 declare module 'react-copy-to-clipboard' {
   import * as React from 'react';
