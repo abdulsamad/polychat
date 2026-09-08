@@ -67,6 +67,7 @@ const MessageContent = ({
   const shareText = isImage
     ? image?.alt || image?.url || ''
     : [content, ...(imageAttachments || []).map(({ name }) => name)].filter(Boolean).join('\n');
+  const imageSource = isImage ? image?.url : imageAttachments?.[0]?.dataUrl;
 
   const copyMessage = async () => {
     try {
@@ -93,6 +94,28 @@ const MessageContent = ({
     }
 
     await copyMessage();
+  };
+
+  const copyImage = async () => {
+    if (!imageSource) return;
+
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+        throw new Error('Image clipboard is not supported');
+      }
+
+      const response = await fetch(imageSource);
+      if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
+
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) throw new Error('Image data is invalid');
+
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      toast.success('Image copied');
+    } catch (error) {
+      console.error('Failed to copy image:', error);
+      toast.error('Image could not be copied');
+    }
   };
 
   const deleteMessage = () => {
@@ -250,6 +273,13 @@ const MessageContent = ({
             onSelect={() => void shareMessage()}>
             <ShareIcon />
             Share message
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
+            disabled={!imageSource}
+            onSelect={() => void copyImage()}>
+            <CopyIcon />
+            Copy image
           </ContextMenuItem>
           <ContextMenuItem
             className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive [&>svg]:size-3.5 [&>svg]:shrink-0"
