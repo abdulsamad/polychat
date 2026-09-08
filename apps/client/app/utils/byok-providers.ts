@@ -67,6 +67,7 @@ export const streamByokText = async ({
   prompt,
   messages,
   customInstructions,
+  modelConfig,
   signal,
 }: {
   model: availableModelsType;

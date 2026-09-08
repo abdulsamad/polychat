@@ -16,7 +16,7 @@ interface VaultEnvelope {
 }
 
 interface LegacyVaultEnvelope {
-  version: 1 | 2;
+  version: 1 | 2 | 3;
 }
 
 const ITERATIONS = 600_000;

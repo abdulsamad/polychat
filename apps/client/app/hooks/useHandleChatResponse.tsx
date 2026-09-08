@@ -110,20 +110,20 @@ const useHandleChatResponse = () => {
     const { prompt, thread, messages, config } = job;
   const { language } = config;
   const modelConfig = thread.settings.modelConfig;
-  const imageSize = 'size' in modelConfig ? modelConfig.size : undefined;
+  const imageSize = 'size' in modelConfig ? modelConfig.size : config.imageSize;
   const quality = 'quality' in modelConfig ? modelConfig.quality : 'standard';
   const style = 'style' in modelConfig ? modelConfig.style : 'vivid';
     const customInstructions = config.customInstructions || '';
     let isSharedApiRequest = true;
+    const isImageModel =
+      thread.settings.modelType === 'image' ||
+      supportedImageModels.some(({ name }) => name === thread.settings.model);
 
     try {
       if (user?.id !== job.accountId) return { status: 'discarded' as const };
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
       const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
-      const isImageModel =
-        thread.settings.modelType === 'image' ||
-        supportedImageModels.some(({ name }) => name === thread.settings.model);
       isSharedApiRequest = !apiKey;
       if (isImageModel && !apiKey) {
         isSharedApiRequest = false;
@@ -145,8 +145,7 @@ const useHandleChatResponse = () => {
           provider,
           size: imageSize,
           quality,
-        style,
-        modelConfig,
+          style,
           getToken,
           apiKey,
           signal,

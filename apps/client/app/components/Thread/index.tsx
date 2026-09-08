@@ -107,6 +107,9 @@ const Thread = ({ className }: ThreadProps) => {
     [user]
   );
   const hasMessages = messages.length > 0;
+  const isImageModel =
+    thread?.settings.modelType === 'image' ||
+    supportedImageModels.some(({ name }) => name === thread?.settings.model);
 
   return (
     <ScrollArea
@@ -122,16 +125,20 @@ const Thread = ({ className }: ThreadProps) => {
               const { role, metadata } = chat;
               return <Message key={chat.id} {...userInfo(metadata.profile)[role]} {...chat} />;
             })}
-            {isChatResponseLoading &&
-              (thread?.settings.modelType === 'image' ||
-              supportedImageModels.some(({ name }) => name === thread?.settings.model) ? (
+            {(isChatResponseLoading || (isImageModel && Boolean(chatError))) &&
+              (isImageModel ? (
                 <ImageGenerating
-                  size={'size' in (thread?.settings.modelConfig || {}) ? thread?.settings.modelConfig.size : undefined}
+                  error={isChatResponseLoading ? undefined : chatError}
+                  size={
+                    thread?.settings.modelConfig && 'size' in thread.settings.modelConfig
+                      ? thread.settings.modelConfig.size
+                      : undefined
+                  }
                 />
               ) : (
                 <Typing />
               ))}
-            {chatError && (
+            {chatError && !isImageModel && (
               <Alert variant="destructive" className="my-4">
                 <AlertTitle>Generation failed</AlertTitle>
                 <AlertDescription>{chatError} Please try again.</AlertDescription>

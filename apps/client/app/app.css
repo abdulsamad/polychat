@@ -304,6 +304,25 @@
   }
 }
 
+@keyframes image-shimmer {
+  from {
+    transform: translateX(-100%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(350%) skewX(-18deg);
+  }
+}
+
+.image-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--accent) / 0.8),
+    transparent
+  );
+  animation: image-shimmer 1.8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
