@@ -22,7 +22,7 @@ interface DeleteAlertProps {
 const DeleteAlert = ({ children, onDelete, onCancel, open, onOpenChange }: DeleteAlertProps) => (
   <AlertDialog open={open} onOpenChange={onOpenChange}>
     {children && <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
-    <AlertDialogContent>
+    <AlertDialogContent className="max-w-sm gap-3 p-5 duration-150 data-[state=open]:slide-in-from-top-2 data-[state=closed]:slide-out-to-top-2">
       <AlertDialogHeader>
         <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
         <AlertDialogDescription>
