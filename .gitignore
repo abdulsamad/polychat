@@ -45,9 +45,6 @@ next-env.d.ts
 # Turbo
 .turbo
 
-# Graphify
-graphify-out/
-
 # Yarn berry
 .pnp.*
 .yarn/*
@@ -75,3 +72,8 @@ jspm_packages
 
 # Cloudflare
 .dev.vars
+
+# AI
+.serena/cache
+.serena/project.local.yml
+graphify-out/
