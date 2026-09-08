@@ -119,6 +119,23 @@ const useCustomEditor = () => {
         role: 'textbox',
       },
       handleDOMEvents: {
+        paste: (_view, event) => {
+          const clipboardEvent = event as ClipboardEvent;
+          const imageFiles = Array.from(clipboardEvent.clipboardData?.files ?? []).filter((file) =>
+            file.type.startsWith('image/')
+          );
+
+          if (!imageFiles.length) return false;
+
+          clipboardEvent.preventDefault();
+          if (!canAttachImages) {
+            toast.error('This model does not support image input.');
+            return true;
+          }
+
+          void addImageFiles(imageFiles);
+          return true;
+        },
         keydown: (_view, event) => {
           const shouldSubmit =
             event.key === 'Enter' &&

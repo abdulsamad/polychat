@@ -138,7 +138,7 @@ const MessageContent = ({
               ease: 'easeOut',
             }}
             className={clsx(
-              'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none rounded-2xl transition-[background-color,box-shadow] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
+'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none rounded-2xl transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
               chatOrigin,
               isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
             )}
@@ -291,7 +291,7 @@ const MessageContent = ({
         </ContextMenuContent>
       </ContextMenu>
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="origin-center">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this message?</AlertDialogTitle>
             <AlertDialogDescription>

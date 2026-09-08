@@ -18,6 +18,7 @@ import type { ImageAttachment } from 'utils';
 import { abortThreadStream } from '@/utils/chat-stream-registry';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
 import { providerForModel } from '@/utils/byok-providers';
+import { useByokModelAvailability } from './useByokModelAvailability';
 
 const useSubmitMessage = () => {
   const thread = useAtomValue(threadAtom);
@@ -29,6 +30,7 @@ const useSubmitMessage = () => {
   const cancelQueuedChatJob = useSetAtom(cancelQueuedChatJobAtom);
   const clearThreadChatError = useSetAtom(clearThreadChatErrorAtom);
   const { user } = useUser();
+  const { findModel } = useByokModelAvailability();
 
   const submitMessage = useCallback(
     (rawPrompt: string, imageAttachments: ImageAttachment[] = []) => {
@@ -40,6 +42,11 @@ const useSubmitMessage = () => {
       }
 
       if (!prompt && imageAttachments.length === 0) return false;
+
+      if (imageAttachments.length > 0 && !findModel(thread.settings.model)?.supportsVision) {
+        toast.error('This model does not support image input.');
+        return false;
+      }
 
       clearThreadChatError(thread.id);
 
@@ -66,7 +73,7 @@ const useSubmitMessage = () => {
         createdAt,
       });
     },
-    [clearThreadChatError, config, enqueueChatJob, messages, thread, user?.id]
+    [clearThreadChatError, config, enqueueChatJob, findModel, messages, thread, user?.id]
   );
 
   const stopChat = useCallback(() => {

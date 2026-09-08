@@ -13,8 +13,9 @@ PolyChat is a focused workspace for thinking, creating, and working with AI.
 - **Manage local data** - Rename or delete individual threads, delete all chats, or reset all local data from Settings.
 - **Bring your own keys** - Use Google Gemini, OpenAI, Anthropic, Mistral, or DeepSeek keys through a browser-local session key or encrypted vault.
 - **Write and read naturally** - Use a responsive TipTap composer, voice input, and speech playback where your browser supports them.
-- **Work with rich answers** - Stream Markdown responses with tables, links, lists, syntax-highlighted code, copy actions, and downloadable files.
+- **Work with rich answers** - Stream Markdown responses with tables, links, lists, syntax-highlighted code, copy actions, and downloadable files. Open a message context menu to copy, share, copy images, or delete messages with confirmation.
 - **Create visuals** - Generate images from prompts, choose supported image options, and download the results.
+- **Add image context** - Paste or attach images in the composer for vision-capable models. Unsupported models show a clear validation message instead of sending.
 - **Stay comfortable anywhere** - Light, dark, and system themes, keyboard-friendly controls, and layouts that adapt from desktop to mobile.
 
 ## Built with
