@@ -14,6 +14,8 @@ const DropdownMenuGroup = DropdownMenuPrimitive.Group
 
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 
+const DropdownMenuArrow = DropdownMenuPrimitive.Arrow
+
 const DropdownMenuSub = DropdownMenuPrimitive.Sub
 
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
@@ -194,6 +196,7 @@ export {
   DropdownMenuShortcut,
   DropdownMenuGroup,
   DropdownMenuPortal,
+  DropdownMenuArrow,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,

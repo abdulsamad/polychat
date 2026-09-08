@@ -31,6 +31,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
+  DropdownMenuArrow,
   DropdownMenuContent,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -145,6 +146,7 @@ const SettingsDropdown = () => {
       <DropdownMenuContent
         className="w-[calc(100vw-1rem)] max-w-sm rounded-2xl border-border/70 bg-popover/95 p-0 shadow-xl backdrop-blur"
         align="end">
+        <DropdownMenuArrow className="fill-popover stroke-border" />
         <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3.5">
           <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <SlidersHorizontal className="size-[18px]" />
