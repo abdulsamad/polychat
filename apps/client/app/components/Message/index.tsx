@@ -37,7 +37,7 @@ const MessageContent = ({
   image_url: image,
   imageAttachments,
   role,
-  metadata: { model, usage, finishReason, cancelled, requestState },
+  metadata: { model, usage, finishReason, cancelled, requestState, emptyResponse },
 }: MessageProps) => {
   const shouldReduceMotion = useReducedMotion();
   const showDetailedUsage = useAtomValue(threadAtom)?.settings.showDetailedUsage ?? false;
@@ -121,13 +121,25 @@ const MessageContent = ({
               {isImage && image && image.size ? (
                 <Image key={image.url} image={image} model={model} />
               ) : (
-                <div className="flex min-w-0 flex-col items-end gap-2">
+                <div
+                  className={clsx(
+                    'flex w-full min-w-0 flex-col gap-2',
+                    isUser ? 'items-end' : 'items-start'
+                  )}>
                   {content && (
                     <Text isUser={isUser} messageClassNames={messageClassNames} message={content} />
                   )}
                   {imageAttachments?.map((attachment) => (
                     <ImageAttachment key={attachment.id} attachment={attachment} />
                   ))}
+                  {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
+                    <Alert className="w-full max-w-[40rem] border-border bg-muted/50">
+                      <AlertTitle>No visible answer</AlertTitle>
+                      <AlertDescription>
+                        The model finished the request but did not return answer text.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               )}
             </div>

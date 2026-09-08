@@ -9,6 +9,7 @@ import { speechPlaybackAtom } from '@/store';
 import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
 import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
+import ImageAttachment from '@/components/Message/ImageAttachment';
 
 const Text = () => {
   const {
@@ -123,22 +124,14 @@ const Text = () => {
         </div>
       </div>
       {imageAttachments.length > 0 && (
-        <ul className="flex min-w-0 flex-wrap gap-1.5 px-1 pb-0.5" aria-label="Attached images">
+        <ul className="flex min-w-0 flex-wrap gap-2 px-1 pb-0.5" aria-label="Attached images">
           {imageAttachments.map((attachment) => (
-            <li
-              key={attachment.id}
-              className="flex min-w-0 max-w-full items-center gap-1.5 rounded-lg border border-border/70 bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
-              <span className="max-w-[14rem] truncate text-foreground">{attachment.name}</span>
-              <span className="shrink-0">({(attachment.size / 1024 / 1024).toFixed(2)} MB)</span>
-              <Button
-                type="button"
-                variant="ghost"
-                title={`Remove ${attachment.name}`}
-                aria-label={`Remove ${attachment.name}`}
-                className="-mr-1 size-5 rounded-full p-0"
-                onClick={() => removeImageAttachment(attachment.id)}>
-                <XIcon className="size-3" />
-              </Button>
+            <li key={attachment.id} className="min-w-0 max-w-full">
+              <ImageAttachment
+                attachment={attachment}
+                compact
+                onRemove={() => removeImageAttachment(attachment.id)}
+              />
             </li>
           ))}
         </ul>

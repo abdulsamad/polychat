@@ -45,6 +45,7 @@ export interface IMessageCommons {
     responseTimestamp?: string;
     requestId?: string;
     requestState?: 'queued' | 'streaming' | 'failed' | 'interrupted';
+    emptyResponse?: boolean;
   };
 }
 

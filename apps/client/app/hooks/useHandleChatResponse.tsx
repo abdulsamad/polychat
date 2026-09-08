@@ -238,6 +238,9 @@ const useHandleChatResponse = () => {
         const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
           if (isDiscardedStream(signal)) return;
 
+          const emptyResponse =
+            !content.trim() && Boolean(responseMetadata) && !cancelled && finishReason !== 'error';
+
           upsertThreadMessage({
             threadId: thread.id,
             message: {
@@ -260,6 +263,7 @@ const useHandleChatResponse = () => {
                   : {}),
                 ...(finishReason ? { finishReason } : {}),
                 ...(cancelled ? { cancelled: true } : {}),
+                ...(emptyResponse ? { emptyResponse: true } : {}),
               },
               role: 'assistant',
               type: 'text',
