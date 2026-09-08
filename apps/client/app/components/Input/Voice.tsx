@@ -26,19 +26,19 @@ const Voice = () => {
       }
       size="icon"
       className={clsx(
-        'group flex size-10 items-center justify-center rounded-full bg-primary p-0 text-primary-foreground shadow-md hover:text-primary-foreground hover:shadow-primary/30 sm:size-11',
+        'group flex size-10 items-center justify-center rounded-full bg-primary p-0 text-primary-foreground shadow-md transition-[transform,background-color,box-shadow,color,border-color] duration-200 hover:-translate-y-0.5 hover:text-primary-foreground hover:shadow-primary/30 active:scale-90 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60 sm:size-11',
         isListening &&
-          'text-sky-200 border-2  border-sky-200 shadow-[0_0_1px_#fff,inset_0_0_1px_#fff,0_0_2px_#08f,0_0_6px_#08f,0_0_15px_#08f]'
+          'animate-pulse border-2 border-sky-200 text-sky-200 shadow-[0_0_1px_#fff,inset_0_0_1px_#fff,0_0_2px_#08f,0_0_6px_#08f,0_0_15px_#08f]'
       )}
       onClick={isListening ? stopRecognition : startRecognition}
       disabled={isBusy && !isListening}
       aria-pressed={isListening}>
       {isTranscribing || isChatResponseLoading ? (
-        <Loader2 className="animate-spin size-4" />
+        <Loader2 className="size-4 animate-spin" />
       ) : isListening ? (
-        <MicOff className="size-4" />
+        <MicOff className="size-4 transition-transform duration-200 group-hover:scale-110" />
       ) : (
-        <Mic className="group-hover:scale-95 size-4" />
+        <Mic className="size-4 transition-transform duration-200 group-hover:scale-110" />
       )}
       <span className="sr-only">
         {isTranscribing
