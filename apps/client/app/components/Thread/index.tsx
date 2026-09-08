@@ -43,51 +43,52 @@ const Thread = ({ className }: ThreadProps) => {
   const queuedJob = useAtomValue(threadQueuedJobAtom);
   const { user } = useUser();
   const shouldStickToBottom = useRef(true);
-  const hasInitialScroll = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLElement | null>(null);
   const bottomSentinelRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const viewport = rootRef.current?.querySelector<HTMLElement>(
       '[data-slot="scroll-area-viewport"]'
     );
-    const bottomSentinel = bottomSentinelRef.current;
-
-    if (!viewport || !bottomSentinel) return;
+    if (!viewport) return;
     viewportRef.current = viewport;
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        shouldStickToBottom.current = entry.isIntersecting;
-      },
-      { root: viewport, rootMargin: '0px 0px 32px 0px' }
-    );
-    observer.observe(bottomSentinel);
+    const updateScrollState = () => {
+      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      shouldStickToBottom.current = distanceFromBottom <= 32;
+    };
+
+    viewport.addEventListener('scroll', updateScrollState, { passive: true });
+    updateScrollState();
 
     return () => {
-      observer.disconnect();
+      viewport.removeEventListener('scroll', updateScrollState);
       viewportRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
     };
   }, []);
 
   useEffect(() => {
     const viewport = viewportRef.current;
 
-    if (!viewport) return;
+    if (!viewport || !shouldStickToBottom.current) return;
+    if (scrollFrameRef.current !== null) return;
 
-    const animationFrame = requestAnimationFrame(() => {
-      if (!hasInitialScroll.current || shouldStickToBottom.current) {
-        // Streaming changes the height of the last message continuously. An
-        // animation per update makes the scroll position lag and feel choppy.
-        // Keep the viewport pinned without starting another animation, and
-        // never take control back after the user scrolls away from the bottom.
-        viewport.scrollTop = viewport.scrollHeight;
-        hasInitialScroll.current = true;
-      }
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+
+      // Streaming changes the height of the last message continuously. An
+      // animation-frame update keeps the viewport pinned without restarting a
+      // smooth-scroll animation for every token.
+      if (shouldStickToBottom.current) viewport.scrollTop = viewport.scrollHeight;
     });
-
-    return () => cancelAnimationFrame(animationFrame);
   }, [messages]);
 
   const userInfo = useCallback(

@@ -1,10 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  DownloadIcon,
-  FlipHorizontal2Icon,
-  FlipVertical2Icon,
-  RotateCwIcon,
-} from 'lucide-react';
+import { DownloadIcon, FlipHorizontal2Icon, FlipVertical2Icon, RotateCwIcon } from 'lucide-react';
 import { Gallery, Item } from 'react-photoswipe-gallery';
 import { imageDimensions } from 'utils';
 
@@ -23,6 +18,9 @@ interface ImageProps {
   image: IImageMessage['image_url'];
 }
 
+const imageActionClassName =
+  'transition-[transform,background-color,border-color,color] duration-150 hover:-translate-y-0.5 active:scale-90';
+
 const Image = ({ image: { url, alt, size } }: ImageProps) => {
   const [rotation, setRotation] = useState(0);
   const [flipX, setFlipX] = useState(false);
@@ -40,7 +38,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
                 ref={ref}
                 type="button"
                 onClick={open}
-                className="block w-full overflow-hidden rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="block w-full overflow-hidden rounded-2xl transition-[transform,box-shadow] duration-200 hover:shadow-lg active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="View image fullscreen">
                 <img
                   src={url}
@@ -58,7 +56,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
           </Item>
         </Gallery>
         <div className="mt-2 flex items-center gap-1">
-          <Button variant="outline" size="icon" asChild>
+          <Button variant="outline" size="icon" className={imageActionClassName} asChild>
             <a href={url} download="generated-image.png" title="Download image">
               <DownloadIcon />
               <span className="sr-only">Download image</span>
@@ -68,6 +66,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
             variant="outline"
             size="icon"
             title="Rotate image"
+            className={imageActionClassName}
             onClick={() => setRotation((value) => (value + 90) % 360)}>
             <RotateCwIcon />
             <span className="sr-only">Rotate image</span>
@@ -76,6 +75,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
             variant="outline"
             size="icon"
             title="Flip image horizontally"
+            className={imageActionClassName}
             onClick={() => setFlipX((value) => !value)}>
             <FlipHorizontal2Icon />
             <span className="sr-only">Flip image horizontally</span>
@@ -84,6 +84,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
             variant="outline"
             size="icon"
             title="Flip image vertically"
+            className={imageActionClassName}
             onClick={() => setFlipY((value) => !value)}>
             <FlipVertical2Icon />
             <span className="sr-only">Flip image vertically</span>
