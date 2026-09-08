@@ -232,11 +232,12 @@ const useHandleChatResponse = () => {
             message: {
               id: job.assistantMessageId,
               content,
-              metadata: {
-                model: thread.settings.model,
-                profile: thread.settings.profile,
-                timestamp,
-                requestId: job.id,
+          metadata: {
+            model: thread.settings.model,
+            profile: thread.settings.profile,
+            timestamp,
+            requestId: job.id,
+            ...(finishReason === 'error' ? { requestState: 'failed' as const } : {}),
                 ...(responseMetadata
                   ? {
                       usage: responseMetadata.metadata.usage,
@@ -359,24 +360,36 @@ const useHandleChatResponse = () => {
 
       console.error(err);
 
-      if (axios.isAxiosError(err)) {
-        showResponseErrorToast(
-          err.response?.data.err || err.message,
+  if (axios.isAxiosError(err)) {
+      const message =
+        err.response?.data.err ||
+        (err.request && !err.response
+          ? isImageModel
+            ? 'Connection closed while generating the image.'
+            : 'Connection closed while waiting for the response.'
+          : err.message);
+    showResponseErrorToast(
+        message,
           isSharedApiRequest,
           openByokSettings,
           err.response?.status
         );
-        return { status: 'failed' as const, error: err.response?.data.err || err.message };
+    return { status: 'failed' as const, error: message };
       }
 
-      if (err instanceof Error) {
-        showResponseErrorToast(
-          err.message || 'Something went Wrong!',
+  if (err instanceof Error) {
+      const message = /fetch|network|load failed|connection|closed|stream/i.test(err.message)
+        ? isImageModel
+          ? 'Connection closed while generating the image.'
+          : 'Connection closed while waiting for the response.'
+        : err.message || 'Something went Wrong!';
+    showResponseErrorToast(
+      message,
           isSharedApiRequest,
           openByokSettings,
           'status' in err && typeof err.status === 'number' ? err.status : undefined
         );
-        return { status: 'failed' as const, error: err.message || 'Something went Wrong!' };
+    return { status: 'failed' as const, error: message };
       }
 
       showResponseErrorToast('Something went Wrong!', isSharedApiRequest, openByokSettings);

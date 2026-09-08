@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import {
   cancelQueuedChatJobAtom,
+  clearThreadChatErrorAtom,
   configAtom,
   enqueueChatJobAtom,
   messagesAtom,
@@ -25,6 +26,7 @@ const useSubmitMessage = () => {
   const queuedJob = useAtomValue(threadQueuedJobAtom);
   const enqueueChatJob = useSetAtom(enqueueChatJobAtom);
   const cancelQueuedChatJob = useSetAtom(cancelQueuedChatJobAtom);
+  const clearThreadChatError = useSetAtom(clearThreadChatErrorAtom);
   const { user } = useUser();
 
   const submitMessage = useCallback(
@@ -37,6 +39,8 @@ const useSubmitMessage = () => {
       }
 
       if (!prompt) return false;
+
+      clearThreadChatError(thread.id);
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
       if (isProviderConfiguredSync(user.id, provider) && !getProviderKey(user.id, provider)) {
@@ -60,7 +64,7 @@ const useSubmitMessage = () => {
         createdAt,
       });
     },
-    [config, enqueueChatJob, messages, thread, user?.id]
+    [clearThreadChatError, config, enqueueChatJob, messages, thread, user?.id]
   );
 
   const stopChat = useCallback(() => {

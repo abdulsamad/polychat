@@ -7,7 +7,6 @@ import {
   queuedChatJobsAtom,
   resetChatQueueAtom,
   threadChatErrorsAtom,
-  threadAtom,
   upsertThreadMessageAtom,
   type ChatJob,
 } from '@/store';
@@ -25,14 +24,9 @@ const ChatQueueProvider = () => {
   const dequeueNextChatJob = useSetAtom(dequeueNextChatJobAtom);
   const resetChatQueue = useSetAtom(resetChatQueueAtom);
   const setErrors = useSetAtom(threadChatErrorsAtom);
-  const selectedThread = useAtomValue(threadAtom);
   const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
   const { handleChatResponse } = useHandleChatResponse();
   const handleChatResponseRef = useRef(handleChatResponse);
-  const selectedThreadIdRef = useRef(selectedThread?.id);
-
-  selectedThreadIdRef.current = selectedThread?.id;
-
   useEffect(() => {
     handleChatResponseRef.current = handleChatResponse;
   }, [handleChatResponse]);
@@ -73,9 +67,7 @@ const ChatQueueProvider = () => {
         if (result.status === 'discarded') return;
 
         if (result.status === 'failed') {
-          if (selectedThreadIdRef.current !== job.threadId) {
-            setErrors((current) => ({ ...current, [job.threadId]: result.error }));
-          }
+        setErrors((current) => ({ ...current, [job.threadId]: result.error }));
           upsertThreadMessage({
             threadId: job.threadId,
             message: {

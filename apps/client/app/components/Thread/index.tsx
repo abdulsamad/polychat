@@ -3,15 +3,24 @@ import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
 import clsx from 'clsx';
 
-import { threadLoadingAtom, messagesAtom, threadQueuedJobAtom } from '@/store';
+import {
+  threadAtom,
+  threadChatErrorsAtom,
+  threadLoadingAtom,
+  messagesAtom,
+  threadQueuedJobAtom,
+} from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
 import { profiles } from 'utils';
+import { supportedImageModels } from 'utils';
 
 import Empty from './Empty';
 import Typing from './Typing';
 import UsageStatus from './UsageStatus';
+import ImageGenerating from './ImageGenerating';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export type UserInfo = Record<
   'user' | 'assistant',
@@ -28,7 +37,9 @@ interface ThreadProps {
 
 const Thread = ({ className }: ThreadProps) => {
   const messages = useAtomValue(messagesAtom);
+  const thread = useAtomValue(threadAtom);
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
+  const chatError = useAtomValue(threadChatErrorsAtom)[thread?.id || ''];
   const queuedJob = useAtomValue(threadQueuedJobAtom);
   const { user } = useUser();
   const shouldStickToBottom = useRef(true);
@@ -111,7 +122,21 @@ const Thread = ({ className }: ThreadProps) => {
               const { role, metadata } = chat;
               return <Message key={chat.id} {...userInfo(metadata.profile)[role]} {...chat} />;
             })}
-            {isChatResponseLoading && <Typing />}
+            {isChatResponseLoading &&
+              (thread?.settings.modelType === 'image' ||
+              supportedImageModels.some(({ name }) => name === thread?.settings.model) ? (
+                <ImageGenerating
+                  size={'size' in (thread?.settings.modelConfig || {}) ? thread?.settings.modelConfig.size : undefined}
+                />
+              ) : (
+                <Typing />
+              ))}
+            {chatError && (
+              <Alert variant="destructive" className="my-4">
+                <AlertTitle>Generation failed</AlertTitle>
+                <AlertDescription>{chatError} Please try again.</AlertDescription>
+              </Alert>
+            )}
             {queuedJob && (
               <p className="px-2 py-3 text-center text-sm text-muted-foreground" role="status">
                 Queued - waiting for the current response to finish.
