@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUser } from '@clerk/react-router';
 
-import { supportedModels, type SupportedModel, type modelProviderType } from 'utils';
+import {
+  supportedModels,
+  type ImageModelCapabilities,
+  type SupportedModel,
+  type modelProviderType,
+} from 'utils';
 
 import {
   getProviderKey,
@@ -14,6 +19,7 @@ export type ModelOption = Omit<SupportedModel, 'name' | 'disabled'> & {
   name: string;
   disabled: boolean;
   isDiscovered?: boolean;
+  imageCapabilities?: ImageModelCapabilities;
 };
 
 interface ProviderModelResponse {
@@ -55,7 +61,8 @@ const displayName = (modelId: string) =>
 const toModelOption = (
   provider: modelProviderType,
   modelId: string,
-  label?: string
+  label?: string,
+  imageCapabilities?: ImageModelCapabilities
 ): ModelOption => ({
   name: modelId,
   text: label || displayName(modelId),
@@ -63,7 +70,44 @@ const toModelOption = (
   disabled: false,
   provider,
   isDiscovered: true,
+  imageCapabilities,
 });
+
+const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOption[] => {
+  const entries = response.data || response.models || [];
+
+  return entries.flatMap((entry) => {
+    const modelId = getString(entry.id) || getString(entry.name);
+    if (!modelId) return [];
+
+    const supportedParameters = entry.supported_parameters;
+    if (!supportedParameters || typeof supportedParameters !== 'object') return [];
+
+    const parameters = supportedParameters as Record<string, unknown>;
+    const getEnumValues = (name: string) => {
+      const descriptor = parameters[name];
+      if (!descriptor || typeof descriptor !== 'object') return undefined;
+      const values = (descriptor as { values?: unknown }).values;
+      return Array.isArray(values) && values.every((value) => typeof value === 'string')
+        ? values
+        : undefined;
+    };
+
+    const sizes = getEnumValues('size');
+    const resolutions = getEnumValues('resolution');
+    const aspectRatios = getEnumValues('aspect_ratio');
+    const imageCapabilities = sizes || resolutions || aspectRatios
+      ? { sizes, resolutions, aspectRatios }
+      : undefined;
+
+    return [
+      {
+        ...toModelOption('openrouter', modelId, getString(entry.name), imageCapabilities),
+        type: 'image' as const,
+      },
+    ];
+  });
+};
 
 const isOpenAITextModel = (modelId: string) =>
   !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|gpt-image|image|search)/i.test(modelId);
@@ -155,6 +199,17 @@ const fetchProviderModels = async (provider: ByokProvider, apiKey: string, signa
     pageToken = provider === 'google' ? page.nextPageToken : undefined;
   } while (pageToken);
 
+  if (provider === 'openrouter') {
+    const imageResponse = await fetch('https://openrouter.ai/api/v1/images/models', {
+      headers,
+      signal,
+    });
+    if (imageResponse.ok) {
+      const imagePage = (await imageResponse.json()) as ProviderModelResponse;
+      models.push(...parseOpenRouterImageModels(imagePage));
+    }
+  }
+
   return models;
 };
 
@@ -197,9 +252,15 @@ export const useByokModelAvailability = () => {
 
   const models = useMemo(() => {
     const catalogNames = new Set(catalogOptions.map(({ name }) => name));
+    const discoveredByName = new Map<string, ModelOption>();
+    for (const model of discoveredModels) {
+      const existing = discoveredByName.get(model.name);
+      if (!existing || model.imageCapabilities) discoveredByName.set(model.name, model);
+    }
+
     return [
       ...catalogOptions,
-      ...discoveredModels.filter(({ name }) => !catalogNames.has(name)),
+      ...Array.from(discoveredByName.values()).filter(({ name }) => !catalogNames.has(name)),
     ].map((model) => ({
       ...model,
       disabled:

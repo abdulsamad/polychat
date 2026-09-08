@@ -386,6 +386,12 @@ export const profileGroups = Object.entries(
   }, {})
 );
 
+export interface ImageModelCapabilities {
+  sizes?: readonly string[];
+  resolutions?: readonly string[];
+  aspectRatios?: readonly string[];
+}
+
 type ImageSizeConfig = {
   default: string;
   options: readonly string[];
@@ -393,7 +399,23 @@ type ImageSizeConfig = {
 
 type ImageSizeOptions<T extends ImageSizeConfig> = T['options'][number];
 
-export const imageSizes = (model: (typeof supportedImageModels)[0]['name']) => {
+export const imageSizes = (
+  model: string,
+  capabilities?: ImageModelCapabilities
+): ImageSizeConfig => {
+  const discoveredOptions = capabilities?.sizes?.length
+    ? capabilities.sizes
+    : capabilities?.resolutions?.length
+      ? capabilities.resolutions
+      : capabilities?.aspectRatios;
+
+  if (discoveredOptions?.length) {
+    return {
+      default: discoveredOptions[0],
+      options: discoveredOptions,
+    };
+  }
+
   if (model === 'dall-e-3') {
     const config = {
       default: '1024x1024',
@@ -413,13 +435,34 @@ export const imageSizes = (model: (typeof supportedImageModels)[0]['name']) => {
 
 export type ImageSizeType = ImageSizeOptions<ReturnType<typeof imageSizes>>;
 
-export const getDefaultModelConfig = (model: string) => {
-  if (model === 'dall-e-3') {
-    return { size: '1024x1024' as const, quality: 'standard' as const, style: 'vivid' as const };
+export const imageDimensions = (size: string): [number, number] => {
+  const match = /^(\d+)x(\d+)$/.exec(size);
+  if (match) return [Number(match[1]), Number(match[2])];
+
+  const aspectRatio = /^(\d+):(\d+)$/.exec(size);
+  if (aspectRatio) return [Number(aspectRatio[1]) * 100, Number(aspectRatio[2]) * 100];
+
+  const resolution = Number.parseInt(size, 10);
+  return resolution > 0 ? [resolution * 1024, resolution * 1024] : [1024, 1024];
+};
+
+export const getDefaultModelConfig = (model: string, capabilities?: ImageModelCapabilities) => {
+  if (supportedImageModels.some(({ name }) => name === model)) {
+    const { default: size } = imageSizes(model, capabilities);
+
+    if (model === 'dall-e-3') {
+      return { size, quality: 'standard' as const, style: 'vivid' as const };
+    }
+
+    return { size };
   }
 
-  if (supportedImageModels.some(({ name }) => name === model)) {
-    return { size: '1024x1024' as const };
+  if (
+    /(dall-e|gpt-image|chatgpt-image|imagen|image|nano-banana|flux|stable-diffusion|recraft|ideogram)/i.test(
+      model
+    )
+  ) {
+    return { size: imageSizes(model, capabilities).default };
   }
 
   return { maxTokens: 3000, temperature: 0.5, topP: undefined };

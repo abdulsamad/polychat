@@ -6,6 +6,7 @@ import {
   RotateCwIcon,
 } from 'lucide-react';
 import { Gallery, Item } from 'react-photoswipe-gallery';
+import { imageDimensions } from 'utils';
 
 import { type IImageMessage } from '@/store/index';
 import { Button } from '@/components/ui/button';
@@ -27,8 +28,7 @@ const Image = ({ image: { url, alt, size } }: ImageProps) => {
   const [flipX, setFlipX] = useState(false);
   const [flipY, setFlipY] = useState(false);
 
-  const width = useMemo(() => parseInt(size.split('x')[0]), [size]);
-  const height = useMemo(() => parseInt(size.split('x')[1]), [size]);
+  const [width, height] = useMemo(() => imageDimensions(size), [size]);
 
   return (
     <div className="group w-full min-w-0 max-w-[400px]">

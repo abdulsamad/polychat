@@ -79,13 +79,14 @@ const SettingsDropdown = () => {
       if (!thread) return null;
 
       if (name === 'model' || name === 'profile') {
+        const selectedModel = name === 'model' ? findModel(value) : undefined;
         updateThreadSettings({
           [name]: value,
           ...(name === 'model'
             ? {
-                modelProvider: findModel(value)?.provider,
-                modelType: findModel(value)?.type,
-                modelConfig: getDefaultModelConfig(value),
+                modelProvider: selectedModel?.provider,
+                modelType: selectedModel?.type,
+                modelConfig: getDefaultModelConfig(value, selectedModel?.imageCapabilities),
               }
             : {}),
         } as Parameters<typeof updateThreadSettings>[0]);
@@ -124,6 +125,10 @@ const SettingsDropdown = () => {
     selectedModel && isProviderAvailable(selectedModel.provider)
   );
   const imageSize = 'size' in modelConfig ? modelConfig.size : undefined;
+  const imageSizeConfig = imageSizes(model, selectedModel?.imageCapabilities);
+  const selectedImageSize = imageSizeConfig.options.includes(imageSize || '')
+    ? imageSize
+    : imageSizeConfig.default;
   const updateModelConfig = (update: Record<string, unknown>) =>
     updateThreadSettings({ modelConfig: { ...modelConfig, ...update } } as Parameters<
       typeof updateThreadSettings
@@ -245,13 +250,13 @@ const SettingsDropdown = () => {
                   Image size
                 </label>
                 <Select
-                  value={imageSize || imageSizes('dall-e-3').default}
+                  value={selectedImageSize}
                   onValueChange={(value) => updateModelConfig({ size: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Image Size" />
                   </SelectTrigger>
                   <SelectContent>
-                    {imageSizes(model).options.map((size) => (
+                    {imageSizeConfig.options.map((size) => (
                       <SelectItem key={size} value={size}>
                         {size}
                       </SelectItem>

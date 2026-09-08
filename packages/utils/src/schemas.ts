@@ -57,9 +57,9 @@ export const imageRequestSchema = z.object({
   model: imageModelSchema,
   prompt: z.string().min(1).max(4_000),
   n: z.number().int().min(1).max(1).optional().default(1),
-  quality: z.enum(['standard', 'hd']),
-  style: z.enum(['vivid', 'natural']),
-  size: z.enum(['256x256', '512x512', '1024x1024', '1024x1792', '1792x1024']).optional(),
+  quality: z.enum(['standard', 'hd']).optional().default('standard'),
+  style: z.enum(['vivid', 'natural']).optional().default('vivid'),
+  size: z.string().trim().min(1).max(32).optional(),
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

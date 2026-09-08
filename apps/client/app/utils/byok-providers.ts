@@ -172,12 +172,13 @@ export const generateByokImage = async ({
 }) => {
   const providerName = providerForModel(model, provider);
   const providerClient = createProvider(providerName, apiKey) as any;
+  const isAspectRatio = Boolean(size?.includes(':'));
   const result = await generateImage({
     model: providerClient.imageModel(model),
     prompt,
     n: 1,
-    size: size as `${number}x${number}` | undefined,
-    aspectRatio: '16:9',
+    size: isAspectRatio ? undefined : (size as `${number}x${number}` | undefined),
+    aspectRatio: isAspectRatio ? (size as `${number}:${number}`) : undefined,
     abortSignal: signal,
     providerOptions: providerName === 'openai' ? { openai: { style, quality } } : undefined,
   });

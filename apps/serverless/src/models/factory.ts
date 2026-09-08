@@ -1,4 +1,4 @@
-import { LanguageModel } from 'ai';
+import { ImageModel, LanguageModel } from 'ai';
 
 import type { availableModelsType } from 'utils';
 
@@ -14,6 +14,7 @@ import {
 class ModelFactory {
   private static instance: ModelFactory;
   private modelInstances: Map<string, LanguageModel> = new Map();
+  private imageModelInstances: Map<string, ImageModel> = new Map();
 
   private constructor() {
     //
@@ -79,6 +80,30 @@ class ModelFactory {
     }
 
     this.modelInstances.set(cacheKey, model);
+    return model;
+  }
+
+  public createImageModel(modelName: availableModelsType): ImageModel {
+    const cacheKey = `image:${modelName}`;
+
+    if (this.imageModelInstances.has(cacheKey)) {
+      return this.imageModelInstances.get(cacheKey)!;
+    }
+
+    let model: ImageModel;
+
+    switch (true) {
+      case modelName.includes('/'):
+        model = openRouterClient.imageModel(modelName);
+        break;
+      case modelName.startsWith('dall-e') || modelName.startsWith('gpt-image'):
+        model = openAiClient.imageModel(modelName);
+        break;
+      default:
+        throw new Error(`Unsupported image model: ${modelName}`);
+    }
+
+    this.imageModelInstances.set(cacheKey, model);
     return model;
   }
 }

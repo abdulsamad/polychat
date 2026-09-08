@@ -1,4 +1,5 @@
 import { CircleAlertIcon } from 'lucide-react';
+import { imageDimensions } from 'utils';
 
 interface ImageGeneratingProps {
   size?: string;
@@ -6,11 +7,11 @@ interface ImageGeneratingProps {
 }
 
 const ImageGenerating = ({ size = '1024x1024', error }: ImageGeneratingProps) => {
-  const [width, height] = size.split('x').map(Number);
+  const [width, height] = imageDimensions(size);
   const aspectRatio = width > 0 && height > 0 ? `${width} / ${height}` : '1 / 1';
 
   return (
-    <div className="my-5 flex w-full" role="status" aria-live="polite">
+    <div className="my-5 flex w-full flex-col" role="status" aria-live="polite">
       <div
         className="relative w-full max-w-[400px] overflow-hidden rounded-2xl border border-border/70 bg-muted/60 shadow-sm"
         style={{ aspectRatio }}>
@@ -34,7 +35,7 @@ const ImageGenerating = ({ size = '1024x1024', error }: ImageGeneratingProps) =>
         </div>
       </div>
       {error && (
-        <p className="mt-2 text-sm text-destructive" role="alert">
+        <p className="mt-2 max-w-[400px] text-xs leading-4 text-destructive" role="alert">
           {error}
         </p>
       )}

@@ -2,7 +2,7 @@ import { Context } from 'hono';
 import { generateImage, APICallError } from 'ai';
 
 import { imageRequestSchema, supportedImageModels } from 'utils';
-import { openAiClient } from '@models/index';
+import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
 
@@ -19,7 +19,11 @@ const image = async (c: Context<AppContext>) => {
     const requestBody = await readJsonBody(c.req.raw, MAX_IMAGE_REQUEST_BYTES);
     if (!requestBody.success) {
       return c.json(
-        { success: false, err: requestBody.status === 413 ? 'Image request is too large.' : 'Invalid image request.' },
+        {
+          success: false,
+          err:
+            requestBody.status === 413 ? 'Image request is too large.' : 'Invalid image request.',
+        },
         requestBody.status
       );
     }
@@ -36,19 +40,24 @@ const image = async (c: Context<AppContext>) => {
       `[IMAGE] New request - User: ${user.id}, Model: ${model}, Size: ${size}, Quality: ${quality}, Style: ${style}, Prompt length: ${prompt.length}, Number of images: ${n}`
     );
 
+    const isAspectRatio = size.includes(':');
+
     const { image } = await generateImage({
-      model: openAiClient.imageModel(model),
+      model: modelFactory.createImageModel(model),
       prompt,
       n,
-      size,
-      aspectRatio: '16:9',
+      size: isAspectRatio ? undefined : (size as `${number}x${number}`),
+      aspectRatio: isAspectRatio ? (size as `${number}:${number}`) : undefined,
       abortSignal: controller.signal,
-      providerOptions: {
-        openai: {
-          style,
-          quality,
-        },
-      },
+      providerOptions:
+        model === 'dall-e-3'
+          ? {
+              openai: {
+                style,
+                quality,
+              },
+            }
+          : undefined,
     });
 
     const b64_json = image.base64;
@@ -64,7 +73,10 @@ const image = async (c: Context<AppContext>) => {
       return c.json(
         {
           success: false,
-          err: err.statusCode === 429 ? 'API rate limit exceeded. Please try again later.' : err.message,
+          err:
+            err.statusCode === 429
+              ? 'API rate limit exceeded. Please try again later.'
+              : err.message,
         },
         err.statusCode === 429 ? 429 : 500
       );
