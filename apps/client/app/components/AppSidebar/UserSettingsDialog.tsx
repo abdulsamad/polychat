@@ -18,14 +18,7 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
 import type { enabledModelsType } from 'utils';
-import {
-  defaultModel,
-  languages,
-  modelProviderLabels,
-  modelProviders,
-  modelsForProvider,
-  profileGroups,
-} from 'utils';
+import { defaultModel, languages, profileGroups } from 'utils';
 
 import {
   configAtom,
@@ -87,6 +80,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
+import { ModelCombobox } from '@/components/ModelCombobox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -688,36 +682,18 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <label className="text-xs font-medium text-muted-foreground">Model</label>
-              <Select
-                disabled={isLoading}
+              <ModelCombobox
+                models={textModels}
                 value={threadSettings.model}
+                disabled={isLoading}
+                className="bg-background/70"
                 onValueChange={(model) =>
                   void updateThreadSetting(
                     'model',
                     model as IThreadSettings<enabledModelsType>['model']
                   )
-                }>
-                <SelectTrigger className="bg-background/70">
-                  <SelectValue placeholder="Model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelProviders.map((provider) => {
-                    const models = modelsForProvider(textModels, provider);
-                    if (!models.length) return null;
-
-                    return (
-                      <SelectGroup key={provider}>
-                        <SelectLabel>{modelProviderLabels[provider]}</SelectLabel>
-                        {models.map(({ name, text, disabled }) => (
-                          <SelectItem key={name} value={name} disabled={disabled}>
-                            {text}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                }
+              />
             </div>
             <div className="grid gap-2">
               <label className="text-xs font-medium text-muted-foreground">Assistant profile</label>

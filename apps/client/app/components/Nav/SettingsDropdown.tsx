@@ -2,14 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { SlidersHorizontal } from 'lucide-react';
 
-import {
-  defaultModel,
-  modelProviderLabels,
-  modelProviders,
-  modelsForProvider,
-  profileGroups,
-  imageSizes,
-} from 'utils';
+import { profileGroups, imageSizes } from 'utils';
 
 import {
   configAtom,
@@ -26,12 +19,13 @@ import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
-  SelectGroup,
-  SelectLabel,
 } from '@/components/ui/select';
+import { ModelCombobox } from '@/components/ModelCombobox';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -126,7 +120,6 @@ const SettingsDropdown = () => {
       showDetailedUsage,
     },
   } = thread!;
-  const hasImageModels = imageModels.length;
   const isImageModelSelected = imageModels.some(({ name }) => name === model);
   const isDallE3Selected = model === 'dall-e-3';
 
@@ -158,62 +151,12 @@ const SettingsDropdown = () => {
               <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 Model
               </label>
-              <Select
+              <ModelCombobox
+                models={[...textModels, ...imageModels]}
                 value={model}
-                defaultValue={defaultModel}
-                onValueChange={(value) => updateSetting('model', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Model" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel className="text-muted-foreground">Text</SelectLabel>
-                    {modelProviders.map((provider) => {
-                      const models = modelsForProvider(textModels, provider);
-                      if (!models.length) return null;
-
-                      return (
-                        <SelectGroup key={provider}>
-                          <SelectLabel className="pl-4 text-xs">{modelProviderLabels[provider]}</SelectLabel>
-                          {models.map(({ name, text, isSpecial, isExperimental, disabled }) => (
-                            <SelectItem key={name} value={name} disabled={disabled}>
-                              <div className="flex items-center gap-2">
-                                {text}
-                                {isSpecial && <Badge variant="outline">Special</Badge>}
-                                {isExperimental && <Badge variant="outline">Experimental</Badge>}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      );
-                    })}
-                  </SelectGroup>
-                  {hasImageModels ? (
-                    <SelectGroup>
-                      <SelectLabel className="text-muted-foreground">Image</SelectLabel>
-                      {modelProviders.map((provider) => {
-                        const models = modelsForProvider(imageModels, provider);
-                        if (!models.length) return null;
-
-                        return (
-                          <SelectGroup key={provider}>
-                            <SelectLabel className="pl-4 text-xs">{modelProviderLabels[provider]}</SelectLabel>
-                            {models.map(({ name, text, isSpecial, isExperimental, disabled }) => (
-                              <SelectItem key={name} value={name} disabled={disabled} className="gap-2">
-                                <div className="flex items-center gap-2">
-                                  {text}
-                                  {isSpecial && <Badge variant="outline">Special</Badge>}
-                                  {isExperimental && <Badge variant="outline">Experimental</Badge>}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        );
-                      })}
-                    </SelectGroup>
-                  ) : null}
-                </SelectContent>
-              </Select>
+                onValueChange={(value) => updateSetting('model', value)}
+                placeholder="Model"
+              />
             </div>
           </li>
           {!isImageModelSelected && (
