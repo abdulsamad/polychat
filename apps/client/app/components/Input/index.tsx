@@ -81,7 +81,7 @@ const Text = () => {
               variant="ghost"
               title="Take a photo"
               aria-label="Take a photo"
-              className="size-10 shrink-0 rounded-full p-0 sm:size-11"
+              className="size-10 shrink-0 rounded-full p-0 sm:size-11 lg:hidden"
               onClick={() => cameraInputRef.current?.click()}>
               <Camera className="size-5" />
             </Button>
