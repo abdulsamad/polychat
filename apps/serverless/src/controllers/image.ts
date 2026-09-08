@@ -60,6 +60,10 @@ const image = async (c: Context<AppContext>) => {
           : undefined,
     });
     const { image } = imageResult;
+    const providerMetadata = imageResult.providerMetadata as
+      | { openai?: { images?: Array<{ revisedPrompt?: unknown }> } }
+      | undefined;
+    const revisedPrompt = providerMetadata?.openai?.images?.[0]?.revisedPrompt;
 
     const b64_json = image.base64;
     const duration = Date.now() - startTime;
@@ -67,7 +71,12 @@ const image = async (c: Context<AppContext>) => {
       `[IMAGE] Request completed - User: ${user.id}, Duration: ${duration}ms, Response size: ${b64_json.length} chars`
     );
 
-    return c.json({ success: true, b64_json, usage: imageResult.usage });
+    return c.json({
+      success: true,
+      b64_json,
+      ...(typeof revisedPrompt === 'string' ? { revisedPrompt } : {}),
+      usage: imageResult.usage,
+    });
   } catch (err) {
     if (APICallError.isInstance(err)) {
       console.error(`[IMAGE] API Error - User: ${user.id}, Error: ${err.message}`);

@@ -219,6 +219,7 @@ interface IGetGeneratedImage {
 
 interface GeneratedImageResponse {
   b64_json: string;
+  revisedPrompt?: string;
   usage?: ChatResponseMetadata['usage'];
 }
 

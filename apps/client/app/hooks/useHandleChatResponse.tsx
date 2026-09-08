@@ -156,7 +156,7 @@ const useHandleChatResponse = () => {
         }
         if (signal?.aborted) return { status: 'cancelled' as const };
 
-        const { b64_json } = imageResponse;
+        const { b64_json, revisedPrompt } = imageResponse;
         const imageUsage = imageResponse.usage;
         const hasImageUsage = Boolean(
           imageUsage &&
@@ -173,7 +173,7 @@ const useHandleChatResponse = () => {
               content: ``,
               image_url: {
                 url: `data:image/png;base64,${b64_json}`,
-                alt: prompt,
+                alt: revisedPrompt ?? '',
                 size: imageSize,
               },
               role: 'assistant',

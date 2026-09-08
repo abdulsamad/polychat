@@ -181,6 +181,16 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
   const flipImageX = () => setFlipX((value) => !value);
   const flipImageY = () => setFlipY((value) => !value);
 
+  const closeFullscreen = () => {
+    resetTransformations();
+    setIsFullscreen(false);
+  };
+
+  const handleFullscreenChange = (open: boolean) => {
+    if (open) setIsFullscreen(true);
+    else closeFullscreen();
+  };
+
   const imageControls = ({ showDownload, showSharing }: ImageControlsOptions) => (
     <div className="flex max-w-full flex-wrap items-center justify-center gap-1">
       {showDownload && (
@@ -266,8 +276,6 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
       <dd>{imageFormat}</dd>
       <dt className="text-muted-foreground">Requested size</dt>
       <dd>{size}</dd>
-      <dt className="text-muted-foreground">Model</dt>
-      <dd className="break-words">{model}</dd>
       <dt className="text-muted-foreground">File size</dt>
       <dd>{formatBytes(sourceBytes)}</dd>
     </dl>
@@ -350,8 +358,7 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
               alt={alt || 'Generated image'}
               width={width}
               height={height}
-              className="block h-auto w-full rounded-2xl object-contain shadow-xl transition-[filter,transform]"
-              style={{ transform, filter }}
+              className="block h-auto w-full rounded-2xl object-contain shadow-xl"
               onLoad={handleImageLoad}
               onError={markImageUnavailable}
               loading="lazy"
@@ -367,12 +374,12 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
             aria-label="Download image">
             <DownloadIcon />
           </Button>
-          <div className="mt-2">{imageControls({ showDownload: false, showSharing: false })}</div>
+          <p className="mt-2 text-xs text-muted-foreground">Model: {model}</p>
           <Accordion type="single" className="w-full" collapsible>
             <AccordionItem value="prompt">
               <AccordionTrigger>Prompt</AccordionTrigger>
               <AccordionContent>
-                {alt ? <figcaption>{alt}</figcaption> : <p>No prompt to show.</p>}
+                {alt ? <figcaption>{alt}</figcaption> : <p>This model did not provide a revised prompt.</p>}
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="metadata">
@@ -383,7 +390,7 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
         </figure>
       </div>
 
-      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+      <Dialog open={isFullscreen} onOpenChange={handleFullscreenChange}>
         <DialogContent className="flex h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 overflow-hidden border-border/70 bg-background p-3 text-foreground sm:h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:p-5">
           <DialogTitle className="sr-only">{alt || 'Generated image'}</DialogTitle>
           <DialogDescription className="sr-only">

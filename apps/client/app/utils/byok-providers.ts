@@ -216,8 +216,14 @@ export const generateByokImage = async ({
     abortSignal: signal,
     providerOptions: providerName === 'openai' ? { openai: { style, quality } } : undefined,
   });
+  const providerMetadata = result.providerMetadata as
+    | { openai?: { images?: Array<{ revisedPrompt?: unknown }> } }
+    | undefined;
+  const revisedPrompt = providerMetadata?.openai?.images?.[0]?.revisedPrompt;
+
   return {
     b64_json: result.image.base64,
+    ...(typeof revisedPrompt === 'string' ? { revisedPrompt } : {}),
     usage: {
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
