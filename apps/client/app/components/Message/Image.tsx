@@ -1,9 +1,10 @@
-import { type SyntheticEvent, useMemo, useState } from 'react';
+import { type SyntheticEvent, useEffect, useMemo, useState } from 'react';
 import {
   CopyIcon,
   DownloadIcon,
   FlipHorizontal2Icon,
   FlipVertical2Icon,
+  ImageOffIcon,
   RotateCcwIcon,
   RotateCwIcon,
   ShareIcon,
@@ -45,16 +46,27 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
   const [naturalDimensions, setNaturalDimensions] = useState<[number, number]>([0, 0]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [imageError, setImageError] = useState(!url);
+
+  useEffect(() => {
+    setImageError(!url);
+  }, [url]);
 
   const [width, height] = useMemo(() => imageDimensions(size), [size]);
   const transform = `rotate(${rotation}deg) scaleX(${flipX ? -1 : 1}) scaleY(${flipY ? -1 : 1})`;
   const filter = `brightness(${brightness}%) contrast(${contrast}%) blur(${blur}px)`;
   const displayWidth = naturalDimensions[0] || width;
   const displayHeight = naturalDimensions[1] || height;
-  const imageFormat = url.match(/^data:([^;,]+)/)?.[1] || 'image/png';
+  const imageFormat = url?.match(/^data:([^;,]+)/)?.[1] || 'image/png';
+  const imageUnavailable = !url || imageError;
+
+  const markImageUnavailable = () => {
+    setImageError(true);
+    setIsFullscreen(false);
+  };
 
   const sourceBytes = useMemo(() => {
-    const encoded = url.match(/^data:[^,]+;base64,(.+)$/)?.[1];
+    const encoded = url?.match(/^data:[^,]+;base64,(.+)$/)?.[1];
     if (!encoded) return 0;
     const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
     return Math.max(0, Math.floor((encoded.length * 3) / 4) - padding);
@@ -308,6 +320,22 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
     </div>
   );
 
+  if (imageUnavailable) {
+    return (
+      <div
+        className="flex w-full max-w-[400px] items-center justify-center rounded-2xl border border-border/70 bg-muted/60 text-muted-foreground"
+        style={{ aspectRatio: `${width} / ${height}` }}
+        role="img"
+        aria-label="Generated image unavailable">
+        <div className="flex flex-col items-center gap-2 px-4 text-center">
+          <ImageOffIcon className="size-10" aria-hidden="true" />
+          <p className="text-sm font-medium text-foreground">Image unavailable</p>
+          <p className="text-xs">The generated image is no longer available.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="group w-full min-w-0 max-w-[400px]">
@@ -325,6 +353,7 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
               className="block h-auto w-full rounded-2xl object-contain shadow-xl transition-[filter,transform]"
               style={{ transform, filter }}
               onLoad={handleImageLoad}
+              onError={markImageUnavailable}
               loading="lazy"
             />
           </button>
@@ -369,6 +398,7 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
               className="block max-h-full max-w-full object-contain"
               style={{ transform, filter }}
               onLoad={handleImageLoad}
+              onError={markImageUnavailable}
             />
           </div>
           <Accordion type="single" className="mx-auto mt-3 w-full max-w-2xl" collapsible>

@@ -49,6 +49,7 @@ const ChatQueueProvider = () => {
         id: job.userMessageId,
         role: 'user',
         content: job.prompt,
+        imageAttachments: job.imageAttachments.length ? job.imageAttachments : undefined,
         type: 'text',
         metadata: {
           model: job.thread.settings.model,
@@ -67,13 +68,14 @@ const ChatQueueProvider = () => {
         if (result.status === 'discarded') return;
 
         if (result.status === 'failed') {
-        setErrors((current) => ({ ...current, [job.threadId]: result.error }));
+          setErrors((current) => ({ ...current, [job.threadId]: result.error }));
           upsertThreadMessage({
             threadId: job.threadId,
             message: {
               id: job.userMessageId,
               role: 'user',
               content: job.prompt,
+              imageAttachments: job.imageAttachments.length ? job.imageAttachments : undefined,
               type: 'text',
               metadata: {
                 model: job.thread.settings.model,
