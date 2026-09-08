@@ -38,6 +38,14 @@ class ModelFactory {
     let model: LanguageModel;
 
     switch (true) {
+      // Provider-qualified IDs such as deepseek/deepseek-v4-pro are OpenRouter
+      // model slugs and must be handled before direct-provider prefixes.
+      case modelName.includes('/'): {
+        model = openRouterClient(modelName);
+
+        break;
+      }
+
       case modelName.startsWith('gemini'): {
         model = googleClient(modelName);
 
@@ -64,12 +72,6 @@ class ModelFactory {
 
       case modelName.startsWith('deepseek'): {
         model = deepseekClient(modelName);
-
-        break;
-      }
-
-      case modelName.includes('/'): {
-        model = openRouterClient(modelName);
 
         break;
       }
