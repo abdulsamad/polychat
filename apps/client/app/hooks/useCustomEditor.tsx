@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Placeholder } from '@tiptap/extensions';
@@ -25,6 +25,31 @@ const extensions = [
 
 export const MAX_IMAGE_ATTACHMENTS = 4;
 export const MAX_HOSTED_IMAGE_BYTES = 2 * 1024 * 1024;
+
+const composerDraftKey = (accountId: string, threadId: string) =>
+  `polychat:composer-draft:${accountId}:${threadId}`;
+
+const readComposerAttachments = (key: string): ImageAttachment[] => {
+  try {
+    const value: unknown = JSON.parse(sessionStorage.getItem(key) || 'null');
+    if (!Array.isArray(value)) return [];
+
+    return value.filter(
+      (attachment): attachment is ImageAttachment =>
+        Boolean(
+          attachment &&
+            typeof attachment === 'object' &&
+            typeof attachment.id === 'string' &&
+            typeof attachment.name === 'string' &&
+            typeof attachment.mediaType === 'string' &&
+            typeof attachment.size === 'number' &&
+            typeof attachment.dataUrl === 'string'
+        )
+    );
+  } catch {
+    return [];
+  }
+};
 
 const readImageAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -53,6 +78,9 @@ const useCustomEditor = () => {
   const { user } = useUser();
   const { findModel } = useByokModelAvailability();
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>([]);
+  const draftKey = user?.id && thread?.id ? composerDraftKey(user.id, thread.id) : null;
+  const hydratedDraftKey = useRef<string | null>(null);
+  const draftHydrationPending = useRef(false);
   const { isChatLoading, isQueued, submitMessage, stopChat, cancelQueuedMessage } =
     useSubmitMessage();
 
@@ -118,6 +146,34 @@ const useCustomEditor = () => {
   const removeImageAttachment = useCallback((id: string) => {
     setImageAttachments((current) => current.filter((attachment) => attachment.id !== id));
   }, []);
+
+  useEffect(() => {
+    if (!draftKey || hydratedDraftKey.current === draftKey) return;
+
+    draftHydrationPending.current = true;
+    setImageAttachments(readComposerAttachments(draftKey));
+    hydratedDraftKey.current = draftKey;
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || hydratedDraftKey.current !== draftKey) return;
+    if (draftHydrationPending.current) {
+      draftHydrationPending.current = false;
+      return;
+    }
+
+    try {
+      if (imageAttachments.length) {
+        sessionStorage.setItem(draftKey, JSON.stringify(imageAttachments));
+      } else {
+        sessionStorage.removeItem(draftKey);
+      }
+    } catch (error) {
+      // A large image may exceed the browser's tab-storage quota. The live
+      // attachment remains usable even when its reload backup cannot be saved.
+      console.warn('Could not persist the composer image draft', error);
+    }
+  }, [draftKey, imageAttachments]);
 
   const editor = useEditor({
     extensions,
@@ -223,8 +279,12 @@ const useCustomEditor = () => {
   }, [editor, editorState]);
 
   useEffect(() => {
-    if (!canAttachImages && imageAttachments.length) setImageAttachments([]);
-  }, [canAttachImages, imageAttachments.length]);
+    // Wait until the model is resolved. A transient undefined model during
+    // workspace hydration must not discard a restored camera draft.
+    if (selectedModel && !canAttachImages && imageAttachments.length) {
+      setImageAttachments([]);
+    }
+  }, [canAttachImages, imageAttachments.length, selectedModel]);
 
   return {
     editor,

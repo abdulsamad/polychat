@@ -234,13 +234,11 @@ const VaultLifecycle = () => {
   }, [user?.id]);
 
   useEffect(() => {
-    const lockWhenHidden = () => {
-      if (document.visibilityState === 'hidden') lockVault();
-    };
-    document.addEventListener('visibilitychange', lockWhenHidden);
+    // Opening a native camera or file picker temporarily hides the document. That is
+    // not the same as leaving the app, so visibility changes must not lock the vault.
+    // pagehide still covers an actual reload or navigation away from the app.
     window.addEventListener('pagehide', lockVault);
     return () => {
-      document.removeEventListener('visibilitychange', lockWhenHidden);
       window.removeEventListener('pagehide', lockVault);
     };
   }, []);
