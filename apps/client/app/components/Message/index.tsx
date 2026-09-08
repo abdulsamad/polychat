@@ -1,13 +1,19 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
-import { CopyIcon, ShareIcon } from 'lucide-react';
+import { CopyIcon, ShareIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
-import { useAtomValue } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 
-import { IMessageCommons, ITextMessage, IImageMessage, threadAtom } from '@/store';
+import {
+  IMessageCommons,
+  ITextMessage,
+  IImageMessage,
+  removeThreadMessageAtom,
+  threadAtom,
+} from '@/store';
 import { UserInfo } from '@/components/Thread';
 import {
   ContextMenu,
@@ -16,6 +22,16 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 import Image from './Image';
 import Text from './Text';
@@ -33,14 +49,18 @@ const MessageContent = ({
   messageClassNames,
   avatarImageSrc,
   type,
+  id,
   content,
   image_url: image,
   imageAttachments,
   role,
   metadata: { model, usage, finishReason, cancelled, requestState, emptyResponse },
 }: MessageProps) => {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
-  const showDetailedUsage = useAtomValue(threadAtom)?.settings.showDetailedUsage ?? false;
+  const thread = useAtomValue(threadAtom);
+  const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
+  const showDetailedUsage = thread?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
   const isUser = role === 'user';
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
@@ -75,147 +95,189 @@ const MessageContent = ({
     await copyMessage();
   };
 
+  const deleteMessage = () => {
+    if (!thread) return;
+
+    removeThreadMessage({ threadId: thread.id, id });
+    setIsDeleteDialogOpen(false);
+    toast.success('Message deleted');
+  };
+
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <motion.article
-          initial={shouldReduceMotion ? false : { opacity: 0, translateY: 8 }}
-          animate={{ opacity: 1, translateY: 0 }}
-          transition={{
-            duration: shouldReduceMotion ? 0 : 0.18,
-            ease: 'easeOut',
-          }}
-          className={clsx(
-            'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none data-[state=open]:z-20',
-            chatOrigin
-          )}
-          data-type={type}>
-          <div
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <motion.article
+            initial={shouldReduceMotion ? false : { opacity: 0, translateY: 8 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.18,
+              ease: 'easeOut',
+            }}
             className={clsx(
-              'w-full min-w-0',
-              isUser ? 'ml-auto max-w-[min(92%,46rem)]' : 'w-full max-w-[52rem]'
-            )}>
+              'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none data-[state=open]:z-20',
+              chatOrigin,
+              isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
+            )}
+            data-type={type}>
             <div
               className={clsx(
-                'flex w-full min-w-0 items-start gap-2 overflow-hidden sm:gap-3',
-                isUser && 'flex-row-reverse'
+                'w-full min-w-0',
+                isUser ? 'ml-auto max-w-[min(92%,46rem)]' : 'w-full max-w-[52rem]'
               )}>
-              {/* Name and User or Profile Image */}
-              {!isImage && (
-                <div className="flex w-9 shrink-0 flex-col items-center justify-center gap-1 sm:w-14">
-                  <div className="size-8 overflow-hidden rounded-full border border-border bg-muted sm:size-10">
-                    <img
-                      className="size-full object-cover"
-                      src={avatarImageSrc}
-                      alt={name || (isUser ? 'You' : 'Assistant')}
-                      height={40}
-                      width={40}
-                    />
-                  </div>
-                  <span className="hidden w-14 truncate text-center text-xs text-muted-foreground capitalize sm:block">
-                    {name}
-                  </span>
-                </div>
-              )}
-              {/* Image or Message */}
-              {isImage && image && image.size ? (
-                <Image key={image.url} image={image} model={model} />
-              ) : (
-                <div
-                  className={clsx(
-                    'flex w-full min-w-0 flex-col gap-2',
-                    isUser ? 'items-end' : 'items-start'
-                  )}>
-                  {content && (
-                    <Text isUser={isUser} messageClassNames={messageClassNames} message={content} />
-                  )}
-                  {imageAttachments?.map((attachment) => (
-                    <ImageAttachment key={attachment.id} attachment={attachment} />
-                  ))}
-                  {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
-                    <Alert className="w-full max-w-[40rem] border-border bg-muted/50">
-                      <AlertTitle>No visible answer</AlertTitle>
-                      <AlertDescription>
-                        The model finished the request but did not return answer text.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </div>
-              )}
-            </div>
-            {/* Time */}
-            <div
-              className={clsx(
-                'flex min-w-0 max-w-full flex-wrap items-center gap-x-1 pt-1.5 text-xs text-muted-foreground',
-                isUser ? 'justify-end' : 'justify-start',
-                !isImage && (isUser ? 'pr-11 sm:pr-[4.25rem]' : 'pl-11 sm:pl-[4.25rem]')
-              )}>
-              {!isUser &&
-                (usage || finishReason) &&
-                (usage ? (
-                  showDetailedUsage ? (
-                    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
-                      {usage.totalTokens !== undefined && <span>Total: {usage.totalTokens}</span>}
-                      {usage.inputTokens !== undefined && <span>Input: {usage.inputTokens}</span>}
-                      {usage.outputTokens !== undefined && (
-                        <span>Output: {usage.outputTokens}</span>
-                      )}
-                      {usage.reasoningTokens !== undefined && (
-                        <span>Reasoning: {usage.reasoningTokens}</span>
-                      )}
-                      {usage.cachedInputTokens !== undefined && (
-                        <span>Cached input: {usage.cachedInputTokens}</span>
-                      )}
-                      {finishReason && <span>Finish: {finishReason}</span>}
+              <div
+                className={clsx(
+                  'flex w-full min-w-0 items-start gap-2 overflow-hidden sm:gap-3',
+                  isUser && 'flex-row-reverse'
+                )}>
+                {/* Name and User or Profile Image */}
+                {!isImage && (
+                  <div className="flex w-9 shrink-0 flex-col items-center justify-center gap-1 sm:w-14">
+                    <div className="size-8 overflow-hidden rounded-full border border-border bg-muted sm:size-10">
+                      <img
+                        className="size-full object-cover"
+                        src={avatarImageSrc}
+                        alt={name || (isUser ? 'You' : 'Assistant')}
+                        height={40}
+                        width={40}
+                      />
+                    </div>
+                    <span className="hidden w-14 truncate text-center text-xs text-muted-foreground capitalize sm:block">
+                      {name}
                     </span>
-                  ) : (
-                    <span>Total: {usage.totalTokens ?? 'Unknown'} tokens</span>
-                  )
+                  </div>
+                )}
+                {/* Image or Message */}
+                {isImage && image && image.size ? (
+                  <Image key={image.url} image={image} model={model} />
                 ) : (
-                  <span>Finish: {finishReason}</span>
-                ))}
-              {!isUser && usage && model && ' · '}
-              {!isUser && model && (
-                <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
-                  {model}
-                </span>
-              )}
-              {!isUser && cancelled && (
-                <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Cancelled
-                </span>
-              )}
-              {requestState === 'failed' && (
-                <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
-                  Response failed
-                </span>
-              )}
-              {isUser && requestState === 'interrupted' && (
-                <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Interrupted
-                </span>
-              )}
+                  <div
+                    className={clsx(
+                      'flex min-w-0 flex-col gap-2',
+                      isUser ? 'items-end' : 'items-start',
+                      isUser && imageAttachments?.length
+                        ? 'w-fit max-w-full rounded-2xl bg-muted/30 p-1.5'
+                        : 'w-full'
+                    )}>
+                    {content && (
+                      <Text
+                        isUser={isUser}
+                        messageClassNames={messageClassNames}
+                        message={content}
+                      />
+                    )}
+                    {imageAttachments?.map((attachment) => (
+                      <ImageAttachment key={attachment.id} attachment={attachment} />
+                    ))}
+                    {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
+                      <Alert className="w-full max-w-[40rem] border-border bg-muted/50">
+                        <AlertTitle>No visible answer</AlertTitle>
+                        <AlertDescription>
+                          The model finished the request but did not return answer text.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                )}
+              </div>
+              {/* Time */}
+              <div
+                className={clsx(
+                  'flex min-w-0 max-w-full flex-wrap items-center gap-x-1 pt-1.5 text-xs text-muted-foreground',
+                  isUser ? 'justify-end' : 'justify-start',
+                  !isImage && (isUser ? 'pr-11 sm:pr-[4.25rem]' : 'pl-11 sm:pl-[4.25rem]')
+                )}>
+                {!isUser &&
+                  (usage || finishReason) &&
+                  (usage ? (
+                    showDetailedUsage ? (
+                      <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                        {usage.totalTokens !== undefined && <span>Total: {usage.totalTokens}</span>}
+                        {usage.inputTokens !== undefined && <span>Input: {usage.inputTokens}</span>}
+                        {usage.outputTokens !== undefined && (
+                          <span>Output: {usage.outputTokens}</span>
+                        )}
+                        {usage.reasoningTokens !== undefined && (
+                          <span>Reasoning: {usage.reasoningTokens}</span>
+                        )}
+                        {usage.cachedInputTokens !== undefined && (
+                          <span>Cached input: {usage.cachedInputTokens}</span>
+                        )}
+                        {finishReason && <span>Finish: {finishReason}</span>}
+                      </span>
+                    ) : (
+                      <span>Total: {usage.totalTokens ?? 'Unknown'} tokens</span>
+                    )
+                  ) : (
+                    <span>Finish: {finishReason}</span>
+                  ))}
+                {!isUser && usage && model && ' · '}
+                {!isUser && model && (
+                  <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
+                    {model}
+                  </span>
+                )}
+                {!isUser && cancelled && (
+                  <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Cancelled
+                  </span>
+                )}
+                {requestState === 'failed' && (
+                  <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
+                    Response failed
+                  </span>
+                )}
+                {isUser && requestState === 'interrupted' && (
+                  <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Interrupted
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        </motion.article>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem
-          className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
-          disabled={!shareText}
-          onSelect={() => void copyMessage()}>
-          <CopyIcon />
-          Copy message
-        </ContextMenuItem>
-        <ContextMenuItem
-          className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
-          disabled={!shareText}
-          onSelect={() => void shareMessage()}>
-          <ShareIcon />
-          Share message
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+          </motion.article>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem
+            className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
+            disabled={!shareText}
+            onSelect={() => void copyMessage()}>
+            <CopyIcon />
+            Copy message
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
+            disabled={!shareText}
+            onSelect={() => void shareMessage()}>
+            <ShareIcon />
+            Share message
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive [&>svg]:size-3.5 [&>svg]:shrink-0"
+            onSelect={() => setIsDeleteDialogOpen(true)}>
+            <Trash2Icon />
+            Delete message
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this message?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This message will be permanently deleted from this chat. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={deleteMessage}>
+              Delete message
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
