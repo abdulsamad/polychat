@@ -138,7 +138,7 @@ const MessageContent = ({
               ease: 'easeOut',
             }}
             className={clsx(
-              'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none data-[state=open]:z-20',
+              'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none rounded-2xl transition-[background-color,box-shadow] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
               chatOrigin,
               isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
             )}
@@ -274,13 +274,14 @@ const MessageContent = ({
             <ShareIcon />
             Share message
           </ContextMenuItem>
-          <ContextMenuItem
-            className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
-            disabled={!imageSource}
-            onSelect={() => void copyImage()}>
-            <CopyIcon />
-            Copy image
-          </ContextMenuItem>
+          {imageSource && (
+            <ContextMenuItem
+              className="gap-2 [&>svg]:size-3.5 [&>svg]:shrink-0"
+              onSelect={() => void copyImage()}>
+              <CopyIcon />
+              Copy image
+            </ContextMenuItem>
+          )}
           <ContextMenuItem
             className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive [&>svg]:size-3.5 [&>svg]:shrink-0"
             onSelect={() => setIsDeleteDialogOpen(true)}>
