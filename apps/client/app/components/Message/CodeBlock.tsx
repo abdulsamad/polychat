@@ -1,9 +1,9 @@
-import { CopyIcon, DownloadIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { DownloadIcon } from 'lucide-react';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark as codeTheme } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
 import { Button } from '@/components/ui/button';
+import CopyButton from './CopyButton';
 
 interface CodeBlockProps {
   code: string;
@@ -50,16 +50,6 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
     (/^[a-z0-9]{1,12}$/.test(normalizedLanguage) ? normalizedLanguage : 'txt');
   const downloadName = safeFilename(filename || '') || `snippet-${index}.${extension}`;
 
-  const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success('Code copied');
-    } catch (error) {
-      console.error('Failed to copy code:', error);
-      toast.error('Code could not be copied');
-    }
-  };
-
   const downloadCode = () => {
     const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -86,17 +76,11 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            title={`Copy ${downloadName}`}
-            aria-label={`Copy ${downloadName}`}
-            onClick={copyCode}
-            className="h-8 px-2 text-code-foreground hover:bg-white/10 hover:text-code-foreground">
-            <CopyIcon className="size-3.5" />
-            <span className="hidden sm:inline">Copy</span>
-          </Button>
+          <CopyButton
+            text={code}
+            label="Code"
+            className="text-code-foreground hover:bg-white/10 hover:text-code-foreground"
+          />
           <Button
             type="button"
             variant="ghost"

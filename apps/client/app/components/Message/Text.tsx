@@ -1,4 +1,4 @@
-import { type HTMLAttributes } from 'react';
+import { isValidElement, type HTMLAttributes, type ReactNode } from 'react';
 import { TerminalIcon } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import CodeBlock from '@/components/Message/CodeBlock';
+import CopyButton from '@/components/Message/CopyButton';
 
 interface IText {
   isUser: boolean;
@@ -68,6 +69,14 @@ const getFilename = (meta?: string) => {
 
   const bareValue = meta.trim();
   return filenamePattern.test(bareValue) ? bareValue : undefined;
+};
+
+const getTextContent = (content: ReactNode): string => {
+  if (typeof content === 'string' || typeof content === 'number') return String(content);
+  if (Array.isArray(content)) return content.map(getTextContent).join('');
+  if (isValidElement<{ children?: ReactNode }>(content))
+    return getTextContent(content.props.children);
+  return '';
 };
 
 const Text = ({ isUser, messageClassNames, message }: IText) => {
@@ -149,11 +158,20 @@ const Text = ({ isUser, messageClassNames, message }: IText) => {
               li: ({ children }) => (
                 <li className="min-w-0 pl-1 leading-7 [overflow-wrap:anywhere]">{children}</li>
               ),
-              blockquote: ({ children }) => (
-                <blockquote className="my-4 min-w-0 border-l-2 border-primary/70 bg-muted/60 px-4 py-2 text-muted-foreground italic [overflow-wrap:anywhere]">
-                  {children}
-                </blockquote>
-              ),
+              blockquote: ({ children }) => {
+                const quoteText = getTextContent(children).trim();
+
+                return (
+                  <blockquote className="relative my-4 min-w-0 border-l-2 border-primary/70 bg-muted/60 py-2 pr-12 pl-4 text-muted-foreground italic [overflow-wrap:anywhere]">
+                    {quoteText && (
+                      <span className="absolute top-1 right-1 not-italic">
+                        <CopyButton text={quoteText} label="Quote" />
+                      </span>
+                    )}
+                    {children}
+                  </blockquote>
+                );
+              },
               a: ({ children, href }) => (
                 <a
                   href={href}
