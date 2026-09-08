@@ -95,6 +95,7 @@ const ChatQueueProvider = () => {
             id: job.userMessageId,
             role: 'user',
             content: job.prompt,
+            imageAttachments: job.imageAttachments.length ? job.imageAttachments : undefined,
             type: 'text',
             metadata: {
               model: job.thread.settings.model,
