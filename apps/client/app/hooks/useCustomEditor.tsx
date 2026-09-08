@@ -24,7 +24,7 @@ const extensions = [
 ];
 
 export const MAX_IMAGE_ATTACHMENTS = 4;
-export const MAX_HOSTED_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_HOSTED_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const readImageAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -85,7 +85,7 @@ const useCustomEditor = () => {
       });
 
       if (!isByok && acceptedFiles.length < filesToAdd.length) {
-        toast.error('Hosted image uploads are limited to 4 MB per request.');
+        toast.error('Hosted image uploads are limited to 2 MB per request.');
       }
 
       const attachments = await Promise.all(

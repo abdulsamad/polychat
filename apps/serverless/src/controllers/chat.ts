@@ -8,7 +8,7 @@ import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
 
 const MAX_CHAT_REQUEST_BYTES = 8 * 1024 * 1024;
-const MAX_HOSTED_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_HOSTED_IMAGE_BYTES = 2 * 1024 * 1024;
 
 type ImageAttachment = {
   dataUrl: string;
@@ -100,7 +100,7 @@ const chat = async (c: Context<AppContext>) => {
     ].reduce((total, attachment) => total + dataUrlByteLength(attachment.dataUrl), 0);
     if (totalImageBytes > MAX_HOSTED_IMAGE_BYTES) {
       return c.json(
-        { success: false, err: 'Hosted image uploads are limited to 4 MB per request.' },
+        { success: false, err: 'Hosted image uploads are limited to 2 MB per request.' },
         413
       );
     }
