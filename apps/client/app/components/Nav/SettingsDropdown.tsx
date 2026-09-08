@@ -43,7 +43,7 @@ const SettingsDropdown = () => {
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
-  const { textModels, imageModels, findModel } = useByokModelAvailability();
+  const { textModels, imageModels, findModel, isProviderAvailable } = useByokModelAvailability();
   const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
     useState<UserSettingsScrollTarget | null>(null);
 
@@ -119,6 +119,10 @@ const SettingsDropdown = () => {
   } = thread!;
   const isImageModelSelected = imageModels.some(({ name }) => name === model);
   const isDallE3Selected = model === 'dall-e-3';
+  const selectedModel = findModel(model);
+  const isByokModelAvailable = Boolean(
+    selectedModel && isProviderAvailable(selectedModel.provider)
+  );
   const imageSize = 'size' in modelConfig ? modelConfig.size : undefined;
   const updateModelConfig = (update: Record<string, unknown>) =>
     updateThreadSettings({ modelConfig: { ...modelConfig, ...update } } as Parameters<
@@ -307,21 +311,23 @@ const SettingsDropdown = () => {
                     Control the response within this thread
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="grid gap-1 text-xs text-muted-foreground">
-                    Max tokens
-                    <Input
-                      type="number"
-                      min={1}
-                      max={128000}
-                      value={modelConfig.maxTokens ?? ''}
-                      onChange={(event) =>
-                        updateModelConfig({
-                          maxTokens: Number(event.target.value) || undefined,
-                        })
-                      }
-                    />
-                  </label>
+                <div className={isByokModelAvailable ? 'grid grid-cols-2 gap-3' : 'grid gap-3'}>
+                  {isByokModelAvailable && (
+                    <label className="grid gap-1 text-xs text-muted-foreground">
+                      Max tokens
+                      <Input
+                        type="number"
+                        min={1}
+                        max={128000}
+                        value={modelConfig.maxTokens ?? ''}
+                        onChange={(event) =>
+                          updateModelConfig({
+                            maxTokens: Number(event.target.value) || undefined,
+                          })
+                        }
+                      />
+                    </label>
+                  )}
                   <label className="grid gap-1 text-xs text-muted-foreground">
                     Temperature
                     <Input
