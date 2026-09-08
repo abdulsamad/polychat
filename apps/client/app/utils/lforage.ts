@@ -1,7 +1,7 @@
 import localforage from 'localforage';
 
 import type { enabledModelsType } from 'utils';
-import { profiles } from 'utils';
+import { getDefaultModelConfig, profiles } from 'utils';
 import type { IConfig, IMessage, IThreadSettings, IThreads } from '@/store';
 
 export const settingsKey = 'config';
@@ -48,9 +48,13 @@ export const getThreads = async (): Promise<IThreads | null> => {
   return stored.map((thread) => {
     return {
       ...thread,
-      settings: {
-        ...thread.settings,
-        profile: profiles.some(({ code }) => code === thread.settings.profile)
+        settings: {
+          ...thread.settings,
+          modelConfig: {
+            ...getDefaultModelConfig(thread.settings.model),
+            ...thread.settings.modelConfig,
+          },
+          profile: profiles.some(({ code }) => code === thread.settings.profile)
           ? thread.settings.profile
           : 'normal',
       },

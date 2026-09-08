@@ -108,7 +108,11 @@ const useHandleChatResponse = () => {
 
   const handleChatResponse = async ({ job, signal }: handleChatResponseProps) => {
     const { prompt, thread, messages, config } = job;
-    const { imageSize, language, quality, style } = config;
+  const { language } = config;
+  const modelConfig = thread.settings.modelConfig;
+  const imageSize = 'size' in modelConfig ? modelConfig.size : undefined;
+  const quality = 'quality' in modelConfig ? modelConfig.quality : 'standard';
+  const style = 'style' in modelConfig ? modelConfig.style : 'vivid';
     const customInstructions = config.customInstructions || '';
     let isSharedApiRequest = true;
 
@@ -141,7 +145,8 @@ const useHandleChatResponse = () => {
           provider,
           size: imageSize,
           quality,
-          style,
+        style,
+        modelConfig,
           getToken,
           apiKey,
           signal,
@@ -199,7 +204,8 @@ const useHandleChatResponse = () => {
           provider,
           profile: thread.settings.profile,
           language,
-          customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
+        customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
+        modelConfig,
           getToken,
           apiKey,
           signal,

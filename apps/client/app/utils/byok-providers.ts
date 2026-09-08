@@ -13,6 +13,7 @@ import {
   type modelProviderType,
 } from 'utils';
 import type { ByokProvider } from './byok-vault';
+import type { IBaseModelConfig } from '@/store';
 import type { ChatResponseMetadata, ChatStreamPart } from './api-calls';
 
 export const providerForModel = (
@@ -71,9 +72,10 @@ export const streamByokText = async ({
   prompt?: string;
   messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
   customInstructions?: string;
+  modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
 }): Promise<ReadableStream<ChatStreamPart>> => {
-  const config = getAssistantConfig(profile, language, customInstructions);
+  const config = { ...getAssistantConfig(profile, language, customInstructions), ...modelConfig };
   const result = streamText({
     model: modelInstance(model, apiKey, provider),
     instructions: config.prompt,

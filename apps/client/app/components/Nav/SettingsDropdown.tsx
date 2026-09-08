@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { SlidersHorizontal } from 'lucide-react';
 
-import { profileGroups, imageSizes } from 'utils';
+import { getDefaultModelConfig, profileGroups, imageSizes } from 'utils';
 
 import {
   configAtom,
@@ -28,6 +28,7 @@ import {
 import { ModelCombobox } from '@/components/ModelCombobox';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +47,6 @@ const SettingsDropdown = () => {
   const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
     useState<UserSettingsScrollTarget | null>(null);
 
-  const { imageSize, style, quality } = config;
   const customInstructions = config.customInstructions || '';
 
   const openUserSettings = useCallback(
@@ -85,6 +85,7 @@ const SettingsDropdown = () => {
             ? {
                 modelProvider: findModel(value)?.provider,
                 modelType: findModel(value)?.type,
+                modelConfig: getDefaultModelConfig(value),
               }
             : {}),
         } as Parameters<typeof updateThreadSettings>[0]);
@@ -104,16 +105,6 @@ const SettingsDropdown = () => {
     [thread, updateThreadSettings]
   );
 
-  const setImageSizeValue = useCallback(() => {
-    if (!imageSizes(model).options.includes(imageSize as any)) {
-      const defaultSize = imageSizes(model).default;
-      updateSetting('imageSize', defaultSize);
-      return defaultSize;
-    }
-
-    return imageSize;
-  }, [imageSize, updateSetting]);
-
   if (!thread) return null;
 
   const {
@@ -123,10 +114,16 @@ const SettingsDropdown = () => {
       conversationContextMode,
       isTextToSpeechEnabled,
       showDetailedUsage,
+      modelConfig,
     },
   } = thread!;
   const isImageModelSelected = imageModels.some(({ name }) => name === model);
   const isDallE3Selected = model === 'dall-e-3';
+  const imageSize = 'size' in modelConfig ? modelConfig.size : undefined;
+  const updateModelConfig = (update: Record<string, unknown>) =>
+    updateThreadSettings({ modelConfig: { ...modelConfig, ...update } } as Parameters<
+      typeof updateThreadSettings
+    >[0]);
 
   return (
     <DropdownMenu open={isThreadSettingsOpen} onOpenChange={setThreadSettingsOpen}>
@@ -244,8 +241,8 @@ const SettingsDropdown = () => {
                   Image size
                 </label>
                 <Select
-                  value={setImageSizeValue()}
-                  onValueChange={(value) => updateSetting('imageSize', value)}>
+                  value={imageSize || imageSizes('dall-e-3').default}
+                  onValueChange={(value) => updateModelConfig({ size: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Image Size" />
                   </SelectTrigger>
@@ -268,8 +265,8 @@ const SettingsDropdown = () => {
                     Quality
                   </label>
                   <Select
-                    value={quality}
-                    onValueChange={(value) => updateSetting('quality', value)}>
+                    value={'quality' in modelConfig ? modelConfig.quality : 'standard'}
+                    onValueChange={(value) => updateModelConfig({ quality: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Quality" />
                     </SelectTrigger>
@@ -285,7 +282,9 @@ const SettingsDropdown = () => {
                   <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Style
                   </label>
-                  <Select value={style} onValueChange={(value) => updateSetting('style', value)}>
+                    <Select
+                      value={'style' in modelConfig ? modelConfig.style : 'vivid'}
+                      onValueChange={(value) => updateModelConfig({ style: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Style" />
                     </SelectTrigger>
@@ -297,6 +296,63 @@ const SettingsDropdown = () => {
                 </div>
               </li>
             </>
+          )}
+
+          {!isImageModelSelected && (
+            <li>
+              <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-3">
+                <div className="grid gap-1">
+                  <p className="text-sm font-medium">Generation</p>
+                  <p className="text-xs text-muted-foreground">
+                    Control the response within this thread
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1 text-xs text-muted-foreground">
+                    Max tokens
+                    <Input
+                      type="number"
+                      min={1}
+                      max={128000}
+                      value={modelConfig.maxTokens ?? ''}
+                      onChange={(event) =>
+                        updateModelConfig({
+                          maxTokens: Number(event.target.value) || undefined,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs text-muted-foreground">
+                    Temperature
+                    <Input
+                      type="number"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      value={modelConfig.temperature ?? ''}
+                      onChange={(event) =>
+                        updateModelConfig({
+                          temperature: Number(event.target.value) || undefined,
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  Top P
+                  <Input
+                    type="number"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={modelConfig.topP ?? ''}
+                    onChange={(event) =>
+                      updateModelConfig({ topP: Number(event.target.value) || undefined })
+                    }
+                  />
+                </label>
+              </div>
+            </li>
           )}
 
           {IS_SPEECH_SYNTHESIS_SUPPORTED() && !isImageModelSelected && (

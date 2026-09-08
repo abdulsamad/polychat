@@ -412,3 +412,15 @@ export const imageSizes = (model: (typeof supportedImageModels)[0]['name']) => {
 };
 
 export type ImageSizeType = ImageSizeOptions<ReturnType<typeof imageSizes>>;
+
+export const getDefaultModelConfig = (model: string) => {
+  if (model === 'dall-e-3') {
+    return { size: '1024x1024' as const, quality: 'standard' as const, style: 'vivid' as const };
+  }
+
+  if (supportedImageModels.some(({ name }) => name === model)) {
+    return { size: '1024x1024' as const };
+  }
+
+  return { maxTokens: 3000, temperature: 0.5, topP: undefined };
+};

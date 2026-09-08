@@ -10,7 +10,7 @@ import type {
   modelProviderType,
 } from 'utils';
 
-import { defaultModel } from 'utils';
+import { defaultModel, getDefaultModelConfig } from 'utils';
 
 import { getThreads, getMessages, setConfig, setMessages, setThreads } from '@/utils/lforage';
 
@@ -162,6 +162,11 @@ export const removeThreadMessageAtom = atom(
 // Base Configuration for all models
 export interface IBaseModelConfig {
   maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  seed?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
 }
 
 // Base types for different model categories
@@ -233,7 +238,7 @@ export const getDefaultThread = (
     isTextToSpeechEnabled: false,
     showDetailedUsage: false,
     modelConfig: {
-      maxTokens: 3000,
+      ...getDefaultModelConfig(defaultModel),
     },
   };
 

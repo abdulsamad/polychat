@@ -26,6 +26,16 @@ export const chatRequestSchema = z
     language: languageSchema.optional(),
     profile: profileSchema.optional(),
     customInstructions: z.string().trim().max(4_000).optional(),
+    modelConfig: z
+      .object({
+        maxTokens: z.number().int().min(1).max(128_000).optional(),
+        temperature: z.number().min(0).max(2).optional(),
+        topP: z.number().min(0).max(1).optional(),
+        seed: z.number().int().optional(),
+        frequencyPenalty: z.number().min(-2).max(2).optional(),
+        presencePenalty: z.number().min(-2).max(2).optional(),
+      })
+      .optional(),
     model: modelSchema,
   })
   .refine(({ prompt, messages }) => Boolean(prompt?.trim() || messages?.length), {

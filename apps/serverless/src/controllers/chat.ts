@@ -43,8 +43,9 @@ const chat = async (c: Context<AppContext>) => {
       messages,
       language = 'en-US',
       profile = 'normal',
-      customInstructions,
-      model,
+    customInstructions,
+    model,
+    modelConfig,
     } = parsed.data;
 
     console.info(
@@ -52,11 +53,14 @@ const chat = async (c: Context<AppContext>) => {
     );
 
     const modelInstance = modelFactory.createModel(model);
-    const config = getAssistantConfig(
-      profile as Parameters<typeof getAssistantConfig>[0],
-      language,
-      customInstructions
-    );
+  const config = {
+    ...getAssistantConfig(
+    profile as Parameters<typeof getAssistantConfig>[0],
+    language,
+    customInstructions
+    ),
+    ...modelConfig,
+  };
 
     const result = streamText({
       model: modelInstance,

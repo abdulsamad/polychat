@@ -9,7 +9,7 @@ import {
   type modelProviderType,
 } from 'utils';
 
-import { IConfig } from '@/store/index';
+import { IConfig, type IBaseModelConfig } from '@/store/index';
 import { generateByokImage, streamByokText } from './byok-providers';
 
 const configuredBaseURL = import.meta.env.VITE_API_ENDPOINT?.trim();
@@ -67,6 +67,7 @@ interface IGetGeneratedTextBase {
   provider?: modelProviderType;
   profile: profilesType;
   customInstructions?: string;
+  modelConfig?: IBaseModelConfig;
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
@@ -100,6 +101,7 @@ export const getGeneratedText = async ({
   getToken,
   apiKey,
   customInstructions,
+  modelConfig,
   signal,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
   const requestPayload = {
@@ -109,6 +111,7 @@ export const getGeneratedText = async ({
     profile,
     model,
     customInstructions,
+    modelConfig,
   };
   const requestBody = apiKey
     ? { success: true as const, data: requestPayload }
@@ -123,6 +126,7 @@ export const getGeneratedText = async ({
         provider,
         profile,
         customInstructions,
+        modelConfig,
         language: (language || 'en-US') as Parameters<typeof streamByokText>[0]['language'],
         prompt,
         messages,
