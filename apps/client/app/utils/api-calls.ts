@@ -213,6 +213,7 @@ interface IGetGeneratedImage {
 
 interface GeneratedImageResponse {
   b64_json: string;
+  usage?: ChatResponseMetadata['usage'];
 }
 
 export const getGeneratedImage = async ({
@@ -278,5 +279,13 @@ export const getGeneratedImage = async ({
     }
   }
 
-  return res.data;
+  const response = res.data as GeneratedImageResponse;
+  return {
+    ...response,
+    usage: response.usage && {
+      inputTokens: response.usage.inputTokens,
+      outputTokens: response.usage.outputTokens,
+      totalTokens: response.usage.totalTokens,
+    },
+  };
 };

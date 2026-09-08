@@ -115,7 +115,7 @@ const MessageContent = ({
               )}
               {/* Image or Message */}
               {isImage && image && image.size ? (
-                <Image key={image.url} image={image} />
+                <Image key={image.url} image={image} model={model} />
               ) : (
                 <Text isUser={isUser} messageClassNames={messageClassNames} message={content} />
               )}
@@ -162,9 +162,9 @@ const MessageContent = ({
                   Cancelled
                 </span>
               )}
-        {requestState === 'failed' && (
-          <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
-            Response failed
+              {requestState === 'failed' && (
+                <span className="inline-flex items-center rounded-full border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-destructive">
+                  Response failed
                 </span>
               )}
               {isUser && requestState === 'interrupted' && (

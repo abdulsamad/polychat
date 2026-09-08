@@ -157,6 +157,13 @@ const useHandleChatResponse = () => {
         if (signal?.aborted) return { status: 'cancelled' as const };
 
         const { b64_json } = imageResponse;
+        const imageUsage = imageResponse.usage;
+        const hasImageUsage = Boolean(
+          imageUsage &&
+            [imageUsage.inputTokens, imageUsage.outputTokens, imageUsage.totalTokens].some(
+              (value) => typeof value === 'number'
+            )
+        );
 
         startTransition(() => {
           upsertThreadMessage({
@@ -176,6 +183,7 @@ const useHandleChatResponse = () => {
                 profile: thread.settings.profile,
                 timestamp: getTime(new Date()),
                 requestId: job.id,
+                ...(hasImageUsage ? { usage: imageUsage } : {}),
               },
             },
           });

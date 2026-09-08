@@ -42,7 +42,7 @@ const image = async (c: Context<AppContext>) => {
 
     const isAspectRatio = size.includes(':');
 
-    const { image } = await generateImage({
+    const imageResult = await generateImage({
       model: modelFactory.createImageModel(model),
       prompt,
       n,
@@ -59,6 +59,7 @@ const image = async (c: Context<AppContext>) => {
             }
           : undefined,
     });
+    const { image } = imageResult;
 
     const b64_json = image.base64;
     const duration = Date.now() - startTime;
@@ -66,7 +67,7 @@ const image = async (c: Context<AppContext>) => {
       `[IMAGE] Request completed - User: ${user.id}, Duration: ${duration}ms, Response size: ${b64_json.length} chars`
     );
 
-    return c.json({ success: true, b64_json, image });
+    return c.json({ success: true, b64_json, usage: imageResult.usage });
   } catch (err) {
     if (APICallError.isInstance(err)) {
       console.error(`[IMAGE] API Error - User: ${user.id}, Error: ${err.message}`);

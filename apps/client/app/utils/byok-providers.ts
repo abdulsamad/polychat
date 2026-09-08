@@ -182,5 +182,12 @@ export const generateByokImage = async ({
     abortSignal: signal,
     providerOptions: providerName === 'openai' ? { openai: { style, quality } } : undefined,
   });
-  return { b64_json: result.image.base64 };
+  return {
+    b64_json: result.image.base64,
+    usage: {
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      totalTokens: result.usage.totalTokens,
+    },
+  };
 };
