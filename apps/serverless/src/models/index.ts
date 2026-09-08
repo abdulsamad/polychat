@@ -27,4 +27,7 @@ export const deepseekClient = createDeepSeek({
 
 export const openRouterClient = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    'X-Title': 'PolyChat',
+  },
 });

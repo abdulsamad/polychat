@@ -39,7 +39,12 @@ const createProvider = (provider: ByokProvider, apiKey: string) => {
     case 'deepseek':
       return createDeepSeek({ apiKey });
     case 'openrouter':
-      return createOpenRouter({ apiKey });
+      return createOpenRouter({
+        apiKey,
+        headers: {
+          'X-Title': 'PolyChat',
+        },
+      });
   }
 };
 
