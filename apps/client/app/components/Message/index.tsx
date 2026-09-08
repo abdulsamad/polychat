@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import Image from './Image';
 import Text from './Text';
+import ImageAttachment from './ImageAttachment';
 
 interface ExtraProps extends IMessageCommons {
   message?: ITextMessage;
@@ -34,6 +35,7 @@ const MessageContent = ({
   type,
   content,
   image_url: image,
+  imageAttachments,
   role,
   metadata: { model, usage, finishReason, cancelled, requestState },
 }: MessageProps) => {
@@ -42,7 +44,9 @@ const MessageContent = ({
   const isImage = type === 'image_url';
   const isUser = role === 'user';
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
-  const shareText = isImage ? image?.alt || image?.url || '' : content || '';
+  const shareText = isImage
+    ? image?.alt || image?.url || ''
+    : [content, ...(imageAttachments || []).map(({ name }) => name)].filter(Boolean).join('\n');
 
   const copyMessage = async () => {
     try {
@@ -117,7 +121,14 @@ const MessageContent = ({
               {isImage && image && image.size ? (
                 <Image key={image.url} image={image} model={model} />
               ) : (
-                <Text isUser={isUser} messageClassNames={messageClassNames} message={content} />
+                <div className="flex min-w-0 flex-col items-end gap-2">
+                  {content && (
+                    <Text isUser={isUser} messageClassNames={messageClassNames} message={content} />
+                  )}
+                  {imageAttachments?.map((attachment) => (
+                    <ImageAttachment key={attachment.id} attachment={attachment} />
+                  ))}
+                </div>
               )}
             </div>
             {/* Time */}

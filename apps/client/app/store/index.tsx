@@ -8,6 +8,7 @@ import type {
   enabledModelsType,
   ImageSizeType,
   modelProviderType,
+  ImageAttachment,
 } from 'utils';
 
 import { defaultModel, getDefaultModelConfig } from 'utils';
@@ -31,6 +32,7 @@ export interface IMessageCommons {
   id: ReturnType<typeof crypto.randomUUID>;
   role: 'assistant' | 'user';
   content: string; // URL or Text
+  imageAttachments?: ImageAttachment[];
   metadata: {
     profile: null | profilesType; // null is for self
     timestamp: number;
@@ -270,6 +272,7 @@ export interface ChatJob {
   accountId: string;
   threadId: ThreadId;
   prompt: string;
+  imageAttachments: ImageAttachment[];
   userMessageId: IMessage['id'];
   assistantMessageId: IMessage['id'];
   thread: IThread<enabledModelsType>;
@@ -299,6 +302,7 @@ export const enqueueChatJobAtom = atom(null, (get, set, job: ChatJob) => {
       id: job.userMessageId,
       role: 'user',
       content: job.prompt,
+      imageAttachments: job.imageAttachments.length ? job.imageAttachments : undefined,
       metadata: {
         model: job.thread.settings.model,
         profile: null,

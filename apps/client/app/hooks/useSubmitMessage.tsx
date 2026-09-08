@@ -14,6 +14,7 @@ import {
   threadLoadingAtom,
   threadQueuedJobAtom,
 } from '@/store';
+import type { ImageAttachment } from 'utils';
 import { abortThreadStream } from '@/utils/chat-stream-registry';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
 import { providerForModel } from '@/utils/byok-providers';
@@ -30,7 +31,7 @@ const useSubmitMessage = () => {
   const { user } = useUser();
 
   const submitMessage = useCallback(
-    (rawPrompt: string) => {
+    (rawPrompt: string, imageAttachments: ImageAttachment[] = []) => {
       const prompt = rawPrompt.trim();
 
       if (!thread || !user?.id) {
@@ -38,7 +39,7 @@ const useSubmitMessage = () => {
         return false;
       }
 
-      if (!prompt) return false;
+      if (!prompt && imageAttachments.length === 0) return false;
 
       clearThreadChatError(thread.id);
 
@@ -56,6 +57,7 @@ const useSubmitMessage = () => {
         accountId: user.id,
         threadId: thread.id,
         prompt,
+        imageAttachments,
         userMessageId: id,
         assistantMessageId,
         thread,

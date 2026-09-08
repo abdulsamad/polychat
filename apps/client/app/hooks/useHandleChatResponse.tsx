@@ -107,12 +107,12 @@ const useHandleChatResponse = () => {
   };
 
   const handleChatResponse = async ({ job, signal }: handleChatResponseProps) => {
-    const { prompt, thread, messages, config } = job;
-  const { language } = config;
-  const modelConfig = thread.settings.modelConfig;
-  const imageSize = 'size' in modelConfig ? modelConfig.size : config.imageSize;
-  const quality = 'quality' in modelConfig ? modelConfig.quality : 'standard';
-  const style = 'style' in modelConfig ? modelConfig.style : 'vivid';
+    const { prompt, imageAttachments, thread, messages, config } = job;
+    const { language } = config;
+    const modelConfig = thread.settings.modelConfig;
+    const imageSize = 'size' in modelConfig ? modelConfig.size : config.imageSize;
+    const quality = 'quality' in modelConfig ? modelConfig.quality : 'standard';
+    const style = 'style' in modelConfig ? modelConfig.style : 'vivid';
     const customInstructions = config.customInstructions || '';
     let isSharedApiRequest = true;
     const isImageModel =
@@ -160,9 +160,9 @@ const useHandleChatResponse = () => {
         const imageUsage = imageResponse.usage;
         const hasImageUsage = Boolean(
           imageUsage &&
-            [imageUsage.inputTokens, imageUsage.outputTokens, imageUsage.totalTokens].some(
-              (value) => typeof value === 'number'
-            )
+          [imageUsage.inputTokens, imageUsage.outputTokens, imageUsage.totalTokens].some(
+            (value) => typeof value === 'number'
+          )
         );
 
         startTransition(() => {
@@ -202,17 +202,21 @@ const useHandleChatResponse = () => {
                 messages: [
                   ...messages
                     .filter(({ type }) => type === 'text')
-                    .map(({ role, content }) => ({ role, content })),
-                  { role: 'user', content: prompt },
-                ] as Array<Pick<IMessage, 'role' | 'content'>>,
+                    .map(({ role, content, imageAttachments }) => ({
+                      role,
+                      content,
+                      imageAttachments,
+                    })),
+                  { role: 'user', content: prompt, imageAttachments },
+                ] as Array<Pick<IMessage, 'role' | 'content' | 'imageAttachments'>>,
               }
-            : { prompt }),
+            : { prompt, imageAttachments }),
           model: thread.settings.model,
           provider,
           profile: thread.settings.profile,
           language,
-        customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
-        modelConfig,
+          customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
+          modelConfig,
           getToken,
           apiKey,
           signal,
@@ -239,12 +243,12 @@ const useHandleChatResponse = () => {
             message: {
               id: job.assistantMessageId,
               content,
-          metadata: {
-            model: thread.settings.model,
-            profile: thread.settings.profile,
-            timestamp,
-            requestId: job.id,
-            ...(finishReason === 'error' ? { requestState: 'failed' as const } : {}),
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp,
+                requestId: job.id,
+                ...(finishReason === 'error' ? { requestState: 'failed' as const } : {}),
                 ...(responseMetadata
                   ? {
                       usage: responseMetadata.metadata.usage,
@@ -367,36 +371,31 @@ const useHandleChatResponse = () => {
 
       console.error(err);
 
-  if (axios.isAxiosError(err)) {
-      const message =
-        err.response?.data.err ||
-        (err.request && !err.response
+      if (axios.isAxiosError(err)) {
+        const message =
+          err.response?.data.err ||
+          (err.request && !err.response
+            ? isImageModel
+              ? 'Connection closed while generating the image.'
+              : 'Connection closed while waiting for the response.'
+            : err.message);
+        showResponseErrorToast(message, isSharedApiRequest, openByokSettings, err.response?.status);
+        return { status: 'failed' as const, error: message };
+      }
+
+      if (err instanceof Error) {
+        const message = /fetch|network|load failed|connection|closed|stream/i.test(err.message)
           ? isImageModel
             ? 'Connection closed while generating the image.'
             : 'Connection closed while waiting for the response.'
-          : err.message);
-    showResponseErrorToast(
-        message,
-          isSharedApiRequest,
-          openByokSettings,
-          err.response?.status
-        );
-    return { status: 'failed' as const, error: message };
-      }
-
-  if (err instanceof Error) {
-      const message = /fetch|network|load failed|connection|closed|stream/i.test(err.message)
-        ? isImageModel
-          ? 'Connection closed while generating the image.'
-          : 'Connection closed while waiting for the response.'
-        : err.message || 'Something went Wrong!';
-    showResponseErrorToast(
-      message,
+          : err.message || 'Something went Wrong!';
+        showResponseErrorToast(
+          message,
           isSharedApiRequest,
           openByokSettings,
           'status' in err && typeof err.status === 'number' ? err.status : undefined
         );
-    return { status: 'failed' as const, error: message };
+        return { status: 'failed' as const, error: message };
       }
 
       showResponseErrorToast('Something went Wrong!', isSharedApiRequest, openByokSettings);

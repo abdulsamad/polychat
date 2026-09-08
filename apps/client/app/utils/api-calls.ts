@@ -7,6 +7,7 @@ import {
   imageRequestSchema,
   profilesType,
   type modelProviderType,
+  type ImageAttachment,
 } from 'utils';
 
 import { IConfig, type IBaseModelConfig } from '@/store/index';
@@ -41,6 +42,7 @@ const getResponseErrorMessage = async (res: Response, fallback: string) => {
 interface IMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  imageAttachments?: ImageAttachment[];
 }
 
 export interface ChatResponseMetadata {
@@ -68,6 +70,7 @@ interface IGetGeneratedTextBase {
   profile: profilesType;
   customInstructions?: string;
   modelConfig?: IBaseModelConfig;
+  imageAttachments?: ImageAttachment[];
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
@@ -102,6 +105,7 @@ export const getGeneratedText = async ({
   apiKey,
   customInstructions,
   modelConfig,
+  imageAttachments,
   signal,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
   const requestPayload = {
@@ -112,6 +116,7 @@ export const getGeneratedText = async ({
     model,
     customInstructions,
     modelConfig,
+    imageAttachments,
   };
   const requestBody = apiKey
     ? { success: true as const, data: requestPayload }
@@ -130,6 +135,7 @@ export const getGeneratedText = async ({
         language: (language || 'en-US') as Parameters<typeof streamByokText>[0]['language'],
         prompt,
         messages,
+        imageAttachments,
         apiKey,
         signal,
       });

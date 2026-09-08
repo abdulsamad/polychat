@@ -1,5 +1,5 @@
 import { Context } from 'hono';
-import { streamText, APICallError } from 'ai';
+import { streamText, APICallError, type ModelMessage } from 'ai';
 
 import { chatRequestSchema, getAssistantConfig } from 'utils';
 
@@ -7,7 +7,52 @@ import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
 
-const MAX_CHAT_REQUEST_BYTES = 384 * 1024;
+const MAX_CHAT_REQUEST_BYTES = 8 * 1024 * 1024;
+const MAX_HOSTED_IMAGE_BYTES = 4 * 1024 * 1024;
+
+type ImageAttachment = {
+  dataUrl: string;
+  mediaType: string;
+  name: string;
+  size: number;
+};
+
+const dataUrlToBase64 = (dataUrl: string) => dataUrl.slice(dataUrl.indexOf(',') + 1);
+
+const dataUrlByteLength = (dataUrl: string) => {
+  const encoded = dataUrlToBase64(dataUrl);
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((encoded.length * 3) / 4) - padding);
+};
+
+const toModelContent = (text: string, imageAttachments: ImageAttachment[] = []) => {
+  if (!imageAttachments.length) return text;
+
+  return [
+    ...(text ? [{ type: 'text' as const, text }] : []),
+    ...imageAttachments.map((attachment) => ({
+      type: 'file' as const,
+      data: dataUrlToBase64(attachment.dataUrl),
+      mediaType: attachment.mediaType,
+      filename: attachment.name,
+    })),
+  ];
+};
+
+const toModelMessage = (message: {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  imageAttachments?: ImageAttachment[];
+}): ModelMessage => {
+  if (message.role === 'user') {
+    return {
+      role: 'user',
+      content: toModelContent(message.content, message.imageAttachments),
+    };
+  }
+
+  return { role: message.role, content: message.content };
+};
 
 const chat = async (c: Context<AppContext>) => {
   const startTime = Date.now();
@@ -43,29 +88,43 @@ const chat = async (c: Context<AppContext>) => {
       messages,
       language = 'en-US',
       profile = 'normal',
-    customInstructions,
-    model,
-    modelConfig,
+      customInstructions,
+      model,
+      modelConfig,
+      imageAttachments = [],
     } = parsed.data;
+
+    const totalImageBytes = [
+      ...imageAttachments,
+      ...(messages || []).flatMap((message) => message.imageAttachments || []),
+    ].reduce((total, attachment) => total + dataUrlByteLength(attachment.dataUrl), 0);
+    if (totalImageBytes > MAX_HOSTED_IMAGE_BYTES) {
+      return c.json(
+        { success: false, err: 'Hosted image uploads are limited to 4 MB per request.' },
+        413
+      );
+    }
 
     console.info(
       `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Profile: ${profile}, ${messages ? `Messages length: ${messages?.length}` : `Prompt: ${prompt}`}`
     );
 
     const modelInstance = modelFactory.createModel(model);
-  const config = {
-    ...getAssistantConfig(
-    profile as Parameters<typeof getAssistantConfig>[0],
-    language,
-    customInstructions
-    ),
-    ...modelConfig,
-  };
+    const config = {
+      ...getAssistantConfig(
+        profile as Parameters<typeof getAssistantConfig>[0],
+        language,
+        customInstructions
+      ),
+      ...modelConfig,
+    };
 
     const result = streamText({
       model: modelInstance,
       instructions: config.prompt,
-      messages: messages || [{ role: 'user', content: prompt || '' }],
+      messages: messages?.map(toModelMessage) || [
+        { role: 'user', content: toModelContent(prompt || '', imageAttachments) },
+      ],
       temperature: config.temperature,
       seed: config.seed,
       tools: config.tools as any,

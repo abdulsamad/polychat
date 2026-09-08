@@ -11,6 +11,7 @@ import {
   supportedModels,
   type availableModelsType,
   type modelProviderType,
+  type ImageAttachment,
 } from 'utils';
 import type { ByokProvider } from './byok-vault';
 import type { IBaseModelConfig } from '@/store';
@@ -66,6 +67,7 @@ export const streamByokText = async ({
   language,
   prompt,
   messages,
+  imageAttachments,
   customInstructions,
   modelConfig,
   signal,
@@ -76,7 +78,12 @@ export const streamByokText = async ({
   profile: Parameters<typeof getAssistantConfig>[0];
   language: Parameters<typeof getAssistantConfig>[1];
   prompt?: string;
-  messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>;
+  messages?: Array<{
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+    imageAttachments?: ImageAttachment[];
+  }>;
+  imageAttachments?: ImageAttachment[];
   customInstructions?: string;
   modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
@@ -85,7 +92,9 @@ export const streamByokText = async ({
   const result = streamText({
     model: modelInstance(model, apiKey, provider),
     instructions: config.prompt,
-    messages: messages || [{ role: 'user', content: prompt || '' }],
+    messages: messages?.map(toModelMessage) || [
+      { role: 'user', content: toModelContent(prompt || '', imageAttachments) },
+    ],
     temperature: config.temperature,
     seed: config.seed,
     tools: config.tools,
@@ -150,6 +159,31 @@ export const streamByokText = async ({
     },
   });
 };
+
+const dataUrlToBase64 = (dataUrl: string) => dataUrl.slice(dataUrl.indexOf(',') + 1);
+
+const toModelContent = (text: string, imageAttachments: ImageAttachment[] = []) => {
+  if (!imageAttachments.length) return text;
+
+  return [
+    ...(text ? [{ type: 'text' as const, text }] : []),
+    ...imageAttachments.map((attachment) => ({
+      type: 'file' as const,
+      data: dataUrlToBase64(attachment.dataUrl),
+      mediaType: attachment.mediaType,
+      filename: attachment.name,
+    })),
+  ];
+};
+
+const toModelMessage = (message: {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+  imageAttachments?: ImageAttachment[];
+}) => ({
+  role: message.role,
+  content: toModelContent(message.content, message.imageAttachments),
+});
 
 export const generateByokImage = async ({
   model,

@@ -38,7 +38,23 @@ const hasImageOutput = (entry: Record<string, unknown>) => {
   }
 
   const supportedActions = entry.supportedActions;
-  return Array.isArray(supportedActions) && supportedActions.some((value) => /image/i.test(String(value)));
+  return (
+    Array.isArray(supportedActions) &&
+    supportedActions.some((value) => /image/i.test(String(value)))
+  );
+};
+
+const hasImageInput = (entry: Record<string, unknown>) => {
+  const architecture = entry.architecture;
+  if (architecture && typeof architecture === 'object') {
+    const inputModalities = (architecture as { input_modalities?: unknown }).input_modalities;
+    if (Array.isArray(inputModalities) && inputModalities.some((value) => value === 'image')) {
+      return true;
+    }
+  }
+
+  const inputModalities = entry.input_modalities;
+  return Array.isArray(inputModalities) && inputModalities.some((value) => value === 'image');
 };
 
 const providerEndpoints: Record<ByokProvider, string> = {
@@ -62,7 +78,8 @@ const toModelOption = (
   provider: modelProviderType,
   modelId: string,
   label?: string,
-  imageCapabilities?: ImageModelCapabilities
+  imageCapabilities?: ImageModelCapabilities,
+  supportsVision = false
 ): ModelOption => ({
   name: modelId,
   text: label || displayName(modelId),
@@ -71,6 +88,7 @@ const toModelOption = (
   provider,
   isDiscovered: true,
   imageCapabilities,
+  supportsVision,
 });
 
 const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOption[] => {
@@ -96,13 +114,18 @@ const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOptio
     const sizes = getEnumValues('size');
     const resolutions = getEnumValues('resolution');
     const aspectRatios = getEnumValues('aspect_ratio');
-    const imageCapabilities = sizes || resolutions || aspectRatios
-      ? { sizes, resolutions, aspectRatios }
-      : undefined;
+    const imageCapabilities =
+      sizes || resolutions || aspectRatios ? { sizes, resolutions, aspectRatios } : undefined;
 
     return [
       {
-        ...toModelOption('openrouter', modelId, getString(entry.name), imageCapabilities),
+        ...toModelOption(
+          'openrouter',
+          modelId,
+          getString(entry.name),
+          imageCapabilities,
+          hasImageInput(entry)
+        ),
         type: 'image' as const,
       },
     ];
@@ -110,10 +133,11 @@ const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOptio
 };
 
 const isOpenAITextModel = (modelId: string) =>
-  !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|gpt-image|image|search)/i.test(modelId);
+  !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|gpt-image|image|search)/i.test(
+    modelId
+  );
 
-const isOpenAIImageModel = (modelId: string) =>
-  /(dall-e|gpt-image|chatgpt-image)/i.test(modelId);
+const isOpenAIImageModel = (modelId: string) => /(dall-e|gpt-image|chatgpt-image)/i.test(modelId);
 
 const isImageModelId = (modelId: string) =>
   /(dall-e|gpt-image|chatgpt-image|imagen|image|nano-banana|flux|stable-diffusion|recraft|ideogram)/i.test(
@@ -135,11 +159,18 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
           ? entry.supportedActions
           : [];
       const isImage =
-        actions.some((action) => /generateImages?|image/i.test(String(action))) || isImageModelId(modelId);
+        actions.some((action) => /generateImages?|image/i.test(String(action))) ||
+        isImageModelId(modelId);
       if (actions.length && !actions.includes('generateContent') && !isImage) return [];
       return [
         {
-          ...toModelOption(provider, modelId, getString(entry.displayName)),
+          ...toModelOption(
+            provider,
+            modelId,
+            getString(entry.displayName),
+            undefined,
+            hasImageInput(entry) || /gemini/i.test(modelId)
+          ),
           type: isImage ? 'image' : 'text',
         },
       ];
@@ -164,7 +195,13 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
 
     return [
       {
-        ...toModelOption(provider, rawId, getString(entry.display_name) || getString(entry.name)),
+        ...toModelOption(
+          provider,
+          rawId,
+          getString(entry.display_name) || getString(entry.name),
+          undefined,
+          hasImageInput(entry) || (provider === 'openai' && /(gpt-4o|gpt-4\.1|gpt-5)/i.test(rawId))
+        ),
         type: isImage ? 'image' : 'text',
       },
     ];

@@ -15,6 +15,18 @@ export const profileSchema = enumFrom(profiles.map(({ code }) => code));
 const messageSchema = z.object({
   role: z.enum(['system', 'user', 'assistant']),
   content: z.string().max(32_000),
+  imageAttachments: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(100),
+        name: z.string().trim().min(1).max(255),
+        mediaType: z.string().regex(/^image\/(jpeg|png|webp|gif)$/),
+        size: z.number().int().positive(),
+        dataUrl: z.string().regex(/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/),
+      })
+    )
+    .max(4)
+    .optional(),
 });
 
 const MAX_CHAT_CONTENT_CHARS = 64_000;
@@ -22,6 +34,7 @@ const MAX_CHAT_CONTENT_CHARS = 64_000;
 export const chatRequestSchema = z
   .object({
     prompt: z.string().max(32_000).optional(),
+    imageAttachments: messageSchema.shape.imageAttachments,
     messages: z.array(messageSchema).max(100).optional(),
     language: languageSchema.optional(),
     profile: profileSchema.optional(),
@@ -43,7 +56,8 @@ export const chatRequestSchema = z
   })
   .refine(
     ({ prompt, messages }) =>
-      (prompt?.length || 0) + (messages?.reduce((total, message) => total + message.content.length, 0) || 0) <=
+      (prompt?.length || 0) +
+        (messages?.reduce((total, message) => total + message.content.length, 0) || 0) <=
       MAX_CHAT_CONTENT_CHARS,
     { message: 'Chat content is too large.' }
   )
@@ -64,3 +78,6 @@ export const imageRequestSchema = z.object({
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export type ImageRequest = z.infer<typeof imageRequestSchema>;
+export type ImageAttachment = NonNullable<
+  z.infer<typeof messageSchema>['imageAttachments']
+>[number];

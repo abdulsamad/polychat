@@ -1,6 +1,11 @@
 import { ToolChoice, ToolSet } from 'ai';
 
-import { availableModelsType, modelProviderType, supportedLanguagesType, profilesType } from './types';
+import {
+  availableModelsType,
+  modelProviderType,
+  supportedLanguagesType,
+  profilesType,
+} from './types';
 
 export type SupportedModel = {
   name: availableModelsType;
@@ -10,6 +15,7 @@ export type SupportedModel = {
   isSpecial?: boolean;
   isExperimental?: boolean;
   provider: modelProviderType;
+  supportsVision?: boolean;
 };
 
 export const modelProviders = [
@@ -37,6 +43,7 @@ export const supportedModels = [
     type: 'text',
     disabled: false,
     provider: 'google',
+    supportsVision: true,
   },
   {
     name: 'gemini-3.5-flash',
@@ -44,6 +51,7 @@ export const supportedModels = [
     type: 'text',
     disabled: false,
     provider: 'google',
+    supportsVision: true,
   },
   {
     name: 'gemini-3.5-flash-lite',
@@ -51,14 +59,23 @@ export const supportedModels = [
     type: 'text',
     disabled: false,
     provider: 'google',
+    supportsVision: true,
   },
-  { name: 'gpt-5.6-luna', text: 'GPT-5.6 Luna', type: 'text', disabled: false, provider: 'openai' },
+  {
+    name: 'gpt-5.6-luna',
+    text: 'GPT-5.6 Luna',
+    type: 'text',
+    disabled: false,
+    provider: 'openai',
+    supportsVision: true,
+  },
   {
     name: 'gpt-5.6-terra',
     text: 'GPT-5.6 Terra',
     type: 'text',
     disabled: false,
     provider: 'openai',
+    supportsVision: true,
   },
   // {
   //   name: 'deepseek-chat',
