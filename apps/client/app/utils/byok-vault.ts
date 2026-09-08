@@ -27,6 +27,7 @@ const vaultStore = localforage.createInstance({
 });
 const metadataKey = (accountId: string) => `byok-meta:${accountId}`;
 const storageKey = (accountId: string) => `byok-vault:${accountId}`;
+const sessionVaultKey = (accountId: string) => `byok-session:${accountId}`;
 const vaultContext = (accountId: string, purpose: 'payload' | 'vault-key') =>
   new TextEncoder().encode(`polychat:byok:v3:${purpose}:${accountId}`);
 
@@ -40,6 +41,23 @@ const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
 const encode = (value: Uint8Array) => btoa(String.fromCharCode(...value));
 const decode = (value: string) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+const saveSessionVaultKey = async (accountId: string, key: CryptoKey) => {
+  try {
+    // sessionStorage lasts for the lifetime of this browser tab, including a
+    // reload. The actual provider keys remain encrypted in IndexedDB.
+    sessionStorage.setItem(sessionVaultKey(accountId), encode(new Uint8Array(await crypto.subtle.exportKey('raw', key))));
+  } catch (error) {
+    console.warn('Could not preserve the BYOK session', error);
+  }
+};
+const clearSessionVaultKey = (accountId: string | null) => {
+  if (!accountId) return;
+  try {
+    sessionStorage.removeItem(sessionVaultKey(accountId));
+  } catch {
+    // sessionStorage may be unavailable in restricted browser contexts.
+  }
+};
 const randomBytes = (length: number) => crypto.getRandomValues(new Uint8Array(length));
 const logVaultError = (stage: string, error: unknown) => {
   const details =
@@ -193,8 +211,36 @@ export const subscribeVault = (listener: () => void) => {
     listeners.delete(listener);
   };
 };
+
+const restoreSessionVault = async (accountId: string) => {
+  let storedKey: string | null = null;
+  try {
+    storedKey = sessionStorage.getItem(sessionVaultKey(accountId));
+  } catch {
+    return;
+  }
+  if (!storedKey) return;
+
+  try {
+    const envelope = await vaultStore.getItem<VaultEnvelope>(storageKey(accountId));
+    if (!envelope || envelope.version !== 4) throw new Error('Unsupported session vault');
+    const key = await importAesKey(decode(storedKey));
+    const plaintext = await decrypt(key, envelope.cipher, accountId, 'payload');
+    const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
+    if (!keys || typeof keys !== 'object' || activeAccount !== accountId) {
+      throw new Error('Invalid session vault');
+    }
+    activeKey = key;
+    activeKeys = keys as ProviderKeys;
+    sessionKeys = {};
+    notify();
+  } catch {
+    clearSessionVaultKey(accountId);
+  }
+};
 export const setActiveAccount = (accountId: string | null) => {
   if (activeAccount === accountId) return;
+  clearSessionVaultKey(activeAccount);
   lockVault();
   activeAccount = accountId;
   if (accountId) {
@@ -202,6 +248,7 @@ export const setActiveAccount = (accountId: string | null) => {
       configuredProviders.set(accountId, new Set(providers || []));
       notify();
     });
+    void restoreSessionVault(accountId);
   }
   notify();
 };
@@ -278,6 +325,7 @@ export const createVault = async (
   activeKey = vaultKey;
   activeKeys = keys;
   sessionKeys = {};
+  void saveSessionVaultKey(accountId, vaultKey);
   notify();
 };
 export const unlockVault = async (accountId: string, passphrase?: string) => {
@@ -304,6 +352,7 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
     activeKey = legacyVaultKey;
     activeKeys = keys as ProviderKeys;
     sessionKeys = {};
+    void saveSessionVaultKey(accountId, legacyVaultKey);
     notify();
     return;
   }
@@ -337,6 +386,7 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
   activeKey = vaultKey;
   activeKeys = keys as ProviderKeys;
   sessionKeys = {};
+  void saveSessionVaultKey(accountId, vaultKey);
   notify();
 };
 export const saveProviderKey = async (accountId: string, provider: ByokProvider, value: string) => {
@@ -412,5 +462,8 @@ export const resetVault = async (accountId: string) => {
   await vaultStore.removeItem(storageKey(accountId));
   await vaultStore.removeItem(metadataKey(accountId));
   configuredProviders.delete(accountId);
-  if (activeAccount === accountId) lockVault();
+  if (activeAccount === accountId) {
+    clearSessionVaultKey(accountId);
+    lockVault();
+  }
 };

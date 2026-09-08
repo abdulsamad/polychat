@@ -15,7 +15,7 @@ PolyChat is a focused workspace for thinking, creating, and working with AI.
 - **Write and read naturally** - Use a responsive TipTap composer, voice input, and speech playback where your browser supports them.
 - **Work with rich answers** - Stream Markdown responses with tables, links, lists, syntax-highlighted code, copy actions, and downloadable files. Open a message context menu to copy, share, copy images, or delete messages with confirmation.
 - **Create visuals** - Generate images from prompts, choose supported image options, and download the results.
-- **Add image context** - Paste or attach images in the composer for vision-capable models. Unsupported models show a clear validation message instead of sending.
+- **Add image and document context** - Attach images or PDF, DOC, DOCX, TXT, Markdown, CSV, and JSON files to models that advertise file support. Unsupported models show a clear validation message instead of sending.
 - **Stay comfortable anywhere** - Light, dark, and system themes, keyboard-friendly controls, and layouts that adapt from desktop to mobile.
 
 ## Built with
@@ -46,8 +46,18 @@ The vault uses envelope encryption:
 
 Unlock first attempts the device-wrapped key and falls back to the passphrase-wrapped key.
 The passphrase is therefore a recovery mechanism, not something required on every unlock
-when device PRF is available. In-memory vault keys are cleared when the vault is locked,
-when the page is hidden or unloaded, and when the active account changes.
+when device PRF is available. After a successful unlock, the vault stays available for
+the lifetime of the browser tab, including file-picker transitions and reloads. PolyChat
+stores a tab-scoped copy of the vault key in `sessionStorage` so it can reopen the
+encrypted IndexedDB vault after a reload; provider keys remain encrypted at rest. The
+session record is cleared when the tab session ends, when the active account changes, or
+when the vault is reset. Anyone with access to the still-open browser tab can use the
+unlocked BYOK session.
+
+In an installed PWA, the app window acts like a browser tab for this purpose. Reloading
+the PWA keeps the session unlock, while closing the PWA window clears it. Mobile operating
+systems may terminate or restore PWA processes in the background, so a later relaunch may
+require unlocking again if the browser ends the underlying page session.
 
 WebAuthn passkeys used for ordinary website login are not equivalent to PolyChat device
 unlock. Standard passkey login returns a server-verifiable assertion, while PolyChat needs

@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import {
   hasVault,
   isVaultUnlocked,
-  lockVault,
   resetVault,
   setActiveAccount,
   subscribeVault,
@@ -232,18 +231,6 @@ const VaultLifecycle = () => {
   useEffect(() => {
     setActiveAccount(user?.id ?? null);
   }, [user?.id]);
-
-  useEffect(() => {
-    const lockWhenHidden = () => {
-      if (document.visibilityState === 'hidden') lockVault();
-    };
-    document.addEventListener('visibilitychange', lockWhenHidden);
-    window.addEventListener('pagehide', lockVault);
-    return () => {
-      document.removeEventListener('visibilitychange', lockWhenHidden);
-      window.removeEventListener('pagehide', lockVault);
-    };
-  }, []);
 
   return null;
 };
