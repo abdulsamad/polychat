@@ -8,7 +8,10 @@ import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
 
 const MAX_CHAT_REQUEST_BYTES = 8 * 1024 * 1024;
-const MAX_HOSTED_IMAGE_BYTES = 2 * 1024 * 1024;
+// Keep attachments well below the serverless request-body limit. Files are sent
+// as base64 inside JSON, which adds roughly 33% overhead before Lambda receives
+// the request and leaves room for the conversation history and request metadata.
+const MAX_HOSTED_FILE_BYTES = 2 * 1024 * 1024;
 
 type ImageAttachment = {
   dataUrl: string;
@@ -94,13 +97,13 @@ const chat = async (c: Context<AppContext>) => {
       imageAttachments = [],
     } = parsed.data;
 
-    const totalImageBytes = [
+    const totalFileBytes = [
       ...imageAttachments,
       ...(messages || []).flatMap((message) => message.imageAttachments || []),
     ].reduce((total, attachment) => total + dataUrlByteLength(attachment.dataUrl), 0);
-    if (totalImageBytes > MAX_HOSTED_IMAGE_BYTES) {
+    if (totalFileBytes > MAX_HOSTED_FILE_BYTES) {
       return c.json(
-        { success: false, err: 'Hosted image uploads are limited to 2 MB per request.' },
+        { success: false, err: 'Hosted file uploads are limited to 2 MB per request.' },
         413
       );
     }

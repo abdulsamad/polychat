@@ -89,6 +89,7 @@ const toModelOption = (
   isDiscovered: true,
   imageCapabilities,
   supportsVision,
+  supportsFiles: provider === 'google' || provider === 'openai' || provider === 'anthropic',
 });
 
 const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOption[] => {

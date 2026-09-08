@@ -20,9 +20,13 @@ const messageSchema = z.object({
       z.object({
         id: z.string().min(1).max(100),
         name: z.string().trim().min(1).max(255),
-        mediaType: z.string().regex(/^image\/(jpeg|png|webp|gif)$/),
+        mediaType: z.string().regex(
+          /^(image\/(jpeg|png|webp|gif)|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/(plain|markdown|csv)|application\/json)$/
+        ),
         size: z.number().int().positive(),
-        dataUrl: z.string().regex(/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/),
+        dataUrl: z.string().regex(
+          /^data:(image\/(jpeg|png|webp|gif)|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/(plain|markdown|csv)|application\/json);base64,[A-Za-z0-9+/=]+$/
+        ),
       })
     )
     .max(4)

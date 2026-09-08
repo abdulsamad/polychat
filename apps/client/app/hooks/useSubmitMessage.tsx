@@ -43,8 +43,12 @@ const useSubmitMessage = () => {
 
       if (!prompt && imageAttachments.length === 0) return false;
 
-      if (imageAttachments.length > 0 && !findModel(thread.settings.model)?.supportsVision) {
-        toast.error('This model does not support image input.');
+      const model = findModel(thread.settings.model);
+      const hasUnsupportedAttachment = imageAttachments.some((attachment) =>
+        attachment.mediaType.startsWith('image/') ? !model?.supportsVision : !model?.supportsFiles
+      );
+      if (hasUnsupportedAttachment) {
+        toast.error('This model does not support one or more attached files.');
         return false;
       }
 

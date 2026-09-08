@@ -210,7 +210,7 @@ const MessageContent = ({
                       />
                     )}
                     {imageAttachments?.map((attachment) => (
-                      <ImageAttachment key={attachment.id} attachment={attachment} />
+                      <ImageAttachment key={attachment.id} attachment={attachment} compact />
                     ))}
                     {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
                       <Alert className="w-full max-w-[40rem] border-border bg-muted/50">

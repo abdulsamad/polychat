@@ -1,4 +1,4 @@
-import { ImageOffIcon, XIcon } from 'lucide-react';
+import { FileTextIcon, ImageOffIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { ImageAttachment as ImageAttachmentData } from 'utils';
@@ -16,6 +16,7 @@ const formatBytes = (bytes: number) => {
 };
 
 const ImageAttachment = ({ attachment, compact = false, onRemove }: ImageAttachmentProps) => {
+  const isImage = attachment.mediaType.startsWith('image/');
   const [imageError, setImageError] = useState(!attachment.dataUrl);
 
   useEffect(() => {
@@ -29,7 +30,11 @@ const ImageAttachment = ({ attachment, compact = false, onRemove }: ImageAttachm
           ? 'flex w-full max-w-[22rem] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/50 p-1.5'
           : 'w-full max-w-[28rem] overflow-hidden rounded-xl border border-border/70 bg-muted/40'
       }>
-      {imageError ? (
+      {!isImage ? (
+        <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <FileTextIcon className="size-5" aria-hidden="true" />
+        </div>
+      ) : imageError ? (
         <div
           className={
             compact
