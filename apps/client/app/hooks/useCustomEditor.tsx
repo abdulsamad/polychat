@@ -20,7 +20,7 @@ const extensions = [
     heading: { levels: [1, 2, 3, 4, 5, 6], HTMLAttributes: { class: 'heading' } },
     paragraph: { HTMLAttributes: { class: 'paragraph' } },
   }),
-  Placeholder.configure({ placeholder: 'Ask anything or start a conversation...' }),
+  Placeholder.configure({ placeholder: 'Ask anything...' }),
 ];
 
 export const MAX_IMAGE_ATTACHMENTS = 4;
