@@ -100,14 +100,6 @@ export const supportedModels = [
   //   provider: 'deepseek',
   // },
   {
-    name: 'mistral-large-latest',
-    text: 'Mistral Large',
-    type: 'text',
-    isSpecial: false,
-    disabled: false,
-    provider: 'mistral',
-  },
-  {
     name: 'mistral-medium-latest',
     text: 'Mistral Medium',
     type: 'text',
@@ -137,7 +129,7 @@ export const supportedModels = [
 ] as const satisfies readonly SupportedModel[];
 
 export const defaultModel =
-  'gemini-3.5-flash-lite' satisfies (typeof supportedModels)[number]['name'];
+  'openrouter/free' satisfies (typeof supportedModels)[number]['name'];
 
 export const supportedTextModels: SupportedModel[] = supportedModels.filter(
   ({ type }) => type === 'text'
