@@ -12,6 +12,8 @@ import {
   Trash2Icon,
   EyeIcon,
   EyeOffIcon,
+  CheckCircle2Icon,
+  XIcon,
 } from 'lucide-react';
 import { useUser } from '@clerk/react-router';
 import { useTheme } from 'next-themes';
@@ -48,6 +50,7 @@ import {
   subscribeVault,
   unlockVault,
   isPrfSupported,
+  isProviderConfigured,
   type ByokProvider,
 } from '@/utils/byok-vault';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +130,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
   const [isDangerActionPending, setIsDangerActionPending] = useState(false);
+  const [configuredProviderIds, setConfiguredProviderIds] = useState<ByokProvider[]>([]);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState('');
   const isMobile = useIsMobile();
   const customInstructions = customInstructionsDraft;
@@ -159,6 +163,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     if (!user?.id) return;
     setVaultExists(await hasVault(user.id));
     setVaultUnlocked(isVaultUnlocked(user.id));
+    const configured = await Promise.all(
+      byokProviders.map(async ({ id }) => ((await isProviderConfigured(user.id!, id)) ? id : null))
+    );
+    setConfiguredProviderIds(configured.filter((id): id is ByokProvider => id !== null));
   };
 
   useEffect(() => {
@@ -244,10 +252,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     }
   };
 
-  const handleRemoveKey = async () => {
+  const handleRemoveKey = async (providerToRemove: ByokProvider) => {
     if (!user?.id || !vaultUnlocked) return;
     try {
-      await removeProviderKey(user.id, provider);
+      await removeProviderKey(user.id, providerToRemove);
       await refreshVault();
       toast.success('Provider key removed');
     } catch {
@@ -422,6 +430,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               <p className="text-xs text-muted-foreground">Choose the look that feels right.</p>
             </div>
           </div>
+
           <Select
             value={theme ?? 'system'}
             onValueChange={(value) => {
@@ -508,6 +517,45 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             </div>
           </div>
 
+          {configuredProviderIds.length ? (
+            <div className="mb-4 rounded-lg border border-border/60 bg-background/60 p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-foreground">Added provider keys</p>
+                <span className="text-[11px] text-muted-foreground">
+                  {configuredProviderIds.length} configured
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {configuredProviderIds.map((providerId) => {
+                  const providerDetails = byokProviders.find(({ id }) => id === providerId);
+                  if (!providerDetails) return null;
+
+                  return (
+                    <div
+                      key={providerId}
+                      className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-muted/30 px-2.5 py-2">
+                      <span className="flex min-w-0 items-center gap-2 text-sm">
+                        <CheckCircle2Icon className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="truncate">{providerDetails.label}</span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove ${providerDetails.label} API key`}
+                        title={vaultUnlocked ? 'Remove provider key' : 'Unlock vault to remove'}
+                        disabled={!vaultUnlocked}
+                        onClick={() => void handleRemoveKey(providerId)}>
+                        <XIcon className="size-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
           {vaultExists && !vaultUnlocked ? (
             <div className="mb-4 flex gap-2">
               <Input
@@ -535,7 +583,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               </SelectTrigger>
               <SelectContent>
                 {byokProviders.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
+                  <SelectItem
+                    key={item.id}
+                    value={item.id}
+                    disabled={configuredProviderIds.includes(item.id)}>
                     {item.label}
                   </SelectItem>
                 ))}
@@ -602,11 +653,6 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <Button type="button" onClick={() => void handleSaveKey(true)}>
               {prfSupported ? 'Save with device (passphrase backup)' : 'Save with passphrase'}
             </Button>
-            {vaultUnlocked ? (
-              <Button type="button" variant="outline" onClick={handleRemoveKey}>
-                Remove provider key
-              </Button>
-            ) : null}
             {vaultUnlocked ? (
               <Button
                 type="button"
