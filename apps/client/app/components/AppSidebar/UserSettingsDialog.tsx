@@ -129,6 +129,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [isPrfSupportResolved, setIsPrfSupportResolved] = useState(false);
   const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
+  const [providerToRemove, setProviderToRemove] = useState<ByokProvider | null>(null);
   const [isDangerActionPending, setIsDangerActionPending] = useState(false);
   const [configuredProviderIds, setConfiguredProviderIds] = useState<ByokProvider[]>([]);
   const [customInstructionsDraft, setCustomInstructionsDraft] = useState('');
@@ -252,14 +253,23 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     }
   };
 
-  const handleRemoveKey = async (providerToRemove: ByokProvider) => {
+  const handleRemoveKey = (providerToRemove: ByokProvider) => {
     if (!user?.id || !vaultUnlocked) return;
+    setProviderToRemove(providerToRemove);
+  };
+
+  const handleConfirmRemoveKey = async () => {
+    if (!user?.id || !vaultUnlocked || !providerToRemove) return;
+    setIsDangerActionPending(true);
     try {
       await removeProviderKey(user.id, providerToRemove);
       await refreshVault();
       toast.success('Provider key removed');
     } catch {
       toast.error('Could not remove this provider key.');
+    } finally {
+      setIsDangerActionPending(false);
+      setProviderToRemove(null);
     }
   };
 
@@ -849,19 +859,28 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
         </section>
 
         <AlertDialog
-          open={dangerAction !== null}
+          open={dangerAction !== null || providerToRemove !== null}
           onOpenChange={(open) => {
-            if (!open && !isDangerActionPending) setDangerAction(null);
+            if (!open && !isDangerActionPending) {
+              setDangerAction(null);
+              setProviderToRemove(null);
+            }
           }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {dangerAction === 'delete-chats' ? 'Delete all chats?' : 'Reset all local data?'}
+                {providerToRemove
+                  ? 'Remove this provider key?'
+                  : dangerAction === 'delete-chats'
+                    ? 'Delete all chats?'
+                    : 'Reset all local data?'}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {dangerAction === 'delete-chats'
-                  ? 'Every chat and message will be permanently deleted from this browser.'
-                  : 'Every chat, saved setting, theme preference, and BYOK provider key will be permanently deleted from this browser.'}
+                {providerToRemove
+                  ? 'This provider key will be permanently deleted from this browser.'
+                  : dangerAction === 'delete-chats'
+                    ? 'Every chat and message will be permanently deleted from this browser.'
+                    : 'Every chat, saved setting, theme preference, and BYOK provider key will be permanently deleted from this browser.'}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -877,10 +896,11 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                   disabled={isDangerActionPending}
                   onClick={(event) => {
                     event.preventDefault();
-                    void handleDangerAction();
+                    if (providerToRemove) void handleConfirmRemoveKey();
+                    else void handleDangerAction();
                   }}>
                   {isDangerActionPending ? <Loader2Icon className="size-4 animate-spin" /> : null}
-                  {isDangerActionPending ? 'Working…' : 'Continue'}
+                  {isDangerActionPending ? 'Working…' : providerToRemove ? 'Remove key' : 'Continue'}
                 </Button>
               </AlertDialogAction>
             </AlertDialogFooter>
