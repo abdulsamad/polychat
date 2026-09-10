@@ -123,6 +123,16 @@ export const supportedModels = [
     disabled: false,
     provider: 'mistral',
   },
+  {
+    name: 'openrouter/free',
+    text: 'OpenRouter Free Models Router',
+    type: 'text',
+    isSpecial: true,
+    disabled: false,
+    provider: 'openrouter',
+    supportsVision: true,
+    supportsFiles: true,
+  },
   { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: false, provider: 'openai' },
 ] as const satisfies readonly SupportedModel[];
 
