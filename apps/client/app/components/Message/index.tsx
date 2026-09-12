@@ -13,7 +13,8 @@ import {
   IImageMessage,
   removeThreadMessageAtom,
   selectMessageAtom,
-  selectedMessageIdsAtom,
+  selectedMessageAtom,
+  selectionModeAtom,
   toggleSelectedMessageAtom,
   threadAtom,
 } from '@/store';
@@ -75,14 +76,13 @@ const MessageContent = ({
   const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
   const selectMessage = useSetAtom(selectMessageAtom);
   const toggleSelectedMessage = useSetAtom(toggleSelectedMessageAtom);
-  const selectedMessageIds = useAtomValue(selectedMessageIdsAtom);
+  const isSelectionMode = useAtomValue(selectionModeAtom);
+  const isSelected = useAtomValue(selectedMessageAtom(id));
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressNextClick = useRef(false);
   const showDetailedUsage = thread?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
   const isUser = role === 'user';
-  const isSelectionMode = selectedMessageIds.length > 0;
-  const isSelected = selectedMessageIds.includes(id);
 
   useEffect(() => clearLongPress, []);
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';

@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import { atomFamily } from 'jotai/utils';
 import { atomEffect } from 'jotai-effect';
 import { getTime, format } from 'date-fns';
 
@@ -83,6 +84,17 @@ export const messagesAtom = atom((get) => {
 
 /** Message ids selected for bulk actions in the active thread. */
 export const selectedMessageIdsAtom = atom<string[]>([]);
+
+/** Cached lookup set used by message-level selection atoms. */
+const selectedMessageIdsSetAtom = atom((get) => new Set(get(selectedMessageIdsAtom)));
+
+/** Selection mode changes only when the first or last message is selected. */
+export const selectionModeAtom = atom((get) => get(selectedMessageIdsAtom).length > 0);
+
+/** Each message subscribes only to whether its own id is selected. */
+export const selectedMessageAtom = atomFamily((id: string) =>
+  atom((get) => get(selectedMessageIdsSetAtom).has(id))
+);
 
 export const toggleSelectedMessageAtom = atom(null, (get, set, id: string) => {
   const selected = get(selectedMessageIdsAtom);
