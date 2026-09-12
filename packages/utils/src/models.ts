@@ -41,7 +41,7 @@ export const modelProviderLabels: Record<SupportedModel['provider'], string> = {
 export const supportedModels = [
   {
     name: 'openrouter/free',
-    text: 'OpenRouter Free Models Router',
+    text: 'OpenRouter Free Models',
     type: 'text',
     isSpecial: true,
     disabled: false,
