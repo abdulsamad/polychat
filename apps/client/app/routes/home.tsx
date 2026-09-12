@@ -111,10 +111,13 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     const loadWorkspace = async () => {
       const previousAccountId = getActiveWorkspaceAccount();
       const isAccountChange = previousAccountId !== user.id;
-      setWorkspaceReady(false);
-      setThread(null);
+      const isInitialWorkspaceLoad = !isWorkspaceLoaded;
+      if (isAccountChange || isInitialWorkspaceLoad) {
+        setWorkspaceReady(false);
+        setThread(null);
+        setIsWorkspaceLoaded(false);
+      }
       clearSelectedMessages();
-      setIsWorkspaceLoaded(false);
 
       if (isAccountChange) {
         abortAllStreams();
@@ -240,6 +243,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     setThreadSettingsOpen,
     setUserSettingsOpen,
     setWorkspaceReady,
+    isWorkspaceLoaded,
     threadId,
     user?.id,
   ]);

@@ -53,6 +53,7 @@ const Thread = ({ className }: ThreadProps) => {
   const lastScrollAtRef = useRef(0);
   const pendingScrollRef = useRef(false);
   const initialScrollThreadIdRef = useRef<string | null>(null);
+  const initialScrollReadyRef = useRef(false);
   const autoScrollInProgressRef = useRef(false);
   const autoScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useReducedMotion();
@@ -72,35 +73,38 @@ const Thread = ({ className }: ThreadProps) => {
     }
   }, []);
 
-  const scheduleScrollToBottom = useCallback(() => {
-    if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
-
-    const elapsed = Date.now() - lastScrollAtRef.current;
-    const delay = Math.max(0, 110 - elapsed);
-    pendingScrollRef.current = true;
-
-    if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
-    scrollTimerRef.current = setTimeout(() => {
-      scrollTimerRef.current = null;
-      pendingScrollRef.current = false;
+  const scheduleScrollToBottom = useCallback(
+    (behavior: ScrollBehavior = reducedMotion ? 'auto' : 'smooth') => {
       if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
 
-      autoScrollInProgressRef.current = true;
-      bottomSentinelRef.current.scrollIntoView({
-        behavior: reducedMotion ? 'auto' : 'smooth',
-        block: 'end',
-      });
-      lastScrollAtRef.current = Date.now();
-      if (autoScrollTimeoutRef.current !== null) clearTimeout(autoScrollTimeoutRef.current);
-      autoScrollTimeoutRef.current = setTimeout(
-        () => {
-          autoScrollInProgressRef.current = false;
-          autoScrollTimeoutRef.current = null;
-        },
-        reducedMotion ? 100 : 650
-      );
-    }, delay);
-  }, [reducedMotion]);
+      const elapsed = Date.now() - lastScrollAtRef.current;
+      const delay = Math.max(0, 110 - elapsed);
+      pendingScrollRef.current = true;
+
+      if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = setTimeout(() => {
+        scrollTimerRef.current = null;
+        pendingScrollRef.current = false;
+        if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
+
+        autoScrollInProgressRef.current = true;
+        bottomSentinelRef.current.scrollIntoView({
+          behavior,
+          block: 'end',
+        });
+        lastScrollAtRef.current = Date.now();
+        if (autoScrollTimeoutRef.current !== null) clearTimeout(autoScrollTimeoutRef.current);
+        autoScrollTimeoutRef.current = setTimeout(
+          () => {
+            autoScrollInProgressRef.current = false;
+            autoScrollTimeoutRef.current = null;
+          },
+          reducedMotion ? 100 : 650
+        );
+      }, delay);
+    },
+    [reducedMotion]
+  );
 
   useEffect(() => {
     const viewport = rootRef.current?.querySelector<HTMLElement>(
@@ -158,6 +162,7 @@ const Thread = ({ className }: ThreadProps) => {
     observer.observe(sentinel);
 
     const resizeObserver = new ResizeObserver(() => {
+      if (!initialScrollReadyRef.current) return;
       scheduleScrollToBottom();
     });
     resizeObserver.observe(content);
@@ -183,12 +188,17 @@ const Thread = ({ className }: ThreadProps) => {
     if (!thread || (isMobile && openMobile)) return;
     if (initialScrollThreadIdRef.current === thread.id) return;
 
+    initialScrollReadyRef.current = false;
+
     const initialScrollTimer = setTimeout(
       () => {
         initialScrollThreadIdRef.current = thread.id;
-        scheduleScrollToBottom();
+        initialScrollReadyRef.current = true;
+        shouldStickToBottom.current = true;
+        bottomSentinelRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+        lastScrollAtRef.current = Date.now();
       },
-      isMobile ? 350 : 0
+      isMobile ? 500 : 0
     );
 
     return () => clearTimeout(initialScrollTimer);
