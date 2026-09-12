@@ -40,6 +40,16 @@ export const modelProviderLabels: Record<SupportedModel['provider'], string> = {
 
 export const supportedModels = [
   {
+    name: 'openrouter/free',
+    text: 'OpenRouter Free Models Router',
+    type: 'text',
+    isSpecial: true,
+    disabled: false,
+    provider: 'openrouter',
+    supportsVision: true,
+    supportsFiles: true,
+  },
+  {
     name: 'gemini-3.5-flash',
     text: 'Gemini 3.5 Flash',
     type: 'text',
@@ -60,42 +70,6 @@ export const supportedModels = [
     supportsReasoning: true,
   },
   {
-    name: 'gpt-5.6-luna',
-    text: 'GPT-5.6 Luna',
-    type: 'text',
-    disabled: false,
-    provider: 'openai',
-    supportsVision: true,
-    supportsFiles: true,
-    supportsReasoning: true,
-  },
-  {
-    name: 'gpt-5.6-terra',
-    text: 'GPT-5.6 Terra',
-    type: 'text',
-    disabled: false,
-    provider: 'openai',
-    supportsVision: true,
-    supportsFiles: true,
-    supportsReasoning: true,
-  },
-  // {
-  //   name: 'deepseek-chat',
-  //   text: 'DeepSeek Chat',
-  //   type: 'text',
-  //   isSpecial: true,
-  //   disabled: false,
-  //   provider: 'deepseek',
-  // },
-  // {
-  //   name: 'deepseek-reasoner',
-  //   text: 'DeepSeek Reasoner',
-  //   type: 'text',
-  //   isSpecial: true,
-  //   disabled: false,
-  //   provider: 'deepseek',
-  // },
-  {
     name: 'mistral-medium-latest',
     text: 'Mistral Medium',
     type: 'text',
@@ -112,20 +86,41 @@ export const supportedModels = [
     provider: 'mistral',
   },
   {
-    name: 'openrouter/free',
-    text: 'OpenRouter Free Models Router',
+    name: 'gpt-5.6-luna',
+    text: 'GPT-5.6 Luna',
+    type: 'text',
+    disabled: true,
+    provider: 'openai',
+    supportsVision: true,
+    supportsFiles: true,
+    supportsReasoning: true,
+  },
+  {
+    name: 'deepseek-v4-flash',
+    text: 'DeepSeek V4 Flash',
     type: 'text',
     isSpecial: true,
     disabled: false,
-    provider: 'openrouter',
-    supportsVision: true,
-    supportsFiles: true,
+    provider: 'deepseek',
   },
-  { name: 'dall-e-3', text: 'DALL-E 3', type: 'image', disabled: false, provider: 'openai' },
+  {
+    name: 'deepseek-v4-pro',
+    text: 'DeepSeek V4 Pro',
+    type: 'text',
+    isSpecial: true,
+    disabled: false,
+    provider: 'deepseek',
+  },
+  {
+    name: 'nano-banana-pro-preview',
+    text: 'Nano Banana Pro',
+    type: 'image',
+    disabled: false,
+    provider: 'google',
+  },
 ] as const satisfies readonly SupportedModel[];
 
-export const defaultModel =
-  'openrouter/free' satisfies (typeof supportedModels)[number]['name'];
+export const defaultModel = 'openrouter/free' satisfies (typeof supportedModels)[number]['name'];
 
 export const supportedTextModels: SupportedModel[] = supportedModels.filter(
   ({ type }) => type === 'text'
