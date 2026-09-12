@@ -181,6 +181,20 @@ const MessageContent = ({
     }, 500);
   };
 
+  const handleSelectionClickCapture = (event: MouseEvent<HTMLElement>) => {
+    if (!isSelectionMode) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (suppressNextClick.current) {
+      suppressNextClick.current = false;
+      return;
+    }
+
+    toggleSelectedMessage(id);
+  };
+
   const handleClick = (event: MouseEvent<HTMLElement>) => {
     if (suppressNextClick.current) {
       suppressNextClick.current = false;
@@ -219,6 +233,7 @@ const MessageContent = ({
             onPointerUp={clearLongPress}
             onPointerCancel={clearLongPress}
             onPointerLeave={clearLongPress}
+            onClickCapture={handleSelectionClickCapture}
             onClick={handleClick}
             onContextMenu={(event) => {
               if (isSelectionMode) event.preventDefault();
