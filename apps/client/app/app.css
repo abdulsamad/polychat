@@ -120,10 +120,43 @@
     -webkit-user-select: text;
   }
 
-  ::selection {
-    background: hsl(var(--primary) / 0.24);
-    color: hsl(var(--foreground));
-  }
+::selection {
+  background: hsl(var(--primary) / 0.24);
+  color: hsl(var(--foreground));
+}
+
+.chat-selection-highlight::after {
+  position: absolute;
+  inset-inline: 0;
+  top: -1.25rem;
+  bottom: -1.25rem;
+  z-index: 0;
+  pointer-events: none;
+  content: '';
+  border: 1px solid hsl(var(--primary) / 0.3);
+  border-radius: 1rem;
+  background: hsl(var(--primary) / 0.1);
+}
+
+.chat[data-selected='true'] > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Adjacent selected messages share one continuous highlight. */
+.chat[data-selected='true'] + .chat[data-selected='true']::after {
+  top: -1.25rem;
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.chat[data-selected='true']:has(+ .chat[data-selected='true'])::after {
+  bottom: -1.25rem;
+  border-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 
   a {
     @apply text-current;

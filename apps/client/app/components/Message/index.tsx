@@ -223,12 +223,12 @@ const MessageContent = ({
             className={clsx(
               'chat relative flex w-full min-w-0 scroll-mb-10 select-none transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
                 'my-5 rounded-2xl',
-            isSelected &&
-              'before:pointer-events-none before:absolute before:inset-x-0 before:-inset-y-5 before:content-[""] before:bg-primary/10 before:ring-1 before:ring-inset before:ring-primary/30',
+          isSelected && 'chat-selection-highlight',
               chatOrigin,
               isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
             )}
-            data-type={type}
+        data-type={type}
+        data-selected={isSelected ? 'true' : undefined}
             onPointerDown={handlePointerDown}
             onPointerUp={clearLongPress}
             onPointerCancel={clearLongPress}
