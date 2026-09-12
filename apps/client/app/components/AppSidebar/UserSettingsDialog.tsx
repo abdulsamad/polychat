@@ -145,7 +145,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const customInstructionsRef = useRef<HTMLElement>(null);
   const byokRef = useRef<HTMLElement>(null);
   const unlockPassphraseRef = useRef<HTMLInputElement>(null);
-  const { textModels, findModel, isModelAvailable, isProviderAvailable } =
+  const { models, findModel, isModelAvailable, isProviderAvailable } =
     useByokModelAvailability();
 
   useEffect(() => {
@@ -739,7 +739,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <div className="grid gap-2">
               <label className="text-xs font-medium text-muted-foreground">Model</label>
               <ModelCombobox
-                models={textModels}
+                models={models}
                 value={threadSettings.model}
                 disabled={isLoading}
                 className="bg-background/70"

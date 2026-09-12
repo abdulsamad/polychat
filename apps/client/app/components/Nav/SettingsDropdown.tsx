@@ -44,7 +44,7 @@ const SettingsDropdown = () => {
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
-  const { textModels, imageModels, findModel, isProviderAvailable } = useByokModelAvailability();
+  const { models, imageModels, findModel, isProviderAvailable } = useByokModelAvailability();
   const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
     useState<UserSettingsScrollTarget | null>(null);
 
@@ -165,7 +165,7 @@ const SettingsDropdown = () => {
                 Model
               </label>
               <ModelCombobox
-                models={[...textModels, ...imageModels]}
+                models={models}
                 value={model}
                 onValueChange={(value) => updateSetting('model', value)}
                 placeholder="Model"

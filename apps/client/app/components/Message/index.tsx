@@ -222,9 +222,8 @@ const MessageContent = ({
             }}
             className={clsx(
               'chat relative flex w-full min-w-0 scroll-mb-10 select-none transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
-              isSelected
-                ? 'my-0 rounded-none bg-primary/10 px-2 py-2 ring-1 ring-inset ring-primary/30'
-                : 'my-5 rounded-2xl',
+                'my-5 rounded-2xl',
+                isSelected && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
               chatOrigin,
               isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
             )}

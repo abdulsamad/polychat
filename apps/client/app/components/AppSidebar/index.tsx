@@ -13,7 +13,7 @@ import { useClerk, useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
 import {
-  messagesAtom,
+  hasMessagesAtom,
   resetChatQueueAtom,
   userSettingsOpenAtom,
   waitForPersistence,
@@ -47,7 +47,7 @@ import ThreadsList from './ThreadsList';
 import UserSettingsDialog from './UserSettingsDialog';
 
 const AppSidebar = () => {
-  const message = useAtomValue(messagesAtom);
+  const hasMessages = useAtomValue(hasMessagesAtom);
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useAtom(userSettingsOpenAtom);
   const resetChatQueue = useSetAtom(resetChatQueueAtom);
 
@@ -60,7 +60,7 @@ const AppSidebar = () => {
   const addNewChat = useCallback(() => {
     setOpenMobile(false);
 
-    if (message.length === 0) {
+    if (!hasMessages) {
       toast.info('You are already in a new chat. Start typing your message!', {
         dismissible: true,
         closeButton: true,
@@ -69,7 +69,7 @@ const AppSidebar = () => {
     }
 
     navigate('/');
-  }, [navigate, setOpenMobile, message]);
+  }, [hasMessages, navigate, setOpenMobile]);
 
   return (
     <aside>

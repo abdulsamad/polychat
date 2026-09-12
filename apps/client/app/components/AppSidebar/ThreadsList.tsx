@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { AlertCircleIcon, CheckIcon, Clock3Icon, PencilIcon, TrashIcon, XIcon } from 'lucide-react';
@@ -64,7 +65,7 @@ const ThreadsList = () => {
   const removeThreadMessages = useSetAtom(removeThreadMessagesAtom);
   const navigate = useNavigate();
 
-  const { open, setOpenMobile } = useSidebar();
+  const { open, isMobile, setOpenMobile } = useSidebar();
 
   const fetchThreads = useCallback(() => {
     const accountId = getActiveWorkspaceAccount();
@@ -146,6 +147,7 @@ const ThreadsList = () => {
       clearThreadChatError,
       fetchThreads,
       navigate,
+      isMobile,
       params.threadId,
       removeThreadMessages,
       replaceMessages,
@@ -265,7 +267,11 @@ const ThreadsList = () => {
                                 }
 
                                 clearThreadChatError(id);
-                                setOpenMobile(false);
+                                if (isMobile) {
+                                  flushSync(() => setOpenMobile(false));
+                                } else {
+                                  setOpenMobile(false);
+                                }
                               }}
                               preventScrollReset
                               className={({ isActive, isPending, isTransitioning }) =>

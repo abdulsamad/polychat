@@ -82,6 +82,8 @@ export const messagesAtom = atom((get) => {
   return thread ? get(threadMessagesAtom)[thread.id] || [] : [];
 });
 
+export const hasMessagesAtom = atom((get) => get(messagesAtom).length > 0);
+
 /** Message ids selected for bulk actions in the active thread. */
 export const selectedMessageIdsAtom = atom<string[]>([]);
 

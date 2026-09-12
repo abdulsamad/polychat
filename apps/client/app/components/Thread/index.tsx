@@ -163,7 +163,7 @@ const Thread = ({ className }: ThreadProps) => {
 
     const resizeObserver = new ResizeObserver(() => {
       if (!initialScrollReadyRef.current) return;
-      scheduleScrollToBottom();
+      scheduleScrollToBottom('auto');
     });
     resizeObserver.observe(content);
 
@@ -198,7 +198,7 @@ const Thread = ({ className }: ThreadProps) => {
         bottomSentinelRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
         lastScrollAtRef.current = Date.now();
       },
-      isMobile ? 500 : 0
+      0
     );
 
     return () => clearTimeout(initialScrollTimer);

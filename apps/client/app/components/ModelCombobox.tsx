@@ -180,10 +180,12 @@ export const ModelCombobox = ({
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent
+        className="max-h-[min(70dvh,32rem)] w-[--radix-popover-trigger-width] overflow-hidden p-0"
+        align="start">
         <Command>
           <CommandInput placeholder="Search models..." />
-          <CommandList>
+          <CommandList className="max-h-[min(70dvh,32rem)]">
             <CommandEmpty>No models found.</CommandEmpty>
             <ModelOptionContent
               models={models}
