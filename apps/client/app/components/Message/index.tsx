@@ -1,7 +1,7 @@
 import { memo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
-import { CopyIcon, ShareIcon, Trash2Icon } from 'lucide-react';
+import { AlertCircleIcon, CopyIcon, ShareIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
@@ -230,6 +230,31 @@ const MessageContent = ({
                     {imageAttachments?.map((attachment) => (
                       <ImageAttachment key={attachment.id} attachment={attachment} compact />
                     ))}
+                    {!isUser && finishReason === 'length' && (
+                      <Alert className="w-full max-w-[40rem] border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground [&>svg]:left-3 [&>svg]:top-2.5 [&>svg]:size-3.5 [&>svg~*]:pl-5">
+                        <AlertCircleIcon aria-hidden="true" />
+                        <AlertDescription>
+                          Response stopped at the output limit. Ask to continue or increase the
+                          max output tokens.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {!isUser && finishReason === 'content-filter' && (
+                      <Alert className="w-full max-w-[40rem] border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground [&>svg]:left-3 [&>svg]:top-2.5 [&>svg]:size-3.5 [&>svg~*]:pl-5">
+                        <AlertCircleIcon aria-hidden="true" />
+                        <AlertDescription>
+                          Response shortened by the provider&apos;s safety filter.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {!isUser && finishReason === 'error' && (
+                      <Alert
+                        variant="destructive"
+                        className="w-full max-w-[40rem] border-destructive/30 bg-destructive/5 px-3 py-2 text-xs [&>svg]:left-3 [&>svg]:top-2.5 [&>svg]:size-3.5 [&>svg~*]:pl-5">
+                        <AlertCircleIcon aria-hidden="true" />
+                        <AlertDescription>Response generation failed.</AlertDescription>
+                      </Alert>
+                    )}
                     {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
                       <Alert className="w-full max-w-[40rem] border-border bg-muted/50">
                         <AlertTitle>No visible answer</AlertTitle>
