@@ -190,12 +190,12 @@ export const ModelCombobox = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="box-border max-h-[min(70dvh,32rem)] w-[--radix-popover-trigger-width] max-w-[calc(100vw-1rem)] min-w-0 overflow-hidden p-0"
+        className="box-border flex max-h-[min(70dvh,32rem)] w-[--radix-popover-trigger-width] max-w-[calc(100vw-1rem)] min-w-0 flex-col overflow-hidden p-0"
         data-vaul-no-drag
         align="start">
-        <Command className="min-w-0">
+        <Command className="h-auto min-h-0 min-w-0">
           <CommandInput className="min-w-0" placeholder="Search models..." />
-          <CommandList className="min-w-0 max-h-[min(70dvh,32rem)] touch-pan-y overscroll-contain">
+          <CommandList className="min-h-0 min-w-0 max-h-[min(70dvh,32rem)] overflow-y-auto overscroll-contain touch-pan-y">
             <CommandEmpty>No models found.</CommandEmpty>
             <ModelOptionContent
               models={models}
