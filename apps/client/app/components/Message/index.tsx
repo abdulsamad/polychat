@@ -252,17 +252,28 @@ const MessageContent = ({
                   (usage || finishReason) &&
                   (usage ? (
                     showDetailedUsage ? (
-                      <span className="flex flex-wrap gap-x-2 gap-y-0.5">
-                        {usage.totalTokens !== undefined && <span>Total: {usage.totalTokens}</span>}
-                        {usage.inputTokens !== undefined && <span>Input: {usage.inputTokens}</span>}
+                      <span className="flex flex-wrap gap-1.5 [&>span]:inline-flex [&>span]:items-center [&>span]:rounded-full [&>span]:border [&>span]:border-border/70 [&>span]:bg-background/70 [&>span]:px-2.5 [&>span]:py-1 [&>span]:font-medium [&>span]:shadow-sm">
+                        {usage.totalTokens !== undefined && (
+                          <span className="border-primary/20 bg-primary/10 text-foreground">
+                            <span className="mr-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              Total:
+                            </span>
+                            {usage.totalTokens.toLocaleString()}
+                          </span>
+                        )}
+                        {usage.inputTokens !== undefined && (
+                          <span>Input: {usage.inputTokens.toLocaleString()}</span>
+                        )}
                         {usage.outputTokens !== undefined && (
-                          <span>Output: {usage.outputTokens}</span>
+                          <span>Output: {usage.outputTokens.toLocaleString()}</span>
                         )}
                         {usage.reasoningTokens !== undefined && (
-                          <span>Reasoning: {usage.reasoningTokens}</span>
+                          <span className="border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300">
+                            Thinking: {usage.reasoningTokens.toLocaleString()}
+                          </span>
                         )}
                         {usage.cachedInputTokens !== undefined && (
-                          <span>Cached input: {usage.cachedInputTokens}</span>
+                          <span>Cached: {usage.cachedInputTokens.toLocaleString()}</span>
                         )}
                         {finishReason && <span>Finish: {finishReason}</span>}
                       </span>
@@ -272,9 +283,10 @@ const MessageContent = ({
                   ) : (
                     <span>Finish: {finishReason}</span>
                   ))}
-                {!isUser && usage && model && ' · '}
+                {!isUser && showDetailedUsage && usage && model && <span className="basis-full" />}
+                {!isUser && !showDetailedUsage && usage && model && ' · '}
                 {!isUser && model && (
-                  <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">
+                  <span className="min-w-0 max-w-full break-words text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
                     {model}
                   </span>
                 )}
