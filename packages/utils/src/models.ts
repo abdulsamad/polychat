@@ -115,7 +115,7 @@ export const supportedModels = [
     name: 'nano-banana-pro-preview',
     text: 'Nano Banana Pro',
     type: 'image',
-    disabled: false,
+    disabled: true,
     provider: 'google',
   },
 ] as const satisfies readonly SupportedModel[];
