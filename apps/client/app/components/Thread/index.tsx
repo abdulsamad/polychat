@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, type HTMLAttributes } from 'react';
 import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
 import clsx from 'clsx';
+import { useReducedMotion } from 'motion/react';
 
 import {
   threadAtom,
@@ -42,54 +43,86 @@ const Thread = ({ className }: ThreadProps) => {
   const chatError = useAtomValue(threadChatErrorsAtom)[thread?.id || ''];
   const queuedJob = useAtomValue(threadQueuedJobAtom);
   const { user } = useUser();
+  const hasMessages = messages.length > 0;
   const shouldStickToBottom = useRef(true);
   const rootRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLElement | null>(null);
   const bottomSentinelRef = useRef<HTMLDivElement>(null);
-  const scrollFrameRef = useRef<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastScrollAtRef = useRef(0);
+  const pendingScrollRef = useRef(false);
+  const reducedMotion = useReducedMotion();
+
+  const scheduleScrollToBottom = useCallback(() => {
+    if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
+
+    const elapsed = Date.now() - lastScrollAtRef.current;
+    const delay = Math.max(0, 110 - elapsed);
+    pendingScrollRef.current = true;
+
+    if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
+      pendingScrollRef.current = false;
+      if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
+
+      bottomSentinelRef.current.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+        block: 'end',
+      });
+      lastScrollAtRef.current = Date.now();
+    }, delay);
+  }, [reducedMotion]);
 
   useEffect(() => {
     const viewport = rootRef.current?.querySelector<HTMLElement>(
       '[data-slot="scroll-area-viewport"]'
     );
-    if (!viewport) return;
-    viewportRef.current = viewport;
+    const sentinel = bottomSentinelRef.current;
+    const content = contentRef.current;
+    if (!viewport || !sentinel || !content) return;
 
-    const updateScrollState = () => {
-      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-      shouldStickToBottom.current = distanceFromBottom <= 32;
-    };
+    const viewportBounds = viewport.getBoundingClientRect();
+    const sentinelBounds = sentinel.getBoundingClientRect();
+    shouldStickToBottom.current =
+      sentinelBounds.top < viewportBounds.bottom + 24 && sentinelBounds.bottom > viewportBounds.top;
 
-    viewport.addEventListener('scroll', updateScrollState, { passive: true });
-    updateScrollState();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          shouldStickToBottom.current = true;
+        } else if (!pendingScrollRef.current) {
+          shouldStickToBottom.current = false;
+          if (scrollTimerRef.current !== null) {
+            clearTimeout(scrollTimerRef.current);
+            scrollTimerRef.current = null;
+          }
+        }
+      },
+      { root: viewport, threshold: 0.8, rootMargin: '0px 0px 24px' }
+    );
+    observer.observe(sentinel);
 
-    return () => {
-      viewport.removeEventListener('scroll', updateScrollState);
-      viewportRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-
-    if (!viewport || !shouldStickToBottom.current) return;
-    if (scrollFrameRef.current !== null) return;
-
-    scrollFrameRef.current = requestAnimationFrame(() => {
-      scrollFrameRef.current = null;
-
-      // Streaming changes the height of the last message continuously. An
-      // animation-frame update keeps the viewport pinned without restarting a
-      // smooth-scroll animation for every token.
-      if (shouldStickToBottom.current) viewport.scrollTop = viewport.scrollHeight;
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleScrollToBottom();
     });
-  }, [messages]);
+    resizeObserver.observe(content);
+
+    return () => {
+      observer.disconnect();
+      resizeObserver.disconnect();
+    };
+  }, [hasMessages, scheduleScrollToBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    scheduleScrollToBottom();
+  }, [messages, scheduleScrollToBottom]);
 
   const userInfo = useCallback(
     (profile: string | null): UserInfo => ({
@@ -107,7 +140,6 @@ const Thread = ({ className }: ThreadProps) => {
     }),
     [user]
   );
-  const hasMessages = messages.length > 0;
   const isImageModel =
     thread?.settings.modelType === 'image' ||
     supportedImageModels.some(({ name }) => name === thread?.settings.model);
@@ -119,7 +151,9 @@ const Thread = ({ className }: ThreadProps) => {
         'thread-scroll box-border min-w-0 px-3 sm:px-5 lg:px-8 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:w-full [&_[data-radix-scroll-area-viewport]>div]:min-w-0',
         className
       )}>
-      <div className="mx-auto min-h-full w-full min-w-0 max-w-5xl overflow-x-clip pb-5">
+      <div
+        ref={contentRef}
+        className="mx-auto min-h-full w-full min-w-0 max-w-5xl overflow-x-clip pb-5">
         {hasMessages ? (
           <>
             {messages.map((chat) => {
@@ -151,7 +185,7 @@ const Thread = ({ className }: ThreadProps) => {
               </p>
             )}
             <UsageStatus />
-            <div ref={bottomSentinelRef} aria-hidden="true" className="h-px" />
+            <div ref={bottomSentinelRef} aria-hidden="true" className="h-1" />
           </>
         ) : (
           <Empty name={getName(user)} />

@@ -232,11 +232,15 @@ const useHandleChatResponse = () => {
         const reader = (stream as ReadableStream<ChatStreamPart>).getReader();
         const timestamp = getTime(new Date());
         let content = '';
+        let reasoning = '';
+        let reasoningComplete = false;
         let responseMetadata: Extract<ChatStreamPart, { type: 'metadata' }> | undefined;
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
         const saveAssistantMessage = (finishReason?: string, cancelled = false) => {
           if (isDiscardedStream(signal)) return;
+
+          if (reasoning) reasoningComplete = true;
 
           const emptyResponse =
             !content.trim() && Boolean(responseMetadata) && !cancelled && finishReason !== 'error';
@@ -246,6 +250,7 @@ const useHandleChatResponse = () => {
             message: {
               id: job.assistantMessageId,
               content,
+              ...(reasoning ? { reasoning } : {}),
               metadata: {
                 model: thread.settings.model,
                 profile: thread.settings.profile,
@@ -261,6 +266,7 @@ const useHandleChatResponse = () => {
                       responseTimestamp: responseMetadata.metadata.timestamp,
                     }
                   : {}),
+                ...(reasoning ? { reasoningComplete } : {}),
                 ...(finishReason ? { finishReason } : {}),
                 ...(cancelled ? { cancelled: true } : {}),
                 ...(emptyResponse ? { emptyResponse: true } : {}),
@@ -281,11 +287,14 @@ const useHandleChatResponse = () => {
               message: {
                 id: job.assistantMessageId,
                 content,
+                ...(reasoning ? { reasoning } : {}),
                 metadata: {
                   model: thread.settings.model,
                   timestamp,
                   profile: thread.settings.profile,
                   requestId: job.id,
+                  requestState: 'streaming',
+                  ...(reasoning ? { reasoningComplete } : {}),
                 },
                 role: 'assistant',
                 type: 'text',
@@ -311,7 +320,7 @@ const useHandleChatResponse = () => {
                 clearTimeout(updateTimeoutId);
                 updateTimeoutId = null;
               }
-              if (content || responseMetadata) saveAssistantMessage('stop', true);
+              if (content || reasoning || responseMetadata) saveAssistantMessage('stop', true);
               return { status: 'cancelled' as const };
             }
 
@@ -336,7 +345,14 @@ const useHandleChatResponse = () => {
             }
 
             const part = value as ChatStreamPart;
-            if (part.type === 'text') {
+            if (part.type === 'reasoning') {
+              reasoning += part.text;
+              scheduleMessageUpdate();
+            } else if (part.type === 'reasoning-end') {
+              reasoningComplete = true;
+              scheduleMessageUpdate();
+            } else if (part.type === 'text') {
+              if (reasoning) reasoningComplete = true;
               content += part.text;
               scheduleMessageUpdate();
             } else if (part.type === 'metadata') {
@@ -358,14 +374,14 @@ const useHandleChatResponse = () => {
           }
 
           if (!signal?.aborted) {
-            if (content || responseMetadata) saveAssistantMessage('error');
+            if (content || reasoning || responseMetadata) saveAssistantMessage('error');
             throw error;
           }
 
           // Keep the generated portion visible after Stop. If the provider
           // finished before the abort reached the stream, retain its usage
           // and response details as well.
-          if (content || responseMetadata) saveAssistantMessage('stop', true);
+          if (content || reasoning || responseMetadata) saveAssistantMessage('stop', true);
         }
 
         return { status: signal?.aborted ? ('cancelled' as const) : ('completed' as const) };

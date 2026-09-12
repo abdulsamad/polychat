@@ -12,10 +12,11 @@ import {
   type availableModelsType,
   type modelProviderType,
   type ImageAttachment,
+  type ChatResponseMetadata,
+  type ChatStreamPart,
 } from 'utils';
 import type { ByokProvider } from './byok-vault';
 import type { IBaseModelConfig } from '@/store';
-import type { ChatResponseMetadata, ChatStreamPart } from './api-calls';
 
 export const providerForModel = (
   model: availableModelsType,
@@ -125,6 +126,9 @@ export const streamByokText = async ({
       try {
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') controller.enqueue({ type: 'text', text: part.text });
+          else if (part.type === 'reasoning-delta')
+            controller.enqueue({ type: 'reasoning', text: part.text });
+          else if (part.type === 'reasoning-end') controller.enqueue({ type: 'reasoning-end' });
           else if (part.type === 'finish-step') {
             responseId = part.response.id;
             responseModelId = part.response.modelId;

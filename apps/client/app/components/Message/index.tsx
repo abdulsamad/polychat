@@ -36,6 +36,7 @@ import {
 import Image from './Image';
 import Text from './Text';
 import ImageAttachment from './ImageAttachment';
+import ReasoningCollapsible from './ReasoningCollapsible';
 
 interface ExtraProps extends IMessageCommons {
   message?: ITextMessage;
@@ -51,10 +52,19 @@ const MessageContent = ({
   type,
   id,
   content,
+  reasoning,
   image_url: image,
   imageAttachments,
   role,
-  metadata: { model, usage, finishReason, cancelled, requestState, emptyResponse },
+  metadata: {
+    model,
+    usage,
+    finishReason,
+    cancelled,
+    requestState,
+    emptyResponse,
+    reasoningComplete,
+  },
 }: MessageProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -212,6 +222,14 @@ const MessageContent = ({
                     {imageAttachments?.map((attachment) => (
                       <ImageAttachment key={attachment.id} attachment={attachment} compact />
                     ))}
+                    {!isUser && reasoning && (
+                      <ReasoningCollapsible
+                        messageId={id}
+                        reasoning={reasoning}
+                        isStreaming={requestState === 'streaming'}
+                        reasoningComplete={reasoningComplete}
+                      />
+                    )}
                     {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
                       <Alert className="w-full max-w-[40rem] border-border bg-muted/50">
                         <AlertTitle>No visible answer</AlertTitle>

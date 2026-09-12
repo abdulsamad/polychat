@@ -8,6 +8,8 @@ import {
   profilesType,
   type modelProviderType,
   type ImageAttachment,
+  type ChatResponseMetadata,
+  type ChatStreamPart,
 } from 'utils';
 
 import { IConfig, type IBaseModelConfig } from '@/store/index';
@@ -45,24 +47,7 @@ interface IMessage {
   imageAttachments?: ImageAttachment[];
 }
 
-export interface ChatResponseMetadata {
-  usage?: {
-    inputTokens?: number;
-    outputTokens?: number;
-    totalTokens?: number;
-    reasoningTokens?: number;
-    cachedInputTokens?: number;
-  };
-  finishReason?: string;
-  responseId?: string;
-  modelId?: string;
-  timestamp?: string;
-}
-
-export type ChatStreamPart =
-  | { type: 'text'; text: string }
-  | { type: 'metadata'; metadata: ChatResponseMetadata }
-  | { type: 'error'; error: string };
+export type { ChatResponseMetadata, ChatStreamPart } from 'utils';
 
 interface IGetGeneratedTextBase {
   model: enabledModelsType;

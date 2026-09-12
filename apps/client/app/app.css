@@ -160,6 +160,8 @@
 
   --animate-typing: typing 1.3s linear infinite;
   --animate-wave: wave 2.5s infinite 1s;
+  --animate-reasoning-down: reasoning-down 160ms ease-out;
+  --animate-reasoning-up: reasoning-up 160ms ease-out;
 
   @keyframes typing {
     0% {
@@ -199,6 +201,28 @@
       transform: rotate(0deg);
     }
   }
+
+  @keyframes reasoning-down {
+    from {
+      height: 0;
+      opacity: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+  }
+
+  @keyframes reasoning-up {
+    from {
+      height: var(--radix-collapsible-content-height);
+      opacity: 1;
+    }
+    to {
+      height: 0;
+      opacity: 0;
+    }
+  }
 }
 
 @theme inline {
@@ -233,6 +257,21 @@
 }
 
 @custom-variant dark (&:is(.dark *));
+
+.reasoning-content[data-state='open'] {
+  animation: reasoning-down 160ms ease-out;
+}
+
+.reasoning-content[data-state='closed'] {
+  animation: reasoning-up 160ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reasoning-content[data-state='open'],
+  .reasoning-content[data-state='closed'] {
+    animation: none;
+  }
+}
 
 /* Extend container since it's not customizable in v4 */
 @utility container {

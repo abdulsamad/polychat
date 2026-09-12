@@ -202,6 +202,12 @@ const chat = async (c: Context<AppContext>) => {
               streamController.enqueue(
                 encoder.encode(`${JSON.stringify({ type: 'text', text: part.text })}\n`)
               );
+            } else if (part.type === 'reasoning-delta') {
+              streamController.enqueue(
+                encoder.encode(`${JSON.stringify({ type: 'reasoning', text: part.text })}\n`)
+              );
+            } else if (part.type === 'reasoning-end') {
+              streamController.enqueue(encoder.encode(`${JSON.stringify({ type: 'reasoning-end' })}\n`));
             } else if (part.type === 'finish-step') {
               responseId = part.response.id;
               responseModelId = part.response.modelId;
