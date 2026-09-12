@@ -12,6 +12,7 @@ import {
   threadQueuedJobAtom,
 } from '@/store';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSidebar } from '@/components/ui/sidebar';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
 import { profiles } from 'utils';
@@ -51,7 +52,25 @@ const Thread = ({ className }: ThreadProps) => {
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastScrollAtRef = useRef(0);
   const pendingScrollRef = useRef(false);
+  const initialScrollThreadIdRef = useRef<string | null>(null);
+  const autoScrollInProgressRef = useRef(false);
+  const autoScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useReducedMotion();
+  const { isMobile, openMobile } = useSidebar();
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollInProgressRef.current = false;
+    pendingScrollRef.current = false;
+    shouldStickToBottom.current = false;
+    if (scrollTimerRef.current !== null) {
+      clearTimeout(scrollTimerRef.current);
+      scrollTimerRef.current = null;
+    }
+    if (autoScrollTimeoutRef.current !== null) {
+      clearTimeout(autoScrollTimeoutRef.current);
+      autoScrollTimeoutRef.current = null;
+    }
+  }, []);
 
   const scheduleScrollToBottom = useCallback(() => {
     if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
@@ -66,11 +85,20 @@ const Thread = ({ className }: ThreadProps) => {
       pendingScrollRef.current = false;
       if (!shouldStickToBottom.current || !bottomSentinelRef.current) return;
 
+      autoScrollInProgressRef.current = true;
       bottomSentinelRef.current.scrollIntoView({
         behavior: reducedMotion ? 'auto' : 'smooth',
         block: 'end',
       });
       lastScrollAtRef.current = Date.now();
+      if (autoScrollTimeoutRef.current !== null) clearTimeout(autoScrollTimeoutRef.current);
+      autoScrollTimeoutRef.current = setTimeout(
+        () => {
+          autoScrollInProgressRef.current = false;
+          autoScrollTimeoutRef.current = null;
+        },
+        reducedMotion ? 100 : 650
+      );
     }, delay);
   }, [reducedMotion]);
 
@@ -81,6 +109,32 @@ const Thread = ({ className }: ThreadProps) => {
     const sentinel = bottomSentinelRef.current;
     const content = contentRef.current;
     if (!viewport || !sentinel || !content) return;
+
+    const handleViewportInteraction = () => {
+      stopAutoScroll();
+    };
+
+    const handleViewportScroll = () => {
+      if (autoScrollInProgressRef.current) return;
+
+      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+      if (distanceFromBottom <= 24) {
+        shouldStickToBottom.current = true;
+        return;
+      }
+
+      shouldStickToBottom.current = false;
+      pendingScrollRef.current = false;
+      if (scrollTimerRef.current !== null) {
+        clearTimeout(scrollTimerRef.current);
+        scrollTimerRef.current = null;
+      }
+    };
+
+    viewport.addEventListener('pointerdown', handleViewportInteraction);
+    viewport.addEventListener('touchstart', handleViewportInteraction, { passive: true });
+    viewport.addEventListener('wheel', handleViewportInteraction, { passive: true });
+    viewport.addEventListener('scroll', handleViewportScroll, { passive: true });
 
     const viewportBounds = viewport.getBoundingClientRect();
     const sentinelBounds = sentinel.getBoundingClientRect();
@@ -111,18 +165,40 @@ const Thread = ({ className }: ThreadProps) => {
     return () => {
       observer.disconnect();
       resizeObserver.disconnect();
+      viewport.removeEventListener('pointerdown', handleViewportInteraction);
+      viewport.removeEventListener('touchstart', handleViewportInteraction);
+      viewport.removeEventListener('wheel', handleViewportInteraction);
+      viewport.removeEventListener('scroll', handleViewportScroll);
     };
-  }, [hasMessages, scheduleScrollToBottom]);
+  }, [hasMessages, scheduleScrollToBottom, stopAutoScroll]);
 
   useEffect(() => {
     return () => {
       if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+      if (autoScrollTimeoutRef.current !== null) clearTimeout(autoScrollTimeoutRef.current);
     };
   }, []);
 
   useEffect(() => {
-    scheduleScrollToBottom();
-  }, [messages, scheduleScrollToBottom]);
+    if (!thread || (isMobile && openMobile)) return;
+    if (initialScrollThreadIdRef.current === thread.id) return;
+
+    const initialScrollTimer = setTimeout(
+      () => {
+        initialScrollThreadIdRef.current = thread.id;
+        scheduleScrollToBottom();
+      },
+      isMobile ? 350 : 0
+    );
+
+    return () => clearTimeout(initialScrollTimer);
+  }, [thread, scheduleScrollToBottom, isMobile, openMobile]);
+
+  useEffect(() => {
+    if (thread && initialScrollThreadIdRef.current === thread.id) {
+      scheduleScrollToBottom();
+    }
+  }, [messages, thread, scheduleScrollToBottom]);
 
   const userInfo = useCallback(
     (profile: string | null): UserInfo => ({
