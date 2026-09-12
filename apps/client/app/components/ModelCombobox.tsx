@@ -81,12 +81,13 @@ const ModelOptionContent = ({
       <CommandGroup
         key={label}
         heading={label}
-        className="[&_[cmdk-group-heading]]:mx-1 [&_[cmdk-group-heading]]:rounded-md [&_[cmdk-group-heading]]:bg-muted/60 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-foreground">
+        className="[&_[cmdk-group-heading]]:mx-1 [&_[cmdk-group-heading]]:max-w-[calc(100vw-2rem)] [&_[cmdk-group-heading]]:truncate [&_[cmdk-group-heading]]:rounded-md [&_[cmdk-group-heading]]:bg-muted/60 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-foreground">
         {groupedModels.map((model) => (
           <CommandItem
             key={model.name}
             value={`${label} ${model.text}`}
             disabled={model.disabled}
+            className="min-w-0"
             onSelect={() => onSelect?.(model.name)}>
             <Check className={cn('opacity-0', model.name === selectedValue && 'opacity-100')} />
             <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -96,7 +97,9 @@ const ModelOptionContent = ({
                   <span className="text-xs">Thinking</span>
                 </span>
               )}
-              <span className="min-w-0 truncate">{getDisplayName(model)}</span>
+              <span className="min-w-0 line-clamp-2 whitespace-normal break-words leading-snug">
+                {getDisplayName(model)}
+              </span>
             </span>
             {model.isDiscovered && (
               <Badge
@@ -112,19 +115,25 @@ const ModelOptionContent = ({
       </CommandGroup>
     ) : (
       <SelectGroup key={label}>
-        <SelectLabel className="mx-1 my-1 rounded-md bg-muted/60 px-2 py-1.5 text-xs font-semibold text-foreground">
+        <SelectLabel className="mx-1 my-1 block max-w-[calc(100vw-2rem)] truncate rounded-md bg-muted/60 px-2 py-1.5 text-xs font-semibold text-foreground">
           {label}
         </SelectLabel>
         {groupedModels.map((model) => (
-          <SelectItem key={model.name} value={model.name} disabled={model.disabled}>
-            <span className="flex min-w-0 items-center gap-2">
+          <SelectItem
+            key={model.name}
+            value={model.name}
+            disabled={model.disabled}
+            className="min-w-0">
+            <span className="flex w-full min-w-0 max-w-full items-center gap-2">
               {model.supportsReasoning && (
                 <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
                   <BrainCircuit className="size-3.5" aria-hidden="true" />
                   <span className="text-xs">Thinking</span>
                 </span>
               )}
-              <span className="min-w-0 truncate">{getDisplayName(model)}</span>
+              <span className="min-w-0 line-clamp-2 whitespace-normal break-words leading-snug">
+                {getDisplayName(model)}
+              </span>
               {model.isDiscovered && (
                 <Badge
                   variant="outline"
@@ -155,10 +164,10 @@ export const ModelCombobox = ({
   if (!searchable) {
     return (
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger className={className}>
+        <SelectTrigger className={cn('min-w-0', className)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="w-[--radix-select-trigger-width] max-w-[calc(100vw-1rem)] min-w-0">
           <ModelOptionContent models={models} />
         </SelectContent>
       </Select>
@@ -181,7 +190,7 @@ export const ModelCombobox = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="max-h-[min(70dvh,32rem)] w-[--radix-popover-trigger-width] overflow-hidden p-0"
+        className="max-h-[min(70dvh,32rem)] w-[--radix-popover-trigger-width] max-w-[calc(100vw-1rem)] min-w-0 overflow-hidden p-0"
         align="start">
         <Command>
           <CommandInput placeholder="Search models..." />
