@@ -136,7 +136,10 @@ const SettingsDropdown = () => {
     >[0]);
 
   return (
-    <DropdownMenu open={isThreadSettingsOpen} onOpenChange={setThreadSettingsOpen}>
+    <DropdownMenu
+      open={isThreadSettingsOpen}
+      onOpenChange={setThreadSettingsOpen}
+      modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
           <SlidersHorizontal className="size-[18px]" />
@@ -145,7 +148,12 @@ const SettingsDropdown = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className="w-[calc(100vw-1rem)] max-w-sm rounded-2xl border-border/70 bg-popover/95 p-0 shadow-xl backdrop-blur"
-        align="end">
+        align="end"
+        onPointerDownOutside={(event) => {
+          if ((event.target as HTMLElement).closest('[data-model-combobox-popover]')) {
+            event.preventDefault();
+          }
+        }}>
         <DropdownMenuArrow className="fill-popover stroke-border" />
         <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3.5">
           <span className="flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
