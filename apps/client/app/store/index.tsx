@@ -81,6 +81,26 @@ export const messagesAtom = atom((get) => {
   return thread ? get(threadMessagesAtom)[thread.id] || [] : [];
 });
 
+/** Message ids selected for bulk actions in the active thread. */
+export const selectedMessageIdsAtom = atom<string[]>([]);
+
+export const toggleSelectedMessageAtom = atom(null, (get, set, id: string) => {
+  const selected = get(selectedMessageIdsAtom);
+  set(
+    selectedMessageIdsAtom,
+    selected.includes(id) ? selected.filter((selectedId) => selectedId !== id) : [...selected, id]
+  );
+});
+
+export const selectMessageAtom = atom(null, (get, set, id: string) => {
+  const selected = get(selectedMessageIdsAtom);
+  if (!selected.includes(id)) set(selectedMessageIdsAtom, [...selected, id]);
+});
+
+export const clearSelectedMessagesAtom = atom(null, (_get, set) => {
+  set(selectedMessageIdsAtom, []);
+});
+
 /** Replace messages when the active route/thread changes. */
 export const replaceMessagesAtom = atom(null, (get, set, messages: IMessage[]) => {
   const thread = get(threadAtom);
@@ -161,6 +181,19 @@ export const removeThreadMessageAtom = atom(
       ...get(threadMessagesAtom),
       [update.threadId]: messages.filter((message) => message.id !== update.id),
     });
+  }
+);
+
+export const removeThreadMessagesByIdAtom = atom(
+  null,
+  (get, set, update: { threadId: ThreadId; ids: string[] }) => {
+    const messages = get(threadMessagesAtom)[update.threadId] || [];
+    const ids = new Set(update.ids);
+    set(threadMessagesAtom, {
+      ...get(threadMessagesAtom),
+      [update.threadId]: messages.filter((message) => !ids.has(message.id)),
+    });
+    set(selectedMessageIdsAtom, []);
   }
 );
 

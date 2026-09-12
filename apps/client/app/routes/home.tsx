@@ -10,10 +10,12 @@ import {
   configSaveEffect,
   defaultConfig,
   clearThreadMessagesAtom,
+  clearSelectedMessagesAtom,
   hydrateThreadMessagesAtom,
   replaceMessagesAtom,
   messageSaveEffect,
   resetChatQueueAtom,
+  selectedMessageIdsAtom,
   threadAtom,
   threadMessagesAtom,
   threadSettingsOpenAtom,
@@ -33,6 +35,7 @@ import {
 } from '@/utils/lforage';
 import { abortAllStreams } from '@/utils/chat-stream-registry';
 import Input from '@/components/Input';
+import MessageSelectionBar from '@/components/MessageSelectionBar';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
 
@@ -47,8 +50,10 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
   const hydrateThreadMessages = useSetAtom(hydrateThreadMessagesAtom);
   const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
+  const clearSelectedMessages = useSetAtom(clearSelectedMessagesAtom);
   const replaceMessages = useSetAtom(replaceMessagesAtom);
   const messagesByThread = useAtomValue(threadMessagesAtom);
+  const selectedMessageIds = useAtomValue(selectedMessageIdsAtom);
   const setConfig = useSetAtom(configAtom);
   const resetChatQueue = useSetAtom(resetChatQueueAtom);
   const setThreadSettingsOpen = useSetAtom(threadSettingsOpenAtom);
@@ -81,6 +86,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
       setUserSettingsOpen(false);
       setConfig(defaultConfig);
       setThread(null);
+      clearSelectedMessages();
       clearThreadMessages();
       setIsWorkspaceLoaded(false);
 
@@ -107,6 +113,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
       const isAccountChange = previousAccountId !== user.id;
       setWorkspaceReady(false);
       setThread(null);
+      clearSelectedMessages();
       setIsWorkspaceLoaded(false);
 
       if (isAccountChange) {
@@ -182,7 +189,9 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         }
 
         if (!threadId) {
-          const existingThreadIndex = storedThreads.findIndex((thread) => thread.id === threadData.id);
+          const existingThreadIndex = storedThreads.findIndex(
+            (thread) => thread.id === threadData.id
+          );
           const nextThreads =
             existingThreadIndex === -1
               ? [threadData, ...storedThreads]
@@ -222,6 +231,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     isSignedIn,
     navigate,
     clearThreadMessages,
+    clearSelectedMessages,
     hydrateThreadMessages,
     replaceMessages,
     resetChatQueue,
@@ -252,7 +262,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         </section>
         <section className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5 sm:pt-4">
           <div className="mx-auto w-full max-w-4xl">
-            <Input />
+            {selectedMessageIds.length > 0 ? <MessageSelectionBar /> : <Input />}
           </div>
         </section>
       </div>

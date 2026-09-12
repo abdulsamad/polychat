@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 import { AlertCircleIcon, CopyIcon, ShareIcon, Trash2Icon } from 'lucide-react';
@@ -12,6 +12,9 @@ import {
   ITextMessage,
   IImageMessage,
   removeThreadMessageAtom,
+  selectMessageAtom,
+  selectedMessageIdsAtom,
+  toggleSelectedMessageAtom,
   threadAtom,
 } from '@/store';
 import { UserInfo } from '@/components/Thread';
@@ -70,9 +73,18 @@ const MessageContent = ({
   const shouldReduceMotion = useReducedMotion();
   const thread = useAtomValue(threadAtom);
   const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
+  const selectMessage = useSetAtom(selectMessageAtom);
+  const toggleSelectedMessage = useSetAtom(toggleSelectedMessageAtom);
+  const selectedMessageIds = useAtomValue(selectedMessageIdsAtom);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextClick = useRef(false);
   const showDetailedUsage = thread?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
   const isUser = role === 'user';
+  const isSelectionMode = selectedMessageIds.length > 0;
+  const isSelected = selectedMessageIds.includes(id);
+
+  useEffect(() => clearLongPress, []);
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
   const shareText = isImage
     ? image?.alt || image?.url || ''
@@ -111,9 +123,7 @@ const MessageContent = ({
           navigator.canShare({ files });
 
         await navigator.share(
-          canShareFiles
-            ? { text: content.trim() || undefined, files }
-            : { text: shareText }
+          canShareFiles ? { text: content.trim() || undefined, files } : { text: shareText }
         );
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -156,6 +166,35 @@ const MessageContent = ({
     toast.success('Message deleted');
   };
 
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (event.pointerType === 'mouse' || isSelectionMode) return;
+    longPressTimer.current = setTimeout(() => {
+      suppressNextClick.current = true;
+      selectMessage(id);
+    }, 500);
+  };
+
+  const handleClick = (event: MouseEvent<HTMLElement>) => {
+    if (suppressNextClick.current) {
+      suppressNextClick.current = false;
+      return;
+    }
+    if (
+      event.target instanceof Element &&
+      event.target.closest('button, a, input, textarea, select, [role="button"]')
+    ) {
+      return;
+    }
+    if (isSelectionMode) toggleSelectedMessage(id);
+  };
+
   return (
     <>
       <ContextMenu>
@@ -168,11 +207,21 @@ const MessageContent = ({
               ease: 'easeOut',
             }}
             className={clsx(
-'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none rounded-2xl transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
+              'chat relative my-5 flex w-full min-w-0 scroll-mb-10 select-none rounded-2xl transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
+              isSelected &&
+                'bg-primary/10 ring-2 ring-primary/40 ring-offset-2 ring-offset-background',
               chatOrigin,
               isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
             )}
-            data-type={type}>
+            data-type={type}
+            onPointerDown={handlePointerDown}
+            onPointerUp={clearLongPress}
+            onPointerCancel={clearLongPress}
+            onPointerLeave={clearLongPress}
+            onClick={handleClick}
+            onContextMenu={(event) => {
+              if (isSelectionMode) event.preventDefault();
+            }}>
             <div
               className={clsx(
                 'w-full min-w-0',
@@ -210,7 +259,7 @@ const MessageContent = ({
                       isUser ? 'items-end' : 'items-start',
                       isUser && imageAttachments?.length
                         ? 'w-fit max-w-full rounded-2xl bg-muted/30 p-1.5'
-                      : 'w-full'
+                        : 'w-full'
                     )}>
                     {!isUser && reasoning && (
                       <ReasoningCollapsible
@@ -234,8 +283,8 @@ const MessageContent = ({
                       <Alert className="w-full max-w-[40rem] border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground [&>svg]:left-3 [&>svg]:top-2.5 [&>svg]:size-3.5 [&>svg~*]:pl-5">
                         <AlertCircleIcon aria-hidden="true" />
                         <AlertDescription>
-                          Response stopped at the output limit. Ask to continue or increase the
-                          max output tokens.
+                          Response stopped at the output limit. Ask to continue or increase the max
+                          output tokens.
                         </AlertDescription>
                       </Alert>
                     )}
