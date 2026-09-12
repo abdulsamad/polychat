@@ -17,6 +17,7 @@ export type SupportedModel = {
   provider: modelProviderType;
   supportsVision?: boolean;
   supportsFiles?: boolean;
+  supportsReasoning?: boolean;
 };
 
 export const modelProviders = [
@@ -46,6 +47,7 @@ export const supportedModels = [
     provider: 'google',
     supportsVision: true,
     supportsFiles: true,
+    supportsReasoning: true,
   },
   {
     name: 'gemini-3.5-flash',
@@ -55,6 +57,7 @@ export const supportedModels = [
     provider: 'google',
     supportsVision: true,
     supportsFiles: true,
+    supportsReasoning: true,
   },
   {
     name: 'gemini-3.5-flash-lite',
@@ -64,6 +67,7 @@ export const supportedModels = [
     provider: 'google',
     supportsVision: true,
     supportsFiles: true,
+    supportsReasoning: true,
   },
   {
     name: 'gpt-5.6-luna',
@@ -73,6 +77,7 @@ export const supportedModels = [
     provider: 'openai',
     supportsVision: true,
     supportsFiles: true,
+    supportsReasoning: true,
   },
   {
     name: 'gpt-5.6-terra',
@@ -82,6 +87,7 @@ export const supportedModels = [
     provider: 'openai',
     supportsVision: true,
     supportsFiles: true,
+    supportsReasoning: true,
   },
   // {
   //   name: 'deepseek-chat',

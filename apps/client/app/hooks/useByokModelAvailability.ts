@@ -74,12 +74,30 @@ const displayName = (modelId: string) =>
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, (character) => character.toUpperCase());
 
+const hasReasoningModelId = (provider: modelProviderType, modelId: string) => {
+  if (provider === 'openai') return /^(?:gpt-5|o\d)/i.test(modelId) && !/chat/i.test(modelId);
+  if (provider === 'google') return /gemini-3/i.test(modelId);
+  if (provider === 'anthropic') return /claude-(?:3-7|4)/i.test(modelId);
+  if (provider === 'deepseek') return /reasoner|reasoning|deepseek-v4/i.test(modelId);
+  return /reasoner|reasoning/i.test(modelId);
+};
+
+const hasReasoningParameter = (entry: Record<string, unknown>) => {
+  const supportedParameters = entry.supported_parameters;
+  return (
+    supportedParameters !== null &&
+    typeof supportedParameters === 'object' &&
+    Object.keys(supportedParameters).some((parameter) => /reason/i.test(parameter))
+  );
+};
+
 const toModelOption = (
   provider: modelProviderType,
   modelId: string,
   label?: string,
   imageCapabilities?: ImageModelCapabilities,
-  supportsVision = false
+  supportsVision = false,
+  supportsReasoning = false
 ): ModelOption => ({
   name: modelId,
   text: label || displayName(modelId),
@@ -89,6 +107,7 @@ const toModelOption = (
   isDiscovered: true,
   imageCapabilities,
   supportsVision,
+  supportsReasoning,
   supportsFiles: provider === 'google' || provider === 'openai' || provider === 'anthropic',
 });
 
@@ -170,7 +189,8 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
             modelId,
             getString(entry.displayName),
             undefined,
-            hasImageInput(entry) || /gemini/i.test(modelId)
+            hasImageInput(entry) || /gemini/i.test(modelId),
+            hasReasoningModelId(provider, modelId) || hasReasoningParameter(entry)
           ),
           type: isImage ? 'image' : 'text',
         },
@@ -201,7 +221,8 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
           rawId,
           getString(entry.display_name) || getString(entry.name),
           undefined,
-          hasImageInput(entry) || (provider === 'openai' && /(gpt-4o|gpt-4\.1|gpt-5)/i.test(rawId))
+          hasImageInput(entry) || (provider === 'openai' && /(gpt-4o|gpt-4\.1|gpt-5)/i.test(rawId)),
+          hasReasoningModelId(provider, rawId) || hasReasoningParameter(entry)
         ),
         type: isImage ? 'image' : 'text',
       },

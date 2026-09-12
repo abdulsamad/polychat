@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { BrainCircuit, Check, ChevronsUpDown } from 'lucide-react';
 
 import { modelProviderLabels, modelProviders } from 'utils';
 
@@ -89,6 +89,17 @@ const ModelOptionContent = ({
             disabled={model.disabled}
             onSelect={() => onSelect?.(model.name)}>
             <Check className={cn('opacity-0', model.name === selectedValue && 'opacity-100')} />
+            {model.isDiscovered && (
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+                BYOK
+              </Badge>
+            )}
+            {model.supportsReasoning && (
+              <BrainCircuit
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-label="Supports reasoning"
+              />
+            )}
             <span className="min-w-0 truncate">{getDisplayName(model)}</span>
             {model.isSpecial && <Badge variant="outline">Special</Badge>}
             {model.isExperimental && <Badge variant="outline">Experimental</Badge>}
@@ -103,6 +114,17 @@ const ModelOptionContent = ({
         {groupedModels.map((model) => (
           <SelectItem key={model.name} value={model.name} disabled={model.disabled}>
             <span className="flex items-center gap-2">
+              {model.isDiscovered && (
+                <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+                  BYOK
+                </Badge>
+              )}
+              {model.supportsReasoning && (
+                <BrainCircuit
+                  className="size-3.5 shrink-0 text-muted-foreground"
+                  aria-label="Supports reasoning"
+                />
+              )}
               {getDisplayName(model)}
               {model.isSpecial && <Badge variant="outline">Special</Badge>}
               {model.isExperimental && <Badge variant="outline">Experimental</Badge>}

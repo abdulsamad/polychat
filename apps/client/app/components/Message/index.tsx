@@ -210,8 +210,16 @@ const MessageContent = ({
                       isUser ? 'items-end' : 'items-start',
                       isUser && imageAttachments?.length
                         ? 'w-fit max-w-full rounded-2xl bg-muted/30 p-1.5'
-                        : 'w-full'
+                      : 'w-full'
                     )}>
+                    {!isUser && reasoning && (
+                      <ReasoningCollapsible
+                        messageId={id}
+                        reasoning={reasoning}
+                        isStreaming={requestState === 'streaming'}
+                        reasoningComplete={reasoningComplete}
+                      />
+                    )}
                     {content && (
                       <Text
                         isUser={isUser}
@@ -222,14 +230,6 @@ const MessageContent = ({
                     {imageAttachments?.map((attachment) => (
                       <ImageAttachment key={attachment.id} attachment={attachment} compact />
                     ))}
-                    {!isUser && reasoning && (
-                      <ReasoningCollapsible
-                        messageId={id}
-                        reasoning={reasoning}
-                        isStreaming={requestState === 'streaming'}
-                        reasoningComplete={reasoningComplete}
-                      />
-                    )}
                     {!isUser && !content.trim() && !imageAttachments?.length && emptyResponse && (
                       <Alert className="w-full max-w-[40rem] border-border bg-muted/50">
                         <AlertTitle>No visible answer</AlertTitle>
