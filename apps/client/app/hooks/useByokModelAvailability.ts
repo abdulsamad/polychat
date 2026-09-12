@@ -76,7 +76,7 @@ const displayName = (modelId: string) =>
 
 const hasReasoningModelId = (provider: modelProviderType, modelId: string) => {
   if (provider === 'openai') return /^(?:gpt-5|o\d)/i.test(modelId) && !/chat/i.test(modelId);
-  if (provider === 'google') return /gemini-3/i.test(modelId);
+  if (provider === 'google') return /gemini-(?:2\.5|3)/i.test(modelId);
   if (provider === 'anthropic') return /claude-(?:3-7|4)/i.test(modelId);
   if (provider === 'deepseek') return /reasoner|reasoning|deepseek-v4/i.test(modelId);
   return /reasoner|reasoning/i.test(modelId);
@@ -84,11 +84,13 @@ const hasReasoningModelId = (provider: modelProviderType, modelId: string) => {
 
 const hasReasoningParameter = (entry: Record<string, unknown>) => {
   const supportedParameters = entry.supported_parameters;
-  return (
-    supportedParameters !== null &&
-    typeof supportedParameters === 'object' &&
-    Object.keys(supportedParameters).some((parameter) => /reason/i.test(parameter))
-  );
+  if (Array.isArray(supportedParameters)) {
+    return supportedParameters.some((parameter) => /reason|think/i.test(String(parameter)));
+  }
+  if (supportedParameters && typeof supportedParameters === 'object') {
+    return Object.keys(supportedParameters).some((parameter) => /reason|think/i.test(parameter));
+  }
+  return Object.keys(entry).some((key) => /reason|think/i.test(key));
 };
 
 const toModelOption = (

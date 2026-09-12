@@ -89,18 +89,22 @@ const ModelOptionContent = ({
             disabled={model.disabled}
             onSelect={() => onSelect?.(model.name)}>
             <Check className={cn('opacity-0', model.name === selectedValue && 'opacity-100')} />
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              {model.supportsReasoning && (
+                <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                  <BrainCircuit className="size-3.5" aria-hidden="true" />
+                  <span className="text-xs">Thinking</span>
+                </span>
+              )}
+              <span className="min-w-0 truncate">{getDisplayName(model)}</span>
+            </span>
             {model.isDiscovered && (
-              <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+              <Badge
+                variant="outline"
+                className="shrink-0 px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
                 BYOK
               </Badge>
             )}
-            {model.supportsReasoning && (
-              <BrainCircuit
-                className="size-3.5 shrink-0 text-muted-foreground"
-                aria-label="Supports reasoning"
-              />
-            )}
-            <span className="min-w-0 truncate">{getDisplayName(model)}</span>
             {model.isSpecial && <Badge variant="outline">Special</Badge>}
             {model.isExperimental && <Badge variant="outline">Experimental</Badge>}
           </CommandItem>
@@ -113,19 +117,21 @@ const ModelOptionContent = ({
         </SelectLabel>
         {groupedModels.map((model) => (
           <SelectItem key={model.name} value={model.name} disabled={model.disabled}>
-            <span className="flex items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2">
+              {model.supportsReasoning && (
+                <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                  <BrainCircuit className="size-3.5" aria-hidden="true" />
+                  <span className="text-xs">Thinking</span>
+                </span>
+              )}
+              <span className="min-w-0 truncate">{getDisplayName(model)}</span>
               {model.isDiscovered && (
-                <Badge variant="outline" className="px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="shrink-0 px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
                   BYOK
                 </Badge>
               )}
-              {model.supportsReasoning && (
-                <BrainCircuit
-                  className="size-3.5 shrink-0 text-muted-foreground"
-                  aria-label="Supports reasoning"
-                />
-              )}
-              {getDisplayName(model)}
               {model.isSpecial && <Badge variant="outline">Special</Badge>}
               {model.isExperimental && <Badge variant="outline">Experimental</Badge>}
             </span>

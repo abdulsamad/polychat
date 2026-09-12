@@ -40,16 +40,6 @@ export const modelProviderLabels: Record<SupportedModel['provider'], string> = {
 
 export const supportedModels = [
   {
-    name: 'gemini-3.7-flash',
-    text: 'Gemini 3.7 Flash',
-    type: 'text',
-    disabled: false,
-    provider: 'google',
-    supportsVision: true,
-    supportsFiles: true,
-    supportsReasoning: true,
-  },
-  {
     name: 'gemini-3.5-flash',
     text: 'Gemini 3.5 Flash',
     type: 'text',
