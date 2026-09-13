@@ -371,7 +371,6 @@ const MessageContent = ({
                         {usage.cachedInputTokens !== undefined && (
                           <span>Cached: {usage.cachedInputTokens.toLocaleString()}</span>
                         )}
-                        {finishReason && <span>Finish: {finishReason}</span>}
                       </span>
                     ) : (
                       <span>Total: {usage.totalTokens ?? 'Unknown'} tokens</span>
