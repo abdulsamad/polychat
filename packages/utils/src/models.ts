@@ -17,6 +17,8 @@ export type SupportedModel = {
   provider: modelProviderType;
   supportsVision?: boolean;
   supportsFiles?: boolean;
+  supportsImageReferences?: boolean;
+  supportsVideoReferences?: boolean;
   supportsReasoning?: boolean;
 };
 

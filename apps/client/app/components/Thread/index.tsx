@@ -195,16 +195,13 @@ const Thread = ({ className }: ThreadProps) => {
 
     initialScrollReadyRef.current = false;
 
-    const initialScrollTimer = setTimeout(
-      () => {
-        initialScrollThreadIdRef.current = thread.id;
-        initialScrollReadyRef.current = true;
-        shouldStickToBottom.current = true;
-        bottomSentinelRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
-        lastScrollAtRef.current = Date.now();
-      },
-      0
-    );
+    const initialScrollTimer = setTimeout(() => {
+      initialScrollThreadIdRef.current = thread.id;
+      initialScrollReadyRef.current = true;
+      shouldStickToBottom.current = true;
+      bottomSentinelRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
+      lastScrollAtRef.current = Date.now();
+    }, 0);
 
     return () => clearTimeout(initialScrollTimer);
   }, [thread, scheduleScrollToBottom, isMobile, openMobile]);
@@ -261,7 +258,9 @@ const Thread = ({ className }: ThreadProps) => {
                 <ImageGenerating
                   error={isChatResponseLoading ? undefined : chatError}
                   size={
-                    thread?.settings.modelConfig && 'size' in thread.settings.modelConfig
+                    thread?.settings.modelConfig &&
+                    'size' in thread.settings.modelConfig &&
+                    typeof thread.settings.modelConfig.size === 'string'
                       ? thread.settings.modelConfig.size
                       : undefined
                   }

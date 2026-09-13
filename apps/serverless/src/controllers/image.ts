@@ -6,7 +6,14 @@ import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
 
-const MAX_IMAGE_REQUEST_BYTES = 32 * 1024;
+const MAX_IMAGE_REQUEST_BYTES = 8 * 1024 * 1024;
+const MAX_HOSTED_REFERENCE_BYTES = 2 * 1024 * 1024;
+
+const dataUrlByteLength = (dataUrl: string) => {
+  const encoded = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((encoded.length * 3) / 4) - padding);
+};
 
 const image = async (c: Context<AppContext>) => {
   const startTime = Date.now();
@@ -30,7 +37,22 @@ const image = async (c: Context<AppContext>) => {
 
     const parsed = imageRequestSchema.safeParse(requestBody.body);
     if (!parsed.success) return c.json({ success: false, err: 'Invalid image request.' }, 400);
-    const { model, prompt, n, quality, style, size = '1024x1024' } = parsed.data;
+    const {
+      model,
+      prompt,
+      referenceImages = [],
+      n,
+      quality,
+      style,
+      size = '1024x1024',
+    } = parsed.data;
+    const totalReferenceBytes = referenceImages.reduce(
+      (total, reference) => total + dataUrlByteLength(reference.dataUrl),
+      0
+    );
+    if (totalReferenceBytes > MAX_HOSTED_REFERENCE_BYTES) {
+      return c.json({ success: false, err: 'Hosted reference images are limited to 2 MB.' }, 413);
+    }
 
     if (!supportedImageModels.some((entry) => entry.name === model)) {
       return c.json({ success: false, err: 'This image model requires BYOK.' }, 400);
@@ -44,7 +66,9 @@ const image = async (c: Context<AppContext>) => {
 
     const imageResult = await generateImage({
       model: modelFactory.createImageModel(model),
-      prompt,
+      prompt: referenceImages.length
+        ? { text: prompt, images: referenceImages.map((reference) => reference.dataUrl) }
+        : prompt,
       n,
       size: isAspectRatio ? undefined : (size as `${number}x${number}`),
       aspectRatio: isAspectRatio ? (size as `${number}:${number}`) : undefined,
@@ -61,8 +85,7 @@ const image = async (c: Context<AppContext>) => {
     });
     const { image } = imageResult;
     const providerMetadata = imageResult.providerMetadata as
-      | { openai?: { images?: Array<{ revisedPrompt?: unknown }> } }
-      | undefined;
+      { openai?: { images?: Array<{ revisedPrompt?: unknown }> } } | undefined;
     const revisedPrompt = providerMetadata?.openai?.images?.[0]?.revisedPrompt;
 
     const b64_json = image.base64;

@@ -64,6 +64,18 @@ const hasImageInput = (entry: Record<string, unknown>) => {
   return Array.isArray(inputModalities) && inputModalities.some((value) => value === 'image');
 };
 
+const hasInputModality = (entry: Record<string, unknown>, modality: string) => {
+  const architecture = entry.architecture;
+  const architectureModalities =
+    architecture && typeof architecture === 'object'
+      ? (architecture as { input_modalities?: unknown }).input_modalities
+      : undefined;
+  const modalities = Array.isArray(architectureModalities)
+    ? architectureModalities
+    : entry.input_modalities;
+  return Array.isArray(modalities) && modalities.some((value) => value === modality);
+};
+
 const providerEndpoints: Record<ByokProvider, string> = {
   google: 'https://generativelanguage.googleapis.com/v1beta/models',
   openai: 'https://api.openai.com/v1/models',
@@ -156,6 +168,7 @@ const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOptio
           hasImageInput(entry)
         ),
         type: 'image' as const,
+        supportsImageReferences: hasImageInput(entry),
       },
     ];
   });
@@ -179,6 +192,8 @@ const parseOpenRouterVideoModels = (response: VideoModelResponse): ModelOption[]
       {
         ...toModelOption('openrouter', modelId, getString(entry.name)),
         type: 'video' as const,
+        supportsImageReferences: true,
+        supportsVideoReferences: hasInputModality(entry, 'video'),
         videoCapabilities,
       },
     ];
@@ -257,6 +272,7 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
           hasReasoningModelId(provider, rawId) || hasReasoningParameter(entry)
         ),
         type: isImage ? 'image' : 'text',
+        ...(isImage ? { supportsImageReferences: hasImageInput(entry) } : {}),
       },
     ];
   });
@@ -367,8 +383,9 @@ export const useByokModelAvailability = () => {
 
   const isModelAvailable = useCallback(
     (model: ModelOption) =>
-      Boolean(getProviderKey(accountId, model.provider)) ||
-      (!model.isDiscovered && !model.disabled && !imageModelNames.has(model.name)),
+      !model.disabled &&
+      (Boolean(getProviderKey(accountId, model.provider)) ||
+        (!model.isDiscovered && !imageModelNames.has(model.name))),
     [accountId, vaultVersion]
   );
 

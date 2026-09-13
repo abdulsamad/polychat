@@ -206,6 +206,7 @@ export const generateByokImage = async ({
   quality,
   style,
   size,
+  referenceImages = [],
   signal,
 }: {
   model: availableModelsType;
@@ -215,6 +216,7 @@ export const generateByokImage = async ({
   quality: 'standard' | 'hd';
   style: 'vivid' | 'natural';
   size?: string;
+  referenceImages?: ImageAttachment[];
   signal?: AbortSignal;
 }) => {
   const providerName = providerForModel(model, provider);
@@ -222,7 +224,12 @@ export const generateByokImage = async ({
   const isAspectRatio = Boolean(size?.includes(':'));
   const result = await generateImage({
     model: providerClient.imageModel(model),
-    prompt,
+    prompt: referenceImages.length
+      ? {
+          text: prompt,
+          images: referenceImages.map((reference) => reference.dataUrl),
+        }
+      : prompt,
     n: 1,
     size: isAspectRatio ? undefined : (size as `${number}x${number}` | undefined),
     aspectRatio: isAspectRatio ? (size as `${number}:${number}`) : undefined,
@@ -370,12 +377,14 @@ export const generateByokVideo = async ({
   apiKey,
   prompt,
   modelConfig,
+  inputReferences = [],
   signal,
 }: {
   model: string;
   apiKey: string;
   prompt: string;
   modelConfig?: IBaseModelConfig;
+  inputReferences?: ImageAttachment[];
   signal?: AbortSignal;
 }) => {
   const headers = {
@@ -388,6 +397,15 @@ export const generateByokVideo = async ({
     body: JSON.stringify({
       model,
       prompt,
+      ...(inputReferences.length
+        ? {
+            input_references: inputReferences.map((reference) =>
+              reference.mediaType.startsWith('video/')
+                ? { type: 'video_url', video_url: { url: reference.dataUrl } }
+                : { type: 'image_url', image_url: { url: reference.dataUrl } }
+            ),
+          }
+        : {}),
       ...(modelConfig?.duration ? { duration: modelConfig.duration } : {}),
       ...(modelConfig?.resolution ? { resolution: modelConfig.resolution } : {}),
       ...(modelConfig?.aspectRatio ? { aspect_ratio: modelConfig.aspectRatio } : {}),

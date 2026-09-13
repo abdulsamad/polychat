@@ -72,15 +72,22 @@ const useCustomEditor = () => {
     useSubmitMessage();
 
   const selectedModel = thread ? findModel(thread.settings.model) : undefined;
-  const canAttachImages = Boolean(selectedModel?.supportsVision);
-  const canAttachFiles = Boolean(selectedModel?.supportsFiles);
+  const canAttachImages = Boolean(
+    selectedModel?.type === 'text'
+      ? selectedModel.supportsVision
+      : selectedModel?.supportsImageReferences
+  );
+  const canAttachVideos = Boolean(
+    selectedModel?.type === 'video' && selectedModel.supportsVideoReferences
+  );
+  const canAttachFiles = Boolean(selectedModel?.type === 'text' && selectedModel.supportsFiles);
   const isByok = Boolean(
     selectedModel?.provider && getProviderKey(accountId, selectedModel.provider)
   );
 
   const addImageFiles = useCallback(
     async (files: File[] | FileList) => {
-      if (!canAttachImages && !canAttachFiles) return;
+      if (!canAttachImages && !canAttachVideos && !canAttachFiles) return;
 
       const selectedFiles = Array.from(files);
       const remainingSlots = isByok
@@ -92,11 +99,18 @@ const useCustomEditor = () => {
       }
 
       const supportedFiles = selectedFiles.filter(
-        (file) => file.type.startsWith('image/') || isSupportedDocument(file)
+        (file) =>
+          file.type.startsWith('image/') ||
+          file.type.startsWith('video/') ||
+          isSupportedDocument(file)
       );
       if (supportedFiles.length !== selectedFiles.length) toast.error('Unsupported file type.');
       const filesToUse = supportedFiles.filter((file) =>
-        file.type.startsWith('image/') ? canAttachImages : canAttachFiles
+        file.type.startsWith('image/')
+          ? canAttachImages
+          : file.type.startsWith('video/')
+            ? canAttachVideos
+            : canAttachFiles
       );
       if (filesToUse.length < supportedFiles.length) {
         toast.error('This model does not support one or more selected file types.');
@@ -134,7 +148,7 @@ const useCustomEditor = () => {
       );
       setImageAttachments((current) => [...current, ...attachments]);
     },
-    [canAttachFiles, canAttachImages, imageAttachments, isByok]
+    [canAttachFiles, canAttachImages, canAttachVideos, imageAttachments, isByok]
   );
 
   const removeImageAttachment = useCallback((id: string) => {
@@ -245,10 +259,10 @@ const useCustomEditor = () => {
   }, [editor, editorState]);
 
   useEffect(() => {
-    if (!canAttachImages && !canAttachFiles && imageAttachments.length) {
+    if (!canAttachImages && !canAttachVideos && !canAttachFiles && imageAttachments.length) {
       setImageAttachments([]);
     }
-  }, [canAttachFiles, canAttachImages, imageAttachments.length]);
+  }, [canAttachFiles, canAttachImages, canAttachVideos, imageAttachments.length]);
 
   return {
     editor,
@@ -259,6 +273,7 @@ const useCustomEditor = () => {
     cancelQueued,
     imageAttachments,
     canAttachImages,
+    canAttachVideos,
     canAttachFiles,
     addImageFiles,
     removeImageAttachment,

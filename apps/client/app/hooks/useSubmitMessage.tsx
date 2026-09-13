@@ -53,7 +53,13 @@ const useSubmitMessage = () => {
         return false;
       }
       const hasUnsupportedAttachment = imageAttachments.some((attachment) =>
-        attachment.mediaType.startsWith('image/') ? !model?.supportsVision : !model?.supportsFiles
+        attachment.mediaType.startsWith('image/')
+          ? model?.type === 'text'
+            ? !model.supportsVision
+            : !model?.supportsImageReferences
+          : attachment.mediaType.startsWith('video/')
+            ? model?.type !== 'video' || !model.supportsVideoReferences
+            : model?.type !== 'text' || !model.supportsFiles
       );
       if (hasUnsupportedAttachment) {
         toast.error('This model does not support one or more attached files.');
@@ -92,7 +98,16 @@ const useSubmitMessage = () => {
       }
       return accepted;
     },
-    [accountId, clearThreadChatError, config, enqueueChatJob, findModel, messages, refreshThreads, thread]
+    [
+      accountId,
+      clearThreadChatError,
+      config,
+      enqueueChatJob,
+      findModel,
+      messages,
+      refreshThreads,
+      thread,
+    ]
   );
 
   const stopChat = useCallback(() => {

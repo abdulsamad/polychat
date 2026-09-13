@@ -21,6 +21,7 @@ const Text = () => {
     cancelQueued,
     imageAttachments,
     canAttachImages,
+    canAttachVideos,
     canAttachFiles,
     addImageFiles,
     removeImageAttachment,
@@ -41,12 +42,12 @@ const Text = () => {
         void handleSubmit();
       }}>
       <div className="flex min-w-0 items-end gap-2 sm:gap-3">
-        {(canAttachImages || canAttachFiles) && (
+        {(canAttachImages || canAttachVideos || canAttachFiles) && (
           <>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json"
+              accept={`${canAttachImages ? 'image/jpeg,image/png,image/webp,image/gif,' : ''}${canAttachVideos ? 'video/mp4,video/webm,' : ''}${canAttachFiles ? 'application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/csv,application/json' : ''}`}
               multiple
               className="sr-only"
               tabIndex={-1}

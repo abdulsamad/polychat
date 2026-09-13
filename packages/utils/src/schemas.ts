@@ -20,17 +20,47 @@ const messageSchema = z.object({
       z.object({
         id: z.string().min(1).max(100),
         name: z.string().trim().min(1).max(255),
-        mediaType: z.string().regex(
-          /^(image\/(jpeg|png|webp|gif)|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/(plain|markdown|csv)|application\/json)$/
-        ),
+        mediaType: z
+          .string()
+          .regex(
+            /^(image\/(jpeg|png|webp|gif)|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/(plain|markdown|csv)|application\/json)$/
+          ),
         size: z.number().int().positive(),
-        dataUrl: z.string().regex(
-          /^data:(image\/(jpeg|png|webp|gif)|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/(plain|markdown|csv)|application\/json);base64,[A-Za-z0-9+/=]+$/
-        ),
+        dataUrl: z
+          .string()
+          .regex(
+            /^data:(image\/(jpeg|png|webp|gif)|application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|text\/(plain|markdown|csv)|application\/json);base64,[A-Za-z0-9+/=]+$/
+          ),
       })
     )
     .max(4)
     .optional(),
+});
+
+const attachmentShape = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().trim().min(1).max(255),
+  size: z.number().int().positive(),
+  dataUrl: z.string(),
+});
+
+const referenceImageSchema = attachmentShape.extend({
+  mediaType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  dataUrl: z.string().regex(/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/),
+});
+
+const referenceMediaSchema = attachmentShape.extend({
+  mediaType: z.enum([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'video/mp4',
+    'video/webm',
+  ]),
+  dataUrl: z
+    .string()
+    .regex(/^data:(image\/(jpeg|png|webp|gif)|video\/(mp4|webm));base64,[A-Za-z0-9+/=]+$/),
 });
 
 const MAX_CHAT_CONTENT_CHARS = 64_000;
@@ -74,6 +104,7 @@ export const chatRequestSchema = z
 export const imageRequestSchema = z.object({
   model: imageModelSchema,
   prompt: z.string().min(1).max(4_000),
+  referenceImages: z.array(referenceImageSchema).max(4).optional(),
   n: z.number().int().min(1).max(1).optional().default(1),
   quality: z.enum(['standard', 'hd']).optional().default('standard'),
   style: z.enum(['vivid', 'natural']).optional().default('vivid'),
@@ -83,6 +114,7 @@ export const imageRequestSchema = z.object({
 export const videoRequestSchema = z.object({
   model: z.string().trim().min(1).max(200),
   prompt: z.string().min(1).max(4_000),
+  inputReferences: z.array(referenceMediaSchema).max(4).optional(),
   duration: z.number().int().min(1).max(60).optional(),
   resolution: z.string().trim().min(1).max(32).optional(),
   aspectRatio: z.string().trim().min(1).max(16).optional(),
@@ -95,3 +127,5 @@ export type VideoRequest = z.infer<typeof videoRequestSchema>;
 export type ImageAttachment = NonNullable<
   z.infer<typeof messageSchema>['imageAttachments']
 >[number];
+export type ImageReference = z.infer<typeof referenceImageSchema>;
+export type VideoReference = z.infer<typeof referenceMediaSchema>;

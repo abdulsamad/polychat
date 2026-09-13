@@ -5,6 +5,7 @@ import {
   chatRequestSchema,
   enabledModelsType,
   imageRequestSchema,
+  videoRequestSchema,
   profilesType,
   type modelProviderType,
   type ImageAttachment,
@@ -197,6 +198,7 @@ interface IGetGeneratedImage {
   quality: IConfig['quality'];
   style: IConfig['style'];
   size?: string;
+  referenceImages?: ImageAttachment[];
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
   signal?: AbortSignal;
@@ -215,11 +217,19 @@ export const getGeneratedImage = async ({
   quality,
   style,
   size,
+  referenceImages,
   getToken,
   apiKey,
   signal,
 }: IGetGeneratedImage): Promise<GeneratedImageResponse | ErrorType> => {
-  const requestBody = imageRequestSchema.safeParse({ prompt, model, quality, style, size });
+  const requestBody = imageRequestSchema.safeParse({
+    prompt,
+    model,
+    quality,
+    style,
+    size,
+    referenceImages,
+  });
   if (!requestBody.success) {
     return { success: false, err: 'Invalid image request.' };
   }
@@ -232,6 +242,7 @@ export const getGeneratedImage = async ({
         quality,
         style,
         size,
+        referenceImages,
         apiKey,
         signal,
       });
@@ -288,6 +299,8 @@ export const getGeneratedVideo = async ({
   provider,
   apiKey,
   modelConfig,
+  inputReferences,
+  getToken,
   signal,
 }: {
   prompt: string;
@@ -295,6 +308,8 @@ export const getGeneratedVideo = async ({
   provider?: modelProviderType;
   apiKey?: string;
   modelConfig?: IBaseModelConfig;
+  inputReferences?: ImageAttachment[];
+  getToken: (options?: GetTokenOptions) => Promise<string | null>;
   signal?: AbortSignal;
 }): Promise<
   | {
@@ -307,11 +322,47 @@ export const getGeneratedVideo = async ({
     }
   | ErrorType
 > => {
-  if (provider !== 'openrouter' || !apiKey) {
+  const requestBody = videoRequestSchema.safeParse({
+    prompt,
+    model,
+    inputReferences,
+    ...(modelConfig?.duration ? { duration: modelConfig.duration } : {}),
+    ...(modelConfig?.resolution ? { resolution: modelConfig.resolution } : {}),
+    ...(modelConfig?.aspectRatio ? { aspectRatio: modelConfig.aspectRatio } : {}),
+    ...(modelConfig?.generateAudio !== undefined
+      ? { generateAudio: modelConfig.generateAudio }
+      : {}),
+  });
+  if (!requestBody.success) return { success: false, err: 'Invalid video request.' };
+
+  if (provider !== 'openrouter') {
     return { success: false, err: 'Video generation requires an OpenRouter BYOK key.' };
   }
   try {
-    return await generateByokVideo({ model, apiKey, prompt, modelConfig, signal });
+    if (apiKey) {
+      return await generateByokVideo({
+        model,
+        apiKey,
+        prompt,
+        modelConfig,
+        inputReferences,
+        signal,
+      });
+    }
+    const token = await getToken();
+    const response = await axiosInstance.post('/video', requestBody.data, {
+      headers: { Authorization: `Bearer ${token}` },
+      validateStatus: () => true,
+      signal,
+    });
+    if (response.status < 200 || response.status >= 300 || !response.data) {
+      return {
+        success: false,
+        err: getErrorMessage(response.data, 'Video generation failed.'),
+        status: response.status,
+      };
+    }
+    return response.data;
   } catch (error) {
     if (signal?.aborted) throw error;
     return {

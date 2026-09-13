@@ -117,9 +117,19 @@ const useHandleChatResponse = () => {
     const { prompt, imageAttachments, thread, messages, config } = job;
     const { language } = config;
     const modelConfig = thread.settings.modelConfig;
-    const imageSize = 'size' in modelConfig ? modelConfig.size : config.imageSize;
-    const quality = 'quality' in modelConfig ? modelConfig.quality : 'standard';
-    const style = 'style' in modelConfig ? modelConfig.style : 'vivid';
+    const imageSize =
+      'size' in modelConfig && typeof modelConfig.size === 'string'
+        ? modelConfig.size
+        : config.imageSize;
+    const quality =
+      'quality' in modelConfig &&
+      (modelConfig.quality === 'standard' || modelConfig.quality === 'hd')
+        ? modelConfig.quality
+        : 'standard';
+    const style =
+      'style' in modelConfig && (modelConfig.style === 'vivid' || modelConfig.style === 'natural')
+        ? modelConfig.style
+        : 'vivid';
     const customInstructions = config.customInstructions || '';
     let isSharedApiRequest = true;
     const isImageModel =
@@ -137,12 +147,12 @@ const useHandleChatResponse = () => {
         isSharedApiRequest = false;
         throw new Error(`Add your ${provider} BYOK key before using this image model.`);
       }
-      if (isVideoModel && (!apiKey || provider !== 'openrouter')) {
+      if (isVideoModel && provider !== 'openrouter') {
         isSharedApiRequest = false;
-        throw new Error('Video generation is available only through an OpenRouter BYOK key.');
+        throw new Error('Video generation requires the OpenRouter provider.');
       }
       const hasConfiguredProvider = await isProviderConfigured(accountId, provider);
-      if (hasConfiguredProvider && !apiKey) {
+      if (hasConfiguredProvider && !apiKey && !isVideoModel) {
         isSharedApiRequest = false;
         throw new Error(`Unlock your ${provider} BYOK vault key before chatting.`);
       }
@@ -155,6 +165,8 @@ const useHandleChatResponse = () => {
           provider,
           apiKey,
           modelConfig,
+          inputReferences: imageAttachments,
+          getToken,
           signal,
         });
         if (!('url' in videoResponse)) {
@@ -190,6 +202,9 @@ const useHandleChatResponse = () => {
           size: imageSize,
           quality,
           style,
+          referenceImages: imageAttachments.filter((attachment) =>
+            attachment.mediaType.startsWith('image/')
+          ),
           getToken,
           apiKey,
           signal,
