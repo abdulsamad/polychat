@@ -80,6 +80,7 @@ const MessageContent = ({
   const isSelected = useAtomValue(selectedMessageAtom(id));
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressNextClick = useRef(false);
+  const isTouchInteraction = useRef(false);
   const showDetailedUsage = thread?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
   const isUser = role === 'user';
@@ -174,6 +175,7 @@ const MessageContent = ({
   };
 
   const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+    isTouchInteraction.current = event.pointerType !== 'mouse';
     if (event.pointerType === 'mouse' || isSelectionMode) return;
     longPressTimer.current = setTimeout(() => {
       suppressNextClick.current = true;
@@ -236,7 +238,11 @@ const MessageContent = ({
             onClickCapture={handleSelectionClickCapture}
             onClick={handleClick}
             onContextMenu={(event) => {
-              if (isSelectionMode) event.preventDefault();
+              if (isSelectionMode || isTouchInteraction.current) {
+                event.preventDefault();
+                event.stopPropagation();
+                clearLongPress();
+              }
             }}>
             <div
               className={clsx(
