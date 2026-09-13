@@ -59,6 +59,7 @@ const MessageContent = ({
   reasoning,
   image_url: image,
   imageAttachments,
+  fileAttachments,
   role,
   metadata: {
     model,
@@ -90,17 +91,25 @@ const MessageContent = ({
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
   const shareText = isImage
     ? image?.alt || image?.url || ''
-    : [content, ...(imageAttachments || []).map(({ name }) => name)].filter(Boolean).join('\n');
+    : [
+        content,
+        ...(imageAttachments || []).map(({ name }) => name),
+        ...(fileAttachments || []).map(({ name }) => name),
+      ]
+        .filter(Boolean)
+        .join('\n');
   const imageSource = isImage ? image?.url : imageAttachments?.[0]?.dataUrl;
 
   const getAttachmentFiles = async () =>
     Promise.all(
-      (imageAttachments || []).map(async ({ dataUrl, name, mediaType }) => {
+      [...(imageAttachments || []), ...(fileAttachments || [])].map(
+        async ({ dataUrl, name, mediaType }) => {
         const response = await fetch(dataUrl);
-        if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
+        if (!response.ok) throw new Error(`Attachment request failed: ${response.status}`);
         const blob = await response.blob();
         return new File([blob], name, { type: mediaType || blob.type });
-      })
+        }
+      )
     );
 
   const copyMessage = async () => {
@@ -300,6 +309,9 @@ const MessageContent = ({
                       />
                     )}
                     {imageAttachments?.map((attachment) => (
+                      <ImageAttachment key={attachment.id} attachment={attachment} compact />
+                    ))}
+                    {fileAttachments?.map((attachment) => (
                       <ImageAttachment key={attachment.id} attachment={attachment} compact />
                     ))}
                     {!isUser && finishReason === 'length' && (

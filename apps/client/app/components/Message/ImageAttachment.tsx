@@ -1,4 +1,4 @@
-import { FileTextIcon, ImageOffIcon, XIcon } from 'lucide-react';
+import { DownloadIcon, FileTextIcon, ImageOffIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { ImageAttachment as ImageAttachmentData } from 'utils';
@@ -70,6 +70,16 @@ const ImageAttachment = ({ attachment, compact = false, onRemove }: ImageAttachm
         <span className="shrink-0 text-xs text-muted-foreground">
           {formatBytes(attachment.size)}
         </span>
+        {attachment.dataUrl && (
+          <a
+            href={attachment.dataUrl}
+            download={attachment.name}
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            title={`Download ${attachment.name}`}
+            aria-label={`Download ${attachment.name}`}>
+            <DownloadIcon className="size-4" aria-hidden="true" />
+          </a>
+        )}
         {onRemove && (
           <Button
             type="button"

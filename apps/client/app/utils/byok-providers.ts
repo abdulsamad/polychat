@@ -129,6 +129,15 @@ export const streamByokText = async ({
           else if (part.type === 'reasoning-delta')
             controller.enqueue({ type: 'reasoning', text: part.text });
           else if (part.type === 'reasoning-end') controller.enqueue({ type: 'reasoning-end' });
+          else if (part.type === 'file')
+            controller.enqueue({
+              type: 'file',
+              file: {
+                base64: part.file.base64,
+                mediaType: part.file.mediaType,
+                name: `generated-file.${part.file.mediaType.split('/')[1] || 'bin'}`,
+              },
+            });
           else if (part.type === 'finish-step') {
             responseId = part.response.id;
             responseModelId = part.response.modelId;

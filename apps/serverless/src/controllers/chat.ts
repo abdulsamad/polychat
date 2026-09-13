@@ -28,6 +28,17 @@ const dataUrlByteLength = (dataUrl: string) => {
   return Math.max(0, Math.floor((encoded.length * 3) / 4) - padding);
 };
 
+const getGeneratedFileName = (mediaType: string) => {
+  const extensionByMediaType: Record<string, string> = {
+    'application/pdf': 'pdf',
+    'application/json': 'json',
+    'text/plain': 'txt',
+    'text/markdown': 'md',
+    'text/csv': 'csv',
+  };
+  return `generated-file.${extensionByMediaType[mediaType] || mediaType.split('/')[1] || 'bin'}`;
+};
+
 const toModelContent = (text: string, imageAttachments: ImageAttachment[] = []) => {
   if (!imageAttachments.length) return text;
 
@@ -208,6 +219,19 @@ const chat = async (c: Context<AppContext>) => {
               );
             } else if (part.type === 'reasoning-end') {
               streamController.enqueue(encoder.encode(`${JSON.stringify({ type: 'reasoning-end' })}\n`));
+            } else if (part.type === 'file') {
+              streamController.enqueue(
+                encoder.encode(
+                  `${JSON.stringify({
+                    type: 'file',
+                    file: {
+                      base64: part.file.base64,
+                      mediaType: part.file.mediaType,
+                      name: getGeneratedFileName(part.file.mediaType),
+                    },
+                  })}\n`
+                )
+              );
             } else if (part.type === 'finish-step') {
               responseId = part.response.id;
               responseModelId = part.response.modelId;

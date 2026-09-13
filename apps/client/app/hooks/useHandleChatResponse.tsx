@@ -233,6 +233,7 @@ const useHandleChatResponse = () => {
         const timestamp = getTime(new Date());
         let content = '';
         let reasoning = '';
+        let fileAttachments: NonNullable<IMessage['fileAttachments']> = [];
         let reasoningComplete = false;
         let responseMetadata: Extract<ChatStreamPart, { type: 'metadata' }> | undefined;
         let updateTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -243,7 +244,11 @@ const useHandleChatResponse = () => {
           if (reasoning) reasoningComplete = true;
 
           const emptyResponse =
-            !content.trim() && Boolean(responseMetadata) && !cancelled && finishReason !== 'error';
+            !content.trim() &&
+            !fileAttachments.length &&
+            Boolean(responseMetadata) &&
+            !cancelled &&
+            finishReason !== 'error';
 
           upsertThreadMessage({
             threadId: thread.id,
@@ -251,6 +256,7 @@ const useHandleChatResponse = () => {
               id: job.assistantMessageId,
               content,
               ...(reasoning ? { reasoning } : {}),
+              ...(fileAttachments.length ? { fileAttachments } : {}),
               metadata: {
                 model: thread.settings.model,
                 profile: thread.settings.profile,
@@ -288,6 +294,7 @@ const useHandleChatResponse = () => {
                 id: job.assistantMessageId,
                 content,
                 ...(reasoning ? { reasoning } : {}),
+                ...(fileAttachments.length ? { fileAttachments } : {}),
                 metadata: {
                   model: thread.settings.model,
                   timestamp,
@@ -320,7 +327,8 @@ const useHandleChatResponse = () => {
                 clearTimeout(updateTimeoutId);
                 updateTimeoutId = null;
               }
-              if (content || reasoning || responseMetadata) saveAssistantMessage('stop', true);
+              if (content || reasoning || fileAttachments.length || responseMetadata)
+                saveAssistantMessage('stop', true);
               return { status: 'cancelled' as const };
             }
 
@@ -355,6 +363,25 @@ const useHandleChatResponse = () => {
               if (reasoning) reasoningComplete = true;
               content += part.text;
               scheduleMessageUpdate();
+            } else if (part.type === 'file') {
+              const dataUrl = `data:${part.file.mediaType};base64,${part.file.base64}`;
+              const encodedSize = part.file.base64.length;
+              const padding = part.file.base64.endsWith('==')
+                ? 2
+                : part.file.base64.endsWith('=')
+                  ? 1
+                  : 0;
+              fileAttachments = [
+                ...fileAttachments,
+                {
+                  id: crypto.randomUUID(),
+                  name: part.file.name || 'generated-file',
+                  mediaType: part.file.mediaType,
+                  size: Math.max(0, Math.floor((encodedSize * 3) / 4) - padding),
+                  dataUrl,
+                },
+              ];
+              scheduleMessageUpdate();
             } else if (part.type === 'metadata') {
               responseMetadata = part;
             } else {
@@ -374,14 +401,16 @@ const useHandleChatResponse = () => {
           }
 
           if (!signal?.aborted) {
-            if (content || reasoning || responseMetadata) saveAssistantMessage('error');
+            if (content || reasoning || fileAttachments.length || responseMetadata)
+              saveAssistantMessage('error');
             throw error;
           }
 
           // Keep the generated portion visible after Stop. If the provider
           // finished before the abort reached the stream, retain its usage
           // and response details as well.
-          if (content || reasoning || responseMetadata) saveAssistantMessage('stop', true);
+        if (content || reasoning || fileAttachments.length || responseMetadata)
+          saveAssistantMessage('stop', true);
         }
 
         return { status: signal?.aborted ? ('cancelled' as const) : ('completed' as const) };

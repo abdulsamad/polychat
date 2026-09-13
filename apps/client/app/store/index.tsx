@@ -34,6 +34,7 @@ export interface IMessageCommons {
   role: 'assistant' | 'user';
   content: string; // URL or Text
   imageAttachments?: ImageAttachment[];
+  fileAttachments?: ImageAttachment[];
   metadata: {
     profile: null | profilesType; // null is for self
     timestamp: number;
