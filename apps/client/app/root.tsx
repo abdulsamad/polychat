@@ -22,6 +22,7 @@ import {
   unlockVault,
   isPrfSupported,
 } from '@/utils/byok-vault';
+import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 
 export const meta: MetaFunction = () => [
   { charSet: 'utf-8' },
@@ -81,6 +82,7 @@ const App = ({}: Route.ComponentProps) => {
 
 const VaultLockOverlay = () => {
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const [vaultExists, setVaultExists] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(false);
   const [resolvedVaultAccountId, setResolvedVaultAccountId] = useState<string | null>(null);
@@ -90,40 +92,29 @@ const VaultLockOverlay = () => {
   const [prfSupported, setPrfSupported] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) {
-      setVaultExists(false);
-      setVaultUnlocked(false);
-      setResolvedVaultAccountId(null);
-      setIsChecking(false);
-      return;
-    }
-
     let cancelled = false;
     const refresh = async () => {
       setIsChecking(true);
-      const exists = await hasVault(user.id);
+      const exists = await hasVault(accountId);
       if (cancelled) return;
       setVaultExists(exists);
-      setVaultUnlocked(isVaultUnlocked(user.id));
-      setResolvedVaultAccountId(user.id);
+      setVaultUnlocked(isVaultUnlocked(accountId));
+      setResolvedVaultAccountId(accountId);
       setIsChecking(false);
     };
 
     void refresh();
     return subscribeVault(() => void refresh());
-  }, [user?.id]);
+  }, [accountId]);
 
   useEffect(() => {
-    if (!user?.id) return;
     void isPrfSupported().then(setPrfSupported);
-  }, [user?.id]);
+  }, [accountId]);
 
   const handleUnlock = async () => {
-    if (!user?.id) return;
-
     setIsUnlocking(true);
     try {
-      await unlockVault(user.id, passphrase);
+      await unlockVault(accountId, passphrase);
       setPassphrase('');
       setVaultUnlocked(true);
       toast.success('BYOK vault unlocked');
@@ -136,21 +127,19 @@ const VaultLockOverlay = () => {
 
   const handleReset = async () => {
     if (
-      !user?.id ||
       !window.confirm('Reset the BYOK vault? Saved provider keys cannot be recovered.')
     ) {
       return;
     }
 
-    await resetVault(user.id);
+    await resetVault(accountId);
     setVaultExists(false);
     setVaultUnlocked(false);
     toast.success('BYOK vault reset');
   };
 
   if (
-    !user?.id ||
-    resolvedVaultAccountId !== user.id ||
+    resolvedVaultAccountId !== accountId ||
     !vaultExists ||
     vaultUnlocked
   ) {
@@ -227,10 +216,11 @@ const VaultLockOverlay = () => {
 
 const VaultLifecycle = () => {
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
 
   useEffect(() => {
-    setActiveAccount(user?.id ?? null);
-  }, [user?.id]);
+    setActiveAccount(accountId);
+  }, [accountId]);
 
   return null;
 };

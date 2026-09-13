@@ -10,6 +10,7 @@ import { editorAtom, threadAtom } from '@/store/index';
 import type { ImageAttachment } from 'utils';
 import { useAtomValue } from 'jotai';
 import { getProviderKey } from '@/utils/byok-vault';
+import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 import { useByokModelAvailability } from './useByokModelAvailability';
 
 import useSubmitMessage from './useSubmitMessage';
@@ -64,6 +65,7 @@ const useCustomEditor = () => {
   const [editorState, setEditorState] = useAtom(editorAtom);
   const thread = useAtomValue(threadAtom);
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const { findModel } = useByokModelAvailability();
   const [imageAttachments, setImageAttachments] = useState<ImageAttachment[]>([]);
   const { isChatLoading, isQueued, submitMessage, stopChat, cancelQueuedMessage } =
@@ -73,7 +75,7 @@ const useCustomEditor = () => {
   const canAttachImages = Boolean(selectedModel?.supportsVision);
   const canAttachFiles = Boolean(selectedModel?.supportsFiles);
   const isByok = Boolean(
-    user?.id && selectedModel?.provider && getProviderKey(user.id, selectedModel.provider)
+    selectedModel?.provider && getProviderKey(accountId, selectedModel.provider)
   );
 
   const addImageFiles = useCallback(

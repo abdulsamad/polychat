@@ -14,6 +14,7 @@ import {
   subscribeVault,
   type ByokProvider,
 } from '@/utils/byok-vault';
+import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 
 export type ModelOption = Omit<SupportedModel, 'name' | 'disabled'> & {
   name: string;
@@ -281,18 +282,13 @@ const imageModelNames = new Set(
 
 export const useByokModelAvailability = () => {
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const [vaultVersion, setVaultVersion] = useState(0);
   const [discoveredModels, setDiscoveredModels] = useState<ModelOption[]>([]);
 
   useEffect(() => subscribeVault(() => setVaultVersion((version) => version + 1)), []);
 
   useEffect(() => {
-    const accountId = user?.id;
-    if (!accountId) {
-      setDiscoveredModels([]);
-      return;
-    }
-
     const controller = new AbortController();
     const providers = getVaultSnapshot(accountId).providers as ByokProvider[];
 
@@ -309,7 +305,7 @@ export const useByokModelAvailability = () => {
     });
 
     return () => controller.abort();
-  }, [user?.id, vaultVersion]);
+  }, [accountId, vaultVersion]);
 
   const models = useMemo(() => {
     const catalogNames = new Set(catalogOptions.map(({ name }) => name));
@@ -326,20 +322,20 @@ export const useByokModelAvailability = () => {
       ...model,
       disabled:
         model.disabled ||
-        (model.type === 'image' && !getProviderKey(user?.id || '', model.provider)),
+        (model.type === 'image' && !getProviderKey(accountId, model.provider)),
     }));
-  }, [discoveredModels, user?.id, vaultVersion]);
+  }, [accountId, discoveredModels, vaultVersion]);
 
   const isModelAvailable = useCallback(
     (model: ModelOption) =>
-      Boolean(user?.id && getProviderKey(user.id, model.provider)) ||
+    Boolean(getProviderKey(accountId, model.provider)) ||
       (!model.isDiscovered && !model.disabled && !imageModelNames.has(model.name)),
-    [user?.id, vaultVersion]
+    [accountId, vaultVersion]
   );
 
   const isProviderAvailable = useCallback(
-    (provider: modelProviderType) => Boolean(user?.id && getProviderKey(user.id, provider)),
-    [user?.id, vaultVersion]
+    (provider: modelProviderType) => Boolean(getProviderKey(accountId, provider)),
+    [accountId, vaultVersion]
   );
 
   const findModel = useCallback(

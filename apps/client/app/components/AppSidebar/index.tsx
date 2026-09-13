@@ -54,7 +54,7 @@ const AppSidebar = () => {
   const navigate = useNavigate();
   const clerk = useClerk();
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { isSignedIn, signOut } = useAuth();
   const { setOpenMobile, isMobile } = useSidebar();
 
   const addNewChat = useCallback(() => {
@@ -137,6 +137,14 @@ const AppSidebar = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
+                    {!isSignedIn && (
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={() => void clerk.redirectToSignIn()}>
+                        <ArrowUpRightIcon className="mr-2 size-4" />
+                        Sign in
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       className="cursor-pointer"
                       onClick={() => setIsUserSettingsOpen(true)}>

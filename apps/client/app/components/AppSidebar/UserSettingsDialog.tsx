@@ -36,7 +36,7 @@ import {
   userSettingsScrollTargetAtom,
   type IThreadSettings,
 } from '@/store';
-import { clearLocalData, deleteAllChats, getUserSettings, setUserSettings } from '@/utils/lforage';
+import { clearLocalData, deleteAllChats, getAnonymousWorkspaceAccount, getUserSettings, setUserSettings } from '@/utils/lforage';
 import { abortAllStreams } from '@/utils/chat-stream-registry';
 import {
   createVault,
@@ -115,6 +115,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [scrollTarget, setScrollTarget] = useAtom(userSettingsScrollTargetAtom);
   const { theme, setTheme } = useTheme();
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const [threadSettings, setThreadSettings] = useState<IThreadSettings<enabledModelsType>>(
     () => getDefaultThread().settings
   );
@@ -161,23 +162,22 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   }, [open, scrollTarget, setScrollTarget]);
 
   const refreshVault = async () => {
-    if (!user?.id) return;
-    setVaultExists(await hasVault(user.id));
-    setVaultUnlocked(isVaultUnlocked(user.id));
+    setVaultExists(await hasVault(accountId));
+    setVaultUnlocked(isVaultUnlocked(accountId));
     const configured = await Promise.all(
-      byokProviders.map(async ({ id }) => ((await isProviderConfigured(user.id!, id)) ? id : null))
+      byokProviders.map(async ({ id }) => ((await isProviderConfigured(accountId, id)) ? id : null))
     );
     setConfiguredProviderIds(configured.filter((id): id is ByokProvider => id !== null));
   };
 
   useEffect(() => {
-    if (!open || !user?.id) return;
+    if (!open) return;
     void refreshVault();
     return subscribeVault(() => {
-      setVaultUnlocked(isVaultUnlocked(user.id));
-      void hasVault(user.id).then(setVaultExists);
+      setVaultUnlocked(isVaultUnlocked(accountId));
+      void hasVault(accountId).then(setVaultExists);
     });
-  }, [open, user?.id]);
+  }, [accountId, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -196,9 +196,9 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   }, [open, vaultExists, vaultUnlocked, isPrfSupportResolved, prfSupported]);
 
   const handleUnlock = async () => {
-    if (!user?.id) return;
+    if (!accountId) return;
     try {
-      await unlockVault(user.id, passphrase);
+      await unlockVault(accountId, passphrase);
       setPassphrase('');
       toast.success('BYOK vault unlocked');
     } catch (error) {
@@ -211,7 +211,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   };
 
   const handleSaveKey = async (persistent: boolean) => {
-    if (!user?.id || !apiKey.trim()) return;
+    if (!apiKey.trim()) return;
     try {
       if (persistent) {
         if (!vaultExists) {
@@ -219,7 +219,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             toast.error('Enter and confirm a vault passphrase.');
             return;
           }
-          await createVault(user.id, passphrase, provider, apiKey, prfSupported);
+          await createVault(accountId, passphrase, provider, apiKey, prfSupported);
           setPassphrase('');
           setConfirmPassphrase('');
         } else {
@@ -227,10 +227,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             toast.error('Unlock the vault before saving a provider key.');
             return;
           }
-          await saveProviderKey(user.id, provider, apiKey);
+          await saveProviderKey(accountId, provider, apiKey);
         }
       } else {
-        setSessionProviderKey(user.id, provider, apiKey);
+        setSessionProviderKey(accountId, provider, apiKey);
       }
       setApiKey('');
       await refreshVault();
@@ -254,15 +254,15 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   };
 
   const handleRemoveKey = (providerToRemove: ByokProvider) => {
-    if (!user?.id || !vaultUnlocked) return;
+    if (!vaultUnlocked) return;
     setProviderToRemove(providerToRemove);
   };
 
   const handleConfirmRemoveKey = async () => {
-    if (!user?.id || !vaultUnlocked || !providerToRemove) return;
+    if (!vaultUnlocked || !providerToRemove) return;
     setIsDangerActionPending(true);
     try {
-      await removeProviderKey(user.id, providerToRemove);
+      await removeProviderKey(accountId, providerToRemove);
       await refreshVault();
       toast.success('Provider key removed');
     } catch {
@@ -289,11 +289,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
 
   const handleResetVault = async () => {
     if (
-      !user?.id ||
       !window.confirm('Reset the BYOK vault? Saved provider keys cannot be recovered.')
     )
       return;
-    await resetVault(user.id);
+      await resetVault(accountId);
     setVaultExists(false);
     setVaultUnlocked(false);
     toast.success('BYOK vault reset');
@@ -318,7 +317,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     resetChatQueue();
     clearThreadMessages();
     await clearLocalData();
-    if (user?.id) await resetVault(user.id);
+    await resetVault(accountId);
     setConfig(defaultConfig);
     setThread(getDefaultThread());
     replaceMessages([]);
