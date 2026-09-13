@@ -110,6 +110,7 @@ const MessageSelectionBar = () => {
   const clearSelection = useSetAtom(clearSelectedMessagesAtom);
   const removeMessages = useSetAtom(removeThreadMessagesByIdAtom);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
   const selectedMessages = useMemo(
     () => messages.filter((message) => selectedIds.includes(message.id)),
     [messages, selectedIds]
@@ -206,7 +207,7 @@ const MessageSelectionBar = () => {
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <div className="flex items-center">
+          <div className="flex items-center overflow-hidden rounded-full border border-border/60 bg-muted/20">
             <Button
               type="button"
               variant="ghost"
@@ -223,7 +224,7 @@ const MessageSelectionBar = () => {
               <CopyIcon />
             </Button>
             {copyableItems.length > 0 && (
-              <DropdownMenu>
+              <DropdownMenu open={isCopyMenuOpen} onOpenChange={setIsCopyMenuOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
@@ -232,7 +233,11 @@ const MessageSelectionBar = () => {
                     className="size-10 rounded-l-none rounded-r-full border-l border-border/60 px-2"
                     aria-label="More copy options"
                     title="More copy options">
-                    <ChevronDownIcon className="size-4" />
+                    <ChevronDownIcon
+                      className={`size-4 transition-transform duration-200 ${
+                        isCopyMenuOpen ? 'rotate-0' : 'rotate-180'
+                      }`}
+                    />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-44">
