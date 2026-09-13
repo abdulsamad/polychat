@@ -20,6 +20,13 @@ export type SupportedModel = {
   supportsReasoning?: boolean;
 };
 
+export interface VideoModelCapabilities {
+  durations?: readonly number[];
+  resolutions?: readonly string[];
+  aspectRatios?: readonly string[];
+  generateAudio?: boolean;
+}
+
 export const modelProviders = [
   'google',
   'openai',
@@ -462,7 +469,11 @@ export const imageDimensions = (size: string): [number, number] => {
   return resolution > 0 ? [resolution * 1024, resolution * 1024] : [1024, 1024];
 };
 
-export const getDefaultModelConfig = (model: string, capabilities?: ImageModelCapabilities) => {
+export const getDefaultModelConfig = (
+  model: string,
+  capabilities?: ImageModelCapabilities,
+  videoCapabilities?: VideoModelCapabilities
+) => {
   if (supportedImageModels.some(({ name }) => name === model)) {
     const { default: size } = imageSizes(model, capabilities);
 
@@ -479,6 +490,15 @@ export const getDefaultModelConfig = (model: string, capabilities?: ImageModelCa
     )
   ) {
     return { size: imageSizes(model, capabilities).default };
+  }
+
+  if (videoCapabilities) {
+    return {
+      duration: videoCapabilities.durations?.[0] ?? 4,
+      resolution: videoCapabilities.resolutions?.[0] ?? '480p',
+      aspectRatio: videoCapabilities.aspectRatios?.[0] ?? '16:9',
+      generateAudio: videoCapabilities.generateAudio ?? false,
+    };
   }
 
   return { maxTokens: 3000, temperature: 0.5, topP: undefined };

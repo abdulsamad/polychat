@@ -257,11 +257,13 @@ export const generateByokVideo = async ({
   model,
   apiKey,
   prompt,
+  modelConfig,
   signal,
 }: {
   model: string;
   apiKey: string;
   prompt: string;
+  modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
 }) => {
   const headers = {
@@ -271,7 +273,17 @@ export const generateByokVideo = async ({
   const submitResponse = await fetch('https://openrouter.ai/api/v1/videos', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, prompt }),
+    body: JSON.stringify({
+      model,
+      prompt,
+      ...(modelConfig?.duration ? { duration: modelConfig.duration } : {}),
+      ...(modelConfig?.resolution ? { resolution: modelConfig.resolution } : {}),
+      ...(modelConfig?.aspectRatio ? { aspect_ratio: modelConfig.aspectRatio } : {}),
+      ...(modelConfig?.generateAudio !== undefined
+        ? { generate_audio: modelConfig.generateAudio }
+        : {}),
+      ...(modelConfig?.seed !== undefined ? { seed: modelConfig.seed } : {}),
+    }),
     signal,
   });
   if (!submitResponse.ok) throw new Error(`Video request failed: ${submitResponse.status}`);
@@ -357,11 +369,13 @@ export const generateByokVideo = async ({
   model,
   apiKey,
   prompt,
+  modelConfig,
   signal,
 }: {
   model: string;
   apiKey: string;
   prompt: string;
+  modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
 }) => {
   const headers = {
@@ -371,7 +385,17 @@ export const generateByokVideo = async ({
   const submitResponse = await fetch('https://openrouter.ai/api/v1/videos', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, prompt }),
+    body: JSON.stringify({
+      model,
+      prompt,
+      ...(modelConfig?.duration ? { duration: modelConfig.duration } : {}),
+      ...(modelConfig?.resolution ? { resolution: modelConfig.resolution } : {}),
+      ...(modelConfig?.aspectRatio ? { aspect_ratio: modelConfig.aspectRatio } : {}),
+      ...(modelConfig?.generateAudio !== undefined
+        ? { generate_audio: modelConfig.generateAudio }
+        : {}),
+      ...(modelConfig?.seed !== undefined ? { seed: modelConfig.seed } : {}),
+    }),
     signal,
   });
   if (!submitResponse.ok) throw new Error(`Video request failed: ${submitResponse.status}`);

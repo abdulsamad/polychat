@@ -44,7 +44,7 @@ const SettingsDropdown = () => {
   const [isThreadSettingsOpen, setThreadSettingsOpen] = useAtom(threadSettingsOpenAtom);
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setUserSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
-  const { models, imageModels, findModel, isProviderAvailable } = useByokModelAvailability();
+  const { models, findModel, isProviderAvailable } = useByokModelAvailability();
   const [pendingUserSettingsTarget, setPendingUserSettingsTarget] =
     useState<UserSettingsScrollTarget | null>(null);
 
@@ -87,7 +87,11 @@ const SettingsDropdown = () => {
             ? {
                 modelProvider: selectedModel?.provider,
                 modelType: selectedModel?.type,
-                modelConfig: getDefaultModelConfig(value, selectedModel?.imageCapabilities),
+                modelConfig: getDefaultModelConfig(
+                  value,
+                  selectedModel?.imageCapabilities,
+                  selectedModel?.videoCapabilities
+                ),
               }
             : {}),
         } as Parameters<typeof updateThreadSettings>[0]);
@@ -119,27 +123,38 @@ const SettingsDropdown = () => {
       modelConfig,
     },
   } = thread!;
-  const isImageModelSelected = imageModels.some(({ name }) => name === model);
-  const isDallE3Selected = model === 'dall-e-3';
   const selectedModel = findModel(model);
+  const modelType = selectedModel?.type || thread.settings.modelType || 'text';
+  const isImageModelSelected = modelType === 'image';
+  const isVideoModelSelected = modelType === 'video';
+  const isTextModelSelected = modelType === 'text';
+  const isDallE3Selected = model === 'dall-e-3';
   const isByokModelAvailable = Boolean(
     selectedModel && isProviderAvailable(selectedModel.provider)
   );
-  const imageSize = 'size' in modelConfig ? modelConfig.size : undefined;
+  const imageSize =
+    'size' in modelConfig && typeof modelConfig.size === 'string' ? modelConfig.size : undefined;
   const imageSizeConfig = imageSizes(model, selectedModel?.imageCapabilities);
   const selectedImageSize = imageSizeConfig.options.includes(imageSize || '')
     ? imageSize
     : imageSizeConfig.default;
+  const videoCapabilities = selectedModel?.videoCapabilities;
+  const durationOptions = videoCapabilities?.durations?.length
+    ? videoCapabilities.durations
+    : [4, 5, 6, 8, 10, 15];
+  const resolutionOptions = videoCapabilities?.resolutions?.length
+    ? videoCapabilities.resolutions
+    : ['480p', '720p', '1080p'];
+  const aspectRatioOptions = videoCapabilities?.aspectRatios?.length
+    ? videoCapabilities.aspectRatios
+    : ['16:9', '9:16', '1:1'];
   const updateModelConfig = (update: Record<string, unknown>) =>
     updateThreadSettings({ modelConfig: { ...modelConfig, ...update } } as Parameters<
       typeof updateThreadSettings
     >[0]);
 
   return (
-    <DropdownMenu
-      open={isThreadSettingsOpen}
-      onOpenChange={setThreadSettingsOpen}
-      modal={false}>
+    <DropdownMenu open={isThreadSettingsOpen} onOpenChange={setThreadSettingsOpen} modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
           <SlidersHorizontal className="size-[18px]" />
@@ -180,7 +195,7 @@ const SettingsDropdown = () => {
               />
             </div>
           </li>
-          {!isImageModelSelected && (
+          {isTextModelSelected && (
             <>
               <li>
                 <div className="flex flex-col space-y-2">
@@ -284,7 +299,11 @@ const SettingsDropdown = () => {
                     Quality
                   </label>
                   <Select
-                    value={'quality' in modelConfig ? modelConfig.quality : 'standard'}
+                    value={
+                      'quality' in modelConfig && typeof modelConfig.quality === 'string'
+                        ? modelConfig.quality
+                        : 'standard'
+                    }
                     onValueChange={(value) => updateModelConfig({ quality: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Quality" />
@@ -301,9 +320,13 @@ const SettingsDropdown = () => {
                   <label className="ml-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Style
                   </label>
-                    <Select
-                      value={'style' in modelConfig ? modelConfig.style : 'vivid'}
-                      onValueChange={(value) => updateModelConfig({ style: value })}>
+                  <Select
+                    value={
+                      'style' in modelConfig && typeof modelConfig.style === 'string'
+                        ? modelConfig.style
+                        : 'vivid'
+                    }
+                    onValueChange={(value) => updateModelConfig({ style: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Style" />
                     </SelectTrigger>
@@ -317,7 +340,95 @@ const SettingsDropdown = () => {
             </>
           )}
 
-          {!isImageModelSelected && (
+          {isVideoModelSelected && (
+            <li>
+              <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-3">
+                <div className="grid gap-1">
+                  <p className="text-sm font-medium">Video output</p>
+                  <p className="text-xs text-muted-foreground">
+                    Choose the clip settings supported by this model.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1 text-xs text-muted-foreground">
+                    Duration
+                    <Select
+                      value={String(modelConfig.duration ?? durationOptions[0])}
+                      onValueChange={(value) => updateModelConfig({ duration: Number(value) })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {durationOptions.map((value) => (
+                          <SelectItem key={value} value={String(value)}>
+                            {value}s
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                  <label className="grid gap-1 text-xs text-muted-foreground">
+                    Resolution
+                    <Select
+                      value={modelConfig.resolution ?? resolutionOptions[0]}
+                      onValueChange={(value) => updateModelConfig({ resolution: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {resolutionOptions.map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {value}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </label>
+                </div>
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  Aspect ratio
+                  <Select
+                    value={modelConfig.aspectRatio ?? aspectRatioOptions[0]}
+                    onValueChange={(value) => updateModelConfig({ aspectRatio: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {aspectRatioOptions.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/50 px-3 py-2 text-xs text-muted-foreground">
+                  Generate audio
+                  <Checkbox
+                    checked={modelConfig.generateAudio ?? videoCapabilities?.generateAudio ?? false}
+                    disabled={videoCapabilities?.generateAudio === false}
+                    onCheckedChange={(value) =>
+                      updateModelConfig({ generateAudio: value === true })
+                    }
+                  />
+                </label>
+                <label className="grid gap-1 text-xs text-muted-foreground">
+                  Seed (optional)
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={modelConfig.seed ?? ''}
+                    onChange={(event) =>
+                      updateModelConfig({ seed: Number(event.target.value) || undefined })
+                    }
+                  />
+                </label>
+              </div>
+            </li>
+          )}
+
+          {isTextModelSelected && (
             <li>
               <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-3">
                 <div className="grid gap-1">
@@ -376,7 +487,7 @@ const SettingsDropdown = () => {
             </li>
           )}
 
-          {IS_SPEECH_SYNTHESIS_SUPPORTED() && !isImageModelSelected && (
+          {IS_SPEECH_SYNTHESIS_SUPPORTED() && isTextModelSelected && (
             <li>
               <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
                 <div className="grid gap-1">
@@ -399,7 +510,7 @@ const SettingsDropdown = () => {
               </div>
             </li>
           )}
-          {!isImageModelSelected && (
+          {isTextModelSelected && (
             <>
               <DropdownMenuSeparator className="mx-0 my-0 bg-border/60" />
               <li>

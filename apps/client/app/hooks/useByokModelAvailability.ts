@@ -4,6 +4,7 @@ import { useUser } from '@clerk/react-router';
 import {
   supportedModels,
   type ImageModelCapabilities,
+  type VideoModelCapabilities,
   type SupportedModel,
   type modelProviderType,
 } from 'utils';
@@ -21,6 +22,7 @@ export type ModelOption = Omit<SupportedModel, 'name' | 'disabled'> & {
   disabled: boolean;
   isDiscovered?: boolean;
   imageCapabilities?: ImageModelCapabilities;
+  videoCapabilities?: VideoModelCapabilities;
 };
 
 interface VideoModelResponse {
@@ -163,10 +165,21 @@ const parseOpenRouterVideoModels = (response: VideoModelResponse): ModelOption[]
   (response.data || []).flatMap((entry) => {
     const modelId = getString(entry.id);
     if (!modelId) return [];
+    const getNumberArray = (value: unknown) =>
+      Array.isArray(value) && value.every((item) => typeof item === 'number') ? value : undefined;
+    const getStringArray = (value: unknown) =>
+      Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : undefined;
+    const videoCapabilities = {
+      durations: getNumberArray(entry.supported_durations),
+      resolutions: getStringArray(entry.supported_resolutions),
+      aspectRatios: getStringArray(entry.supported_aspect_ratios),
+      ...(typeof entry.generate_audio === 'boolean' ? { generateAudio: entry.generate_audio } : {}),
+    } satisfies VideoModelCapabilities;
     return [
       {
         ...toModelOption('openrouter', modelId, getString(entry.name)),
         type: 'video' as const,
+        videoCapabilities,
       },
     ];
   });
@@ -291,7 +304,9 @@ const fetchProviderModels = async (provider: ByokProvider, apiKey: string, signa
       signal,
     });
     if (videoResponse.ok) {
-      models.push(...parseOpenRouterVideoModels((await videoResponse.json()) as VideoModelResponse));
+      models.push(
+        ...parseOpenRouterVideoModels((await videoResponse.json()) as VideoModelResponse)
+      );
     }
   }
 
@@ -352,7 +367,7 @@ export const useByokModelAvailability = () => {
 
   const isModelAvailable = useCallback(
     (model: ModelOption) =>
-    Boolean(getProviderKey(accountId, model.provider)) ||
+      Boolean(getProviderKey(accountId, model.provider)) ||
       (!model.isDiscovered && !model.disabled && !imageModelNames.has(model.name)),
     [accountId, vaultVersion]
   );
@@ -367,12 +382,12 @@ export const useByokModelAvailability = () => {
     [models]
   );
 
-    return {
-      models,
-      textModels: models.filter(({ type }) => type === 'text'),
-      imageModels: models.filter(({ type }) => type === 'image'),
-      videoModels: models.filter(({ type }) => type === 'video'),
-      findModel,
+  return {
+    models,
+    textModels: models.filter(({ type }) => type === 'text'),
+    imageModels: models.filter(({ type }) => type === 'image'),
+    videoModels: models.filter(({ type }) => type === 'video'),
+    findModel,
     isModelAvailable,
     isProviderAvailable,
   };

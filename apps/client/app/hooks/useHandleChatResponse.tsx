@@ -154,6 +154,7 @@ const useHandleChatResponse = () => {
           model: thread.settings.model,
           provider,
           apiKey,
+          modelConfig,
           signal,
         });
         if (!('url' in videoResponse)) {

@@ -233,6 +233,10 @@ export interface IBaseModelConfig {
   seed?: number;
   frequencyPenalty?: number;
   presencePenalty?: number;
+  duration?: number;
+  resolution?: string;
+  aspectRatio?: string;
+  generateAudio?: boolean;
 }
 
 // Base types for different model categories

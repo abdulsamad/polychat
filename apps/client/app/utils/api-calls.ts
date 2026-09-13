@@ -287,19 +287,31 @@ export const getGeneratedVideo = async ({
   model,
   provider,
   apiKey,
+  modelConfig,
   signal,
 }: {
   prompt: string;
   model: enabledModelsType;
   provider?: modelProviderType;
   apiKey?: string;
+  modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
-}): Promise<{ url: string; mediaType: string; size: number } | ErrorType> => {
+}): Promise<
+  | {
+      url: string;
+      mediaType: string;
+      size: number;
+      sourceUrl?: string;
+      thumbnail?: string;
+      status?: 'generating' | 'ready' | 'expired' | 'failed';
+    }
+  | ErrorType
+> => {
   if (provider !== 'openrouter' || !apiKey) {
     return { success: false, err: 'Video generation requires an OpenRouter BYOK key.' };
   }
   try {
-    return await generateByokVideo({ model, apiKey, prompt, signal });
+    return await generateByokVideo({ model, apiKey, prompt, modelConfig, signal });
   } catch (error) {
     if (signal?.aborted) throw error;
     return {
