@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 
 interface IEmpty {
   name: string;
+  showHints: boolean;
 }
 
 const emptyTips = [
@@ -43,7 +44,7 @@ const emptyTips = [
   },
 ] as const;
 
-const Empty = ({ name }: IEmpty) => {
+const Empty = ({ name, showHints }: IEmpty) => {
   const thread = useAtomValue(threadAtom);
   const profile = thread?.settings.profile;
   const setThreadSettingsOpen = useSetAtom(threadSettingsOpenAtom);
@@ -86,8 +87,8 @@ const Empty = ({ name }: IEmpty) => {
             <blockquote className="mx-auto mt-6 mb-3 max-w-2xl text-muted-foreground italic">
               {description}
             </blockquote>
-            <h3 className="my-3 font-semibold">Try a prompt</h3>
-            <div className="grid gap-2 sm:grid-cols-2">
+        {showHints && <h3 className="my-3 font-semibold">Try a prompt</h3>}
+        {showHints && <div className="grid gap-2 sm:grid-cols-2">
               {hints.map((hint) => (
                 <Button
                   key={hint}
@@ -100,10 +101,10 @@ const Empty = ({ name }: IEmpty) => {
                   </p>
                 </Button>
               ))}
-            </div>
+        </div>}
           </>
         )}
-        <p className="mx-auto mt-10 max-w-2xl border-t border-border/60 px-4 pt-4 text-xs leading-5 text-muted-foreground/80 sm:text-sm">
+        {showHints && <p className="mx-auto mt-10 max-w-2xl border-t border-border/60 px-4 pt-4 text-xs leading-5 text-muted-foreground/80 sm:text-sm">
           Tip: {tip.before}
           <Button
             type="button"
@@ -121,7 +122,7 @@ const Empty = ({ name }: IEmpty) => {
             {tip.link}
           </Button>
           {tip.after}
-        </p>
+        </p>}
       </div>
     </div>
   );

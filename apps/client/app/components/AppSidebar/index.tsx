@@ -104,8 +104,8 @@ const AppSidebar = () => {
                     size="lg"
                     className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group/sidebar-footer">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user?.imageUrl} alt={getName(user)} />
-                      <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                      <AvatarImage src={user?.imageUrl || '/user.svg'} alt={getName(user)} />
+                      <AvatarFallback className="rounded-lg">U</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-semibold">{getName(user)}</span>
@@ -124,8 +124,8 @@ const AppSidebar = () => {
                   <DropdownMenuLabel className="p-0 font-normal">
                     <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                       <Avatar className="h-8 w-8 rounded-lg">
-                        <AvatarImage src={user?.imageUrl} alt={user?.fullName || 'User'} />
-                        <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                        <AvatarImage src={user?.imageUrl || '/user.svg'} alt={user?.fullName || 'User'} />
+                        <AvatarFallback className="rounded-lg">U</AvatarFallback>
                       </Avatar>
                       <div className="grid flex-1 text-left text-sm leading-tight">
                         <span className="truncate font-semibold">{getName(user)}</span>
@@ -151,30 +151,36 @@ const AppSidebar = () => {
                       <SettingsIcon className="mr-2 size-4" />
                       Settings
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={clerk.redirectToUserProfile}>
-                      <UserRoundPenIcon className="size-4 mr-2" />
-                      My Profile
-                      <ArrowUpRightIcon className="size-4 ml-auto mr-1" />
-                    </DropdownMenuItem>
+                    {isSignedIn && (
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={clerk.redirectToUserProfile}>
+                        <UserRoundPenIcon className="size-4 mr-2" />
+                        My Profile
+                        <ArrowUpRightIcon className="size-4 ml-auto mr-1" />
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={async () => {
-                      abortAllStreams();
-                      resetChatQueue();
-                      try {
-                        await waitForPersistence();
-                      } catch (error) {
-                        console.error('Failed to finish saving before logout', error);
-                      }
-                      setActiveAccount(null);
-                      await signOut({ redirectUrl: window.location.origin });
-                    }}>
-                    <LogOutIcon />
-                    Log out
-                  </DropdownMenuItem>
+                  {isSignedIn && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          abortAllStreams();
+                          resetChatQueue();
+                          try {
+                            await waitForPersistence();
+                          } catch (error) {
+                            console.error('Failed to finish saving before logout', error);
+                          }
+                          setActiveAccount(null);
+                          await signOut({ redirectUrl: window.location.origin });
+                        }}>
+                        <LogOutIcon />
+                        Log out
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </SidebarMenuItem>

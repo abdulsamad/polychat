@@ -46,7 +46,7 @@ export const IS_SPEECH_RECOGNITION_SUPPORTED = () =>
 export const IS_SPEECH_SYNTHESIS_SUPPORTED = () => isClient && 'speechSynthesis' in window;
 
 export const getName = (user: ReturnType<typeof useUser>['user']) => {
-  if (!user) return 'Anon';
+  if (!user) return 'User';
 
   return user?.fullName || user.firstName || user.emailAddresses[0].emailAddress.split('@')[0];
 };

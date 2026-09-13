@@ -84,6 +84,7 @@ const MessageContent = ({
   const showDetailedUsage = thread?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
   const isUser = role === 'user';
+  const displayModel = thread?.metadata.isDemo ? 'Model' : model;
 
   useEffect(() => clearLongPress, []);
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
@@ -273,7 +274,7 @@ const MessageContent = ({
                 )}
                 {/* Image or Message */}
                 {isImage && image && image.size ? (
-                  <Image key={image.url} image={image} model={model} />
+                  <Image key={image.url} image={image} model={displayModel} />
                 ) : (
                   <div
                     className={clsx(
@@ -378,11 +379,11 @@ const MessageContent = ({
                   ) : (
                     <span>Finish: {finishReason}</span>
                   ))}
-                {!isUser && showDetailedUsage && usage && model && <span className="basis-full" />}
-                {!isUser && !showDetailedUsage && usage && model && ' · '}
-                {!isUser && model && (
+                {!isUser && showDetailedUsage && usage && displayModel && <span className="basis-full" />}
+                {!isUser && !showDetailedUsage && usage && displayModel && ' · '}
+                {!isUser && displayModel && (
                   <span className="min-w-0 max-w-full break-words text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
-                    {model}
+                    {displayModel}
                   </span>
                 )}
                 {!isUser && cancelled && (

@@ -62,6 +62,56 @@ export const createDemoWorkspace = (): { threads: IThreads; messages: Record<str
             'First identify the useful criteria: the routine should be sustainable, energizing, and focused. Then turn those criteria into a few practical steps.',
         }
       ),
+      message(
+        'demo-formatting-user',
+        'user',
+        'Can you show me the formatting and code features you support?',
+        now - 6_000
+      ),
+      message(
+        'demo-formatting-assistant',
+        'assistant',
+        `## Formatting showcase
+
+You can use **bold text**, *italics*, and \`inline code\` in a response.
+
+> A short quote can highlight an important idea without interrupting the flow.
+
+Here is a useful checklist:
+
+- Headings and paragraphs
+- Ordered and unordered lists
+- Links and inline code
+
+Run this command in your terminal:
+
+\`\`\`bash
+pnpm --filter client run typecheck
+\`\`\`
+
+\`src/example.ts\`
+\`\`\`ts
+type Greeting = {
+  message: string;
+};
+
+const greeting: Greeting = { message: 'Hello, PolyChat!' };
+console.log(greeting.message);
+\`\`\`
+
+| Feature | Supported |
+| --- | :---: |
+| Markdown | Yes |
+| Tables | Yes |
+| Code blocks | Yes |
+
+That gives you a quick view of the main rich message formats available in the chat.`,
+        now - 4_000,
+        {
+          reasoning:
+            'I will group the examples by the kinds of content the renderer supports: text styles, block elements, commands, code, and tabular data. This keeps the demo easy to scan while exercising each renderer path.',
+        }
+      ),
     ],
     3_000
   );
@@ -104,7 +154,7 @@ export const createDemoWorkspace = (): { threads: IThreads; messages: Record<str
       message(
         'demo-files-assistant',
         'assistant',
-        'This document is ready to be summarized, searched, or discussed. Attach a PDF, document, or text file in a new chat and ask me what you want to find.',
+        'This is an image and extracted text of a standard sample PDF file used for testing purposes.\n\nIt contains:\n* A title: "Sample PDF"\n* A subtitle: "This is a simple PDF file. Fun fun fun."\n* Placeholder text: Standard "Lorem ipsum" dummy text, which is commonly used in publishing and graphic design to demonstrate the visual form of a document without relying on meaningful content.',
         now - 38_000
       ),
     ],

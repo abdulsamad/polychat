@@ -314,12 +314,14 @@ const ThreadsList = () => {
                                   <AlertCircleIcon aria-label="Response failed" className="size-3.5 shrink-0 text-destructive" />
                                 )}
                                 <p
-                                  className="min-w-0 flex-1 truncate text-left w-[calc(var(--sidebar-width)-4rem)] text-sm"
+                                  className="min-w-0 flex-1 truncate text-left text-sm"
                                   title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
                                   {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
                                 </p>
                                 {isDemo && (
-                                  <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                                  <Badge
+                                    variant="secondary"
+                                    className="min-w-0 max-w-14 shrink truncate px-1.5 py-0 text-[10px]">
                                     Demo
                                   </Badge>
                                 )}

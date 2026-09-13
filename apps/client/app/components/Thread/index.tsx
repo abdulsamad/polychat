@@ -15,6 +15,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSidebar } from '@/components/ui/sidebar';
 import Message from '@/components/Message';
 import { getName } from '@/utils';
+import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
+import { getVaultSnapshot } from '@/utils/byok-vault';
 import { profiles } from 'utils';
 import { supportedImageModels } from 'utils';
 
@@ -44,6 +46,9 @@ const Thread = ({ className }: ThreadProps) => {
   const chatError = useAtomValue(threadChatErrorsAtom)[thread?.id || ''];
   const queuedJob = useAtomValue(threadQueuedJobAtom);
   const { user } = useUser();
+  const showHints = Boolean(
+    user?.id || getVaultSnapshot(user?.id ?? getAnonymousWorkspaceAccount()).providers.length > 0
+  );
   const hasMessages = messages.length > 0;
   const shouldStickToBottom = useRef(true);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -214,17 +219,22 @@ const Thread = ({ className }: ThreadProps) => {
     (profile: string | null): UserInfo => ({
       user: {
         name: getName(user),
-        avatarImageSrc: user?.imageUrl!,
+        avatarImageSrc: user?.imageUrl || '/user.svg',
         messageClassNames:
           'border-primary bg-primary text-primary-foreground shadow-[0_10px_28px_hsl(var(--primary)/0.18)]',
       },
       assistant: {
         name: profiles.find((item) => item.code === profile)?.text || 'Assistant',
-        avatarImageSrc: profile === 'custom' ? '/polychat-mark.png' : `/icons/${profile}.png`,
+        avatarImageSrc:
+          thread?.metadata.isDemo || profile === null || profile === undefined
+            ? '/icons/normal.png'
+            : profile === 'custom'
+              ? '/polychat-mark.png'
+              : `/icons/${profile}.png`,
         messageClassNames: 'border-border/80 bg-card/80 text-card-foreground shadow-sm',
       },
     }),
-    [user]
+    [thread, user]
   );
   const isImageModel =
     thread?.settings.modelType === 'image' ||
@@ -274,7 +284,7 @@ const Thread = ({ className }: ThreadProps) => {
             <div ref={bottomSentinelRef} aria-hidden="true" className="h-1" />
           </>
         ) : (
-          <Empty name={getName(user)} />
+          <Empty name={getName(user)} showHints={showHints} />
         )}
       </div>
     </ScrollArea>
