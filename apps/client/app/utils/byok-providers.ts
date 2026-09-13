@@ -230,8 +230,7 @@ export const generateByokImage = async ({
     providerOptions: providerName === 'openai' ? { openai: { style, quality } } : undefined,
   });
   const providerMetadata = result.providerMetadata as
-    | { openai?: { images?: Array<{ revisedPrompt?: unknown }> } }
-    | undefined;
+    { openai?: { images?: Array<{ revisedPrompt?: unknown }> } } | undefined;
   const revisedPrompt = providerMetadata?.openai?.images?.[0]?.revisedPrompt;
 
   return {
@@ -325,6 +324,35 @@ interface OpenRouterVideoJob {
   error?: { message?: string } | string;
 }
 
+const createVideoThumbnail = async (blob: Blob) => {
+  const objectUrl = URL.createObjectURL(blob);
+  const video = document.createElement('video');
+  video.preload = 'metadata';
+  video.muted = true;
+  video.src = objectUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadeddata = () => resolve();
+      video.onerror = () => reject(new Error('Video thumbnail could not be created'));
+    });
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 360;
+    const scale = Math.min(1, 640 / width);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(width * scale));
+    canvas.height = Math.max(1, Math.round(height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas is not available');
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.78);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+    video.removeAttribute('src');
+    video.load();
+  }
+};
+
 export const generateByokVideo = async ({
   model,
   apiKey,
@@ -375,14 +403,18 @@ export const generateByokVideo = async ({
     job = (await statusResponse.json()) as OpenRouterVideoJob;
   }
 
-  const contentUrl = job.unsigned_urls?.[0] ||
-    `https://openrouter.ai/api/v1/videos/${job.id}/content?index=0`;
+  const contentUrl =
+    job.unsigned_urls?.[0] || `https://openrouter.ai/api/v1/videos/${job.id}/content?index=0`;
   const contentResponse = await fetch(contentUrl, { headers, signal });
   if (!contentResponse.ok) throw new Error(`Video download failed: ${contentResponse.status}`);
   const blob = await contentResponse.blob();
+  const thumbnail = await createVideoThumbnail(blob).catch(() => undefined);
   return {
     url: URL.createObjectURL(blob),
+    sourceUrl: contentUrl,
+    ...(thumbnail ? { thumbnail } : {}),
     mediaType: blob.type || 'video/mp4',
     size: blob.size,
+    status: 'ready' as const,
   };
 };

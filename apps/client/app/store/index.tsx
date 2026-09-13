@@ -72,7 +72,15 @@ export interface IImageMessage {
 
 export interface IVideoMessage {
   type: 'video_url';
-  video_url: { url: string; mediaType: string; size: number };
+  video_url: {
+    url: string;
+    mediaType: string;
+    size: number;
+    sourceUrl?: string;
+    thumbnail?: string;
+    status?: 'generating' | 'ready' | 'expired' | 'failed';
+    expiresAt?: number;
+  };
 }
 
 export type IMessage = IMessageCommons & (ITextMessage | IImageMessage | IVideoMessage);
@@ -370,6 +378,30 @@ export const enqueueChatJobAtom = atom(null, (get, set, job: ChatJob) => {
       type: 'text',
     },
   });
+  if (job.thread.settings.modelType === 'video') {
+    set(upsertThreadMessageAtom, {
+      threadId: job.threadId,
+      message: {
+        id: job.assistantMessageId,
+        role: 'assistant',
+        content: '',
+        type: 'video_url',
+        video_url: {
+          url: '',
+          mediaType: 'video/mp4',
+          size: 0,
+          status: 'generating',
+        },
+        metadata: {
+          model: job.thread.settings.model,
+          profile: job.thread.settings.profile,
+          timestamp: job.createdAt,
+          requestId: job.id,
+          requestState: activeJob || queuedJobs.length ? 'queued' : 'streaming',
+        },
+      },
+    });
+  }
   set(queuedChatJobsAtom, [...queuedJobs, job]);
   return true;
 });
@@ -519,13 +551,28 @@ export const messageSaveEffect = atomEffect((get, set) => {
   if (!workspaceReady) return;
 
   void enqueuePersistence(async () => {
-      const persistedMessages = Object.fromEntries(
-        Object.entries(messagesByThread).map(([threadId, messages]) => [
-          threadId,
-          messages.filter((message) => message.type !== 'video_url'),
-        ])
-      );
-      await setMessages(persistedMessages);
+    const persistedMessages = Object.fromEntries(
+      Object.entries(messagesByThread).map(([threadId, messages]) => [
+        threadId,
+        messages
+          .filter(
+            (message) =>
+              !(message.type === 'video_url' && message.video_url.status === 'generating')
+          )
+          .map((message) => {
+            if (message.type !== 'video_url') return message;
+            const { sourceUrl, ...video } = message.video_url;
+            return {
+              ...message,
+              video_url: {
+                ...video,
+                ...(sourceUrl ? { url: sourceUrl } : {}),
+              },
+            };
+          }),
+      ])
+    );
+    await setMessages(persistedMessages);
   }).catch((err) => console.error('Failed to save messages', err));
 });
 

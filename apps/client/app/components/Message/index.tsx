@@ -42,6 +42,7 @@ import Image from './Image';
 import Text from './Text';
 import ImageAttachment from './ImageAttachment';
 import ReasoningCollapsible from './ReasoningCollapsible';
+import Video from './Video';
 
 interface ExtraProps extends IMessageCommons {
   message?: ITextMessage;
@@ -103,23 +104,23 @@ const MessageContent = ({
     ? image?.alt || image?.url || ''
     : isVideo
       ? 'Generated video'
-    : [
-        content,
-        ...(imageAttachments || []).map(({ name }) => name),
-        ...(fileAttachments || []).map(({ name }) => name),
-      ]
-        .filter(Boolean)
-        .join('\n');
+      : [
+          content,
+          ...(imageAttachments || []).map(({ name }) => name),
+          ...(fileAttachments || []).map(({ name }) => name),
+        ]
+          .filter(Boolean)
+          .join('\n');
   const imageSource = isImage ? image?.url : imageAttachments?.[0]?.dataUrl;
 
   const getAttachmentFiles = async () =>
     Promise.all(
       [...(imageAttachments || []), ...(fileAttachments || [])].map(
         async ({ dataUrl, name, mediaType }) => {
-        const response = await fetch(dataUrl);
-        if (!response.ok) throw new Error(`Attachment request failed: ${response.status}`);
-        const blob = await response.blob();
-        return new File([blob], name, { type: mediaType || blob.type });
+          const response = await fetch(dataUrl);
+          if (!response.ok) throw new Error(`Attachment request failed: ${response.status}`);
+          const blob = await response.blob();
+          return new File([blob], name, { type: mediaType || blob.type });
         }
       )
     );
@@ -246,13 +247,13 @@ const MessageContent = ({
             }}
             className={clsx(
               'chat relative flex w-full min-w-0 scroll-mb-10 select-none transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
-                'my-5 rounded-2xl',
-          isSelected && 'chat-selection-highlight',
+              'my-5 rounded-2xl',
+              isSelected && 'chat-selection-highlight',
               chatOrigin,
               isUser ? 'pr-2 sm:pr-0' : 'pl-2 sm:pl-0'
             )}
-        data-type={type}
-        data-selected={isSelected ? 'true' : undefined}
+            data-type={type}
+            data-selected={isSelected ? 'true' : undefined}
             onPointerDown={handlePointerDown}
             onPointerUp={clearLongPress}
             onPointerCancel={clearLongPress}
@@ -277,7 +278,7 @@ const MessageContent = ({
                   isUser && 'flex-row-reverse'
                 )}>
                 {/* Name and User or Profile Image */}
-          {!isImage && !isVideo && (
+                {!isImage && !isVideo && (
                   <div className="flex w-9 shrink-0 flex-col items-center justify-center gap-1 sm:w-14">
                     <div className="size-8 overflow-hidden rounded-full border border-border bg-muted sm:size-10">
                       <img
@@ -294,23 +295,21 @@ const MessageContent = ({
                   </div>
                 )}
                 {/* Image or Message */}
-          {isImage && image && image.size ? (
-            <Image key={image.url} image={image} model={displayModel} />
-          ) : isVideo && video ? (
-            <div className="flex w-full max-w-[52rem] flex-col gap-2">
-              <video
-                className="max-h-[min(70vh,40rem)] w-full rounded-xl border border-border bg-muted object-contain"
-                src={video.url}
-                controls
-                playsInline
-                preload="metadata"
-              />
-              <p className="text-xs text-muted-foreground">
-                This video is available only in this session. Download it if you want to keep a
-                copy.
-              </p>
-            </div>
-          ) : (
+                {isImage && image && image.size ? (
+                  <Image key={image.url} image={image} model={displayModel} />
+                ) : isVideo && video ? (
+                  <Video
+                    id={id}
+                    video={video}
+                    model={model}
+                    threadId={thread?.id || ''}
+                    metadata={{
+                      model,
+                      profile: thread?.settings.profile || null,
+                      timestamp: Date.now(),
+                    }}
+                  />
+                ) : (
                   <div
                     className={clsx(
                       'flex min-w-0 flex-col gap-2',
@@ -417,7 +416,9 @@ const MessageContent = ({
                   ) : (
                     <span>Finish: {finishReason}</span>
                   ))}
-                {!isUser && showDetailedUsage && usage && displayModel && <span className="basis-full" />}
+                {!isUser && showDetailedUsage && usage && displayModel && (
+                  <span className="basis-full" />
+                )}
                 {!isUser && !showDetailedUsage && usage && displayModel && ' · '}
                 {!isUser && displayModel && (
                   <span className="min-w-0 max-w-full break-words text-[11px] text-muted-foreground [overflow-wrap:anywhere]">

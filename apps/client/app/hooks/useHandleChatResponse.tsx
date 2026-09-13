@@ -452,8 +452,8 @@ const useHandleChatResponse = () => {
           // Keep the generated portion visible after Stop. If the provider
           // finished before the abort reached the stream, retain its usage
           // and response details as well.
-        if (content || reasoning || fileAttachments.length || responseMetadata)
-          saveAssistantMessage('stop', true);
+          if (content || reasoning || fileAttachments.length || responseMetadata)
+            saveAssistantMessage('stop', true);
         }
 
         return { status: signal?.aborted ? ('cancelled' as const) : ('completed' as const) };
@@ -462,6 +462,26 @@ const useHandleChatResponse = () => {
       if (signal?.aborted) return { status: 'cancelled' as const };
 
       console.error(err);
+
+      if (isVideoModel) {
+        upsertThreadMessage({
+          threadId: thread.id,
+          message: {
+            id: job.assistantMessageId,
+            content: '',
+            role: 'assistant',
+            type: 'video_url',
+            video_url: { url: '', mediaType: 'video/mp4', size: 0, status: 'failed' },
+            metadata: {
+              model: thread.settings.model,
+              profile: thread.settings.profile,
+              timestamp: getTime(new Date()),
+              requestId: job.id,
+              requestState: 'failed',
+            },
+          },
+        });
+      }
 
       if (axios.isAxiosError(err)) {
         const message =
