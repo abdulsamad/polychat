@@ -112,16 +112,16 @@ const ThreadsList = () => {
         return;
       }
 
-        const { remainingMessages, nextThreads } = await enqueuePersistence(async () => {
-          const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
-          const remainingMessages = { ...(messages || {}) };
-          const targetThread = (storedThreads || []).find(({ id }) => id === threadId);
-          const deletedIds = targetThread?.metadata.isDemo && deleteAllDemo
-            ? (storedThreads || []).filter((thread) => thread.metadata.isDemo).map(({ id }) => id)
-            : [threadId];
-          deletedIds.forEach((id) => delete remainingMessages[id]);
-          const deletedIdSet = new Set(deletedIds);
-          const nextThreads = (storedThreads || []).filter(({ id }) => !deletedIdSet.has(id));
+      const { remainingMessages, nextThreads } = await enqueuePersistence(async () => {
+        const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
+        const remainingMessages = { ...(messages || {}) };
+        const targetThread = (storedThreads || []).find(({ id }) => id === threadId);
+        const deletedIds = targetThread?.metadata.isDemo && deleteAllDemo
+          ? (storedThreads || []).filter((thread) => thread.metadata.isDemo).map(({ id }) => id)
+          : [threadId];
+        deletedIds.forEach((id) => delete remainingMessages[id]);
+        const deletedIdSet = new Set(deletedIds);
+        const nextThreads = (storedThreads || []).filter(({ id }) => !deletedIdSet.has(id));
 
         await Promise.all([setMessages(remainingMessages), setStoredThreads(nextThreads)]);
 
@@ -297,7 +297,7 @@ const ThreadsList = () => {
                                   className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-sidebar-primary"
                                 />
                               )}
-                              <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                              <span className="flex min-w-0 w-60 flex-1 items-center gap-2 overflow-hidden">
                                 {activity?.state === 'streaming' && (
                                   <span
                                     aria-label="Generating response"
