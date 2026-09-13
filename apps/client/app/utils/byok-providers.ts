@@ -244,3 +244,145 @@ export const generateByokImage = async ({
     },
   };
 };
+
+/*
+interface OpenRouterVideoJob {
+  id: string;
+  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'expired';
+  polling_url?: string;
+  unsigned_urls?: string[];
+  error?: { message?: string } | string;
+}
+
+export const generateByokVideo = async ({
+  model,
+  apiKey,
+  prompt,
+  signal,
+}: {
+  model: string;
+  apiKey: string;
+  prompt: string;
+  signal?: AbortSignal;
+}) => {
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  const submitResponse = await fetch('https://openrouter.ai/api/v1/videos', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model, prompt }),
+    signal,
+  });
+  if (!submitResponse.ok) throw new Error(`Video request failed: ${submitResponse.status}`);
+
+  let job = (await submitResponse.json()) as OpenRouterVideoJob;
+  const pollingUrl = new URL(
+    job.polling_url || `/api/v1/videos/${job.id}`,
+    'https://openrouter.ai'
+  ).toString();
+  const deadline = Date.now() + 10 * 60 * 1000;
+
+  while (job.status !== 'completed') {
+    if (signal?.aborted) throw new DOMException('Video generation cancelled', 'AbortError');
+    if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'expired') {
+      const error = typeof job.error === 'string' ? job.error : job.error?.message;
+      throw new Error(error || `Video generation ${job.status}`);
+    }
+    if (Date.now() >= deadline) throw new Error('Video generation timed out.');
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(resolve, 3000);
+      signal?.addEventListener(
+        'abort',
+        () => {
+          window.clearTimeout(timeout);
+          reject(new DOMException('Video generation cancelled', 'AbortError'));
+        },
+        { once: true }
+      );
+    });
+    const statusResponse = await fetch(pollingUrl, { headers, signal });
+    if (!statusResponse.ok) throw new Error(`Video status failed: ${statusResponse.status}`);
+    job = (await statusResponse.json()) as OpenRouterVideoJob;
+  }
+
+  const contentUrl =
+    job.unsigned_urls?.[0] ||
+    `https://openrouter.ai/api/v1/videos/${job.id}/content?index=0`;
+  const contentResponse = await fetch(contentUrl, { headers, signal });
+  if (!contentResponse.ok) throw new Error(`Video download failed: ${contentResponse.status}`);
+  const blob = await contentResponse.blob();
+  return { url: URL.createObjectURL(blob), mediaType: blob.type || 'video/mp4', size: blob.size };
+};
+*/
+
+interface OpenRouterVideoJob {
+  id: string;
+  status?: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'expired';
+  polling_url?: string;
+  unsigned_urls?: string[];
+  error?: { message?: string } | string;
+}
+
+export const generateByokVideo = async ({
+  model,
+  apiKey,
+  prompt,
+  signal,
+}: {
+  model: string;
+  apiKey: string;
+  prompt: string;
+  signal?: AbortSignal;
+}) => {
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  const submitResponse = await fetch('https://openrouter.ai/api/v1/videos', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model, prompt }),
+    signal,
+  });
+  if (!submitResponse.ok) throw new Error(`Video request failed: ${submitResponse.status}`);
+
+  let job = (await submitResponse.json()) as OpenRouterVideoJob;
+  const pollingUrl = job.polling_url || `https://openrouter.ai/api/v1/videos/${job.id}`;
+  const deadline = Date.now() + 10 * 60 * 1000;
+
+  while (job.status !== 'completed') {
+    if (signal?.aborted) throw new DOMException('Video generation cancelled', 'AbortError');
+    if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'expired') {
+      const error = typeof job.error === 'string' ? job.error : job.error?.message;
+      throw new Error(error || `Video generation ${job.status}`);
+    }
+    if (Date.now() >= deadline) throw new Error('Video generation timed out.');
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(resolve, 3000);
+      signal?.addEventListener(
+        'abort',
+        () => {
+          window.clearTimeout(timeout);
+          reject(new DOMException('Video generation cancelled', 'AbortError'));
+        },
+        { once: true }
+      );
+    });
+    const statusResponse = await fetch(pollingUrl, { headers, signal });
+    if (!statusResponse.ok) throw new Error(`Video status failed: ${statusResponse.status}`);
+    job = (await statusResponse.json()) as OpenRouterVideoJob;
+  }
+
+  const contentUrl = job.unsigned_urls?.[0] ||
+    `https://openrouter.ai/api/v1/videos/${job.id}/content?index=0`;
+  const contentResponse = await fetch(contentUrl, { headers, signal });
+  if (!contentResponse.ok) throw new Error(`Video download failed: ${contentResponse.status}`);
+  const blob = await contentResponse.blob();
+  return {
+    url: URL.createObjectURL(blob),
+    mediaType: blob.type || 'video/mp4',
+    size: blob.size,
+  };
+};

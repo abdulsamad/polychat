@@ -17,7 +17,12 @@ import {
   userSettingsOpenAtom,
   userSettingsScrollTargetAtom,
 } from '@/store';
-import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
+import {
+  ChatStreamPart,
+  getGeneratedText,
+  getGeneratedImage,
+  getGeneratedVideo,
+} from '@/utils/api-calls';
 import { isDiscardedStream } from '@/utils/chat-stream-registry';
 import { markStartedToastAsSeen } from '@/utils/lforage';
 import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
@@ -120,6 +125,7 @@ const useHandleChatResponse = () => {
     const isImageModel =
       thread.settings.modelType === 'image' ||
       supportedImageModels.some(({ name }) => name === thread.settings.model);
+    const isVideoModel = thread.settings.modelType === 'video';
 
     try {
       if (accountId !== job.accountId) return { status: 'discarded' as const };
@@ -131,6 +137,10 @@ const useHandleChatResponse = () => {
         isSharedApiRequest = false;
         throw new Error(`Add your ${provider} BYOK key before using this image model.`);
       }
+      if (isVideoModel && (!apiKey || provider !== 'openrouter')) {
+        isSharedApiRequest = false;
+        throw new Error('Video generation is available only through an OpenRouter BYOK key.');
+      }
       const hasConfiguredProvider = await isProviderConfigured(accountId, provider);
       if (hasConfiguredProvider && !apiKey) {
         isSharedApiRequest = false;
@@ -138,7 +148,40 @@ const useHandleChatResponse = () => {
       }
       if (signal?.aborted) return { status: 'cancelled' as const };
 
-      if (isImageModel) {
+      if (isVideoModel) {
+        const videoResponse = await getGeneratedVideo({
+          prompt,
+          model: thread.settings.model,
+          provider,
+          apiKey,
+          signal,
+        });
+        if (!('url' in videoResponse)) {
+          throw Object.assign(new Error(videoResponse.err), { status: videoResponse.status });
+        }
+        if (signal?.aborted) return { status: 'cancelled' as const };
+        startTransition(() => {
+          upsertThreadMessage({
+            threadId: thread.id,
+            message: {
+              id: job.assistantMessageId,
+              content: '',
+              video_url: videoResponse,
+              role: 'assistant',
+              type: 'video_url',
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp: getTime(new Date()),
+                requestId: job.id,
+              },
+            },
+          });
+          navigator.vibrate(100);
+          play();
+        });
+        return { status: 'completed' as const };
+      } else if (isImageModel) {
         const imageResponse = await getGeneratedImage({
           prompt,
           model: thread.settings.model,

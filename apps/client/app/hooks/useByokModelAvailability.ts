@@ -23,6 +23,10 @@ export type ModelOption = Omit<SupportedModel, 'name' | 'disabled'> & {
   imageCapabilities?: ImageModelCapabilities;
 };
 
+interface VideoModelResponse {
+  data?: Array<Record<string, unknown>>;
+}
+
 interface ProviderModelResponse {
   data?: Array<Record<string, unknown>>;
   models?: Array<Record<string, unknown>>;
@@ -155,6 +159,18 @@ const parseOpenRouterImageModels = (response: ProviderModelResponse): ModelOptio
   });
 };
 
+const parseOpenRouterVideoModels = (response: VideoModelResponse): ModelOption[] =>
+  (response.data || []).flatMap((entry) => {
+    const modelId = getString(entry.id);
+    if (!modelId) return [];
+    return [
+      {
+        ...toModelOption('openrouter', modelId, getString(entry.name)),
+        type: 'video' as const,
+      },
+    ];
+  });
+
 const isOpenAITextModel = (modelId: string) =>
   !/(embedding|moderation|tts|whisper|transcri|realtime|audio|dall-e|gpt-image|image|search)/i.test(
     modelId
@@ -270,6 +286,13 @@ const fetchProviderModels = async (provider: ByokProvider, apiKey: string, signa
       const imagePage = (await imageResponse.json()) as ProviderModelResponse;
       models.push(...parseOpenRouterImageModels(imagePage));
     }
+    const videoResponse = await fetch('https://openrouter.ai/api/v1/videos/models', {
+      headers,
+      signal,
+    });
+    if (videoResponse.ok) {
+      models.push(...parseOpenRouterVideoModels((await videoResponse.json()) as VideoModelResponse));
+    }
   }
 
   return models;
@@ -322,7 +345,8 @@ export const useByokModelAvailability = () => {
       ...model,
       disabled:
         model.disabled ||
-        (model.type === 'image' && !getProviderKey(accountId, model.provider)),
+        ((model.type === 'image' || model.type === 'video') &&
+          !getProviderKey(accountId, model.provider)),
     }));
   }, [accountId, discoveredModels, vaultVersion]);
 
@@ -343,11 +367,12 @@ export const useByokModelAvailability = () => {
     [models]
   );
 
-  return {
-    models,
-    textModels: models.filter(({ type }) => type === 'text'),
-    imageModels: models.filter(({ type }) => type === 'image'),
-    findModel,
+    return {
+      models,
+      textModels: models.filter(({ type }) => type === 'text'),
+      imageModels: models.filter(({ type }) => type === 'image'),
+      videoModels: models.filter(({ type }) => type === 'video'),
+      findModel,
     isModelAvailable,
     isProviderAvailable,
   };

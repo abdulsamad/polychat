@@ -10,7 +10,7 @@ import {
 export type SupportedModel = {
   name: availableModelsType;
   text: string;
-  type: 'text' | 'image';
+  type: 'text' | 'image' | 'video';
   disabled: boolean;
   isSpecial?: boolean;
   isExperimental?: boolean;

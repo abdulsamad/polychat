@@ -80,8 +80,18 @@ export const imageRequestSchema = z.object({
   size: z.string().trim().min(1).max(32).optional(),
 });
 
+export const videoRequestSchema = z.object({
+  model: z.string().trim().min(1).max(200),
+  prompt: z.string().min(1).max(4_000),
+  duration: z.number().int().min(1).max(60).optional(),
+  resolution: z.string().trim().min(1).max(32).optional(),
+  aspectRatio: z.string().trim().min(1).max(16).optional(),
+  generateAudio: z.boolean().optional(),
+});
+
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
 export type ImageRequest = z.infer<typeof imageRequestSchema>;
+export type VideoRequest = z.infer<typeof videoRequestSchema>;
 export type ImageAttachment = NonNullable<
   z.infer<typeof messageSchema>['imageAttachments']
 >[number];

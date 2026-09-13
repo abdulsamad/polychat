@@ -11,6 +11,7 @@ import {
   IMessageCommons,
   ITextMessage,
   IImageMessage,
+  IVideoMessage,
   removeThreadMessageAtom,
   selectMessageAtom,
   selectedMessageAtom,
@@ -45,9 +46,12 @@ import ReasoningCollapsible from './ReasoningCollapsible';
 interface ExtraProps extends IMessageCommons {
   message?: ITextMessage;
   image_url?: IImageMessage['image_url'];
+  video_url?: IVideoMessage['video_url'];
 }
 
-type MessageProps = ExtraProps & UserInfo['user' | 'assistant'] & (ITextMessage | IImageMessage);
+type MessageProps = ExtraProps &
+  UserInfo['user' | 'assistant'] &
+  (ITextMessage | IImageMessage | IVideoMessage);
 
 const MessageContent = ({
   name,
@@ -58,6 +62,7 @@ const MessageContent = ({
   content,
   reasoning,
   image_url: image,
+  video_url: video,
   imageAttachments,
   fileAttachments,
   role,
@@ -84,13 +89,20 @@ const MessageContent = ({
   const isTouchInteraction = useRef(false);
   const showDetailedUsage = thread?.settings.showDetailedUsage ?? false;
   const isImage = type === 'image_url';
+  const isVideo = type === 'video_url';
   const isUser = role === 'user';
   const displayModel = thread?.metadata.isDemo ? 'Model' : model;
 
   useEffect(() => clearLongPress, []);
+  useEffect(() => {
+    if (!isVideo || !video?.url.startsWith('blob:')) return;
+    return () => URL.revokeObjectURL(video.url);
+  }, [isVideo, video?.url]);
   const chatOrigin = isUser ? 'origin-right' : 'origin-left';
   const shareText = isImage
     ? image?.alt || image?.url || ''
+    : isVideo
+      ? 'Generated video'
     : [
         content,
         ...(imageAttachments || []).map(({ name }) => name),
@@ -265,7 +277,7 @@ const MessageContent = ({
                   isUser && 'flex-row-reverse'
                 )}>
                 {/* Name and User or Profile Image */}
-                {!isImage && (
+          {!isImage && !isVideo && (
                   <div className="flex w-9 shrink-0 flex-col items-center justify-center gap-1 sm:w-14">
                     <div className="size-8 overflow-hidden rounded-full border border-border bg-muted sm:size-10">
                       <img
@@ -282,9 +294,23 @@ const MessageContent = ({
                   </div>
                 )}
                 {/* Image or Message */}
-                {isImage && image && image.size ? (
-                  <Image key={image.url} image={image} model={displayModel} />
-                ) : (
+          {isImage && image && image.size ? (
+            <Image key={image.url} image={image} model={displayModel} />
+          ) : isVideo && video ? (
+            <div className="flex w-full max-w-[52rem] flex-col gap-2">
+              <video
+                className="max-h-[min(70vh,40rem)] w-full rounded-xl border border-border bg-muted object-contain"
+                src={video.url}
+                controls
+                playsInline
+                preload="metadata"
+              />
+              <p className="text-xs text-muted-foreground">
+                This video is available only in this session. Download it if you want to keep a
+                copy.
+              </p>
+            </div>
+          ) : (
                   <div
                     className={clsx(
                       'flex min-w-0 flex-col gap-2',

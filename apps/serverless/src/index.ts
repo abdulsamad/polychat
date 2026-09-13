@@ -10,6 +10,7 @@ import { type JWTPayload } from 'jose';
 
 import chat from '@controllers/chat';
 import image from '@controllers/image';
+import video from '@controllers/video';
 import { authMiddleware, proxyMiddleware } from '@middlewares/index';
 
 import type { User } from '@types';
@@ -39,6 +40,7 @@ app.use(authMiddleware);
 
 app.post('/chat', chat);
 app.post('/image', image);
+app.post('/video', video);
 
 // `streamHandle` accesses the Lambda-provided `awslambda` global immediately.
 // Keep the app importable by the native local streaming server.

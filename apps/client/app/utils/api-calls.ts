@@ -13,7 +13,7 @@ import {
 } from 'utils';
 
 import { IConfig, type IBaseModelConfig } from '@/store/index';
-import { generateByokImage, streamByokText } from './byok-providers';
+import { generateByokImage, generateByokVideo, streamByokText } from './byok-providers';
 
 const configuredBaseURL = import.meta.env.VITE_API_ENDPOINT?.trim();
 const baseURL = configuredBaseURL ? configuredBaseURL.replace(/\/+$/, '') : '/api';
@@ -280,4 +280,31 @@ export const getGeneratedImage = async ({
       totalTokens: response.usage.totalTokens,
     },
   };
+};
+
+export const getGeneratedVideo = async ({
+  prompt,
+  model,
+  provider,
+  apiKey,
+  signal,
+}: {
+  prompt: string;
+  model: enabledModelsType;
+  provider?: modelProviderType;
+  apiKey?: string;
+  signal?: AbortSignal;
+}): Promise<{ url: string; mediaType: string; size: number } | ErrorType> => {
+  if (provider !== 'openrouter' || !apiKey) {
+    return { success: false, err: 'Video generation requires an OpenRouter BYOK key.' };
+  }
+  try {
+    return await generateByokVideo({ model, apiKey, prompt, signal });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    return {
+      success: false,
+      err: error instanceof Error ? error.message : 'Video generation failed.',
+    };
+  }
 };

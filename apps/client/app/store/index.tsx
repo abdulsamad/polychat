@@ -70,7 +70,12 @@ export interface IImageMessage {
   image_url: { url: string; alt: string; size: string };
 }
 
-export type IMessage = IMessageCommons & (ITextMessage | IImageMessage);
+export interface IVideoMessage {
+  type: 'video_url';
+  video_url: { url: string; mediaType: string; size: number };
+}
+
+export type IMessage = IMessageCommons & (ITextMessage | IImageMessage | IVideoMessage);
 
 export type ThreadId = string;
 
@@ -254,7 +259,7 @@ export type ConversationContextMode = 'single-turn' | 'multi-turn';
 export interface IThreadSettings<T extends enabledModelsType> {
   model: T;
   modelProvider?: modelProviderType;
-  modelType?: 'text' | 'image';
+  modelType?: 'text' | 'image' | 'video';
   profile: profilesType;
   conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;
@@ -514,7 +519,13 @@ export const messageSaveEffect = atomEffect((get, set) => {
   if (!workspaceReady) return;
 
   void enqueuePersistence(async () => {
-    await setMessages(messagesByThread);
+      const persistedMessages = Object.fromEntries(
+        Object.entries(messagesByThread).map(([threadId, messages]) => [
+          threadId,
+          messages.filter((message) => message.type !== 'video_url'),
+        ])
+      );
+      await setMessages(persistedMessages);
   }).catch((err) => console.error('Failed to save messages', err));
 });
 

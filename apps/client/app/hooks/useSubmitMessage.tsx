@@ -48,6 +48,10 @@ const useSubmitMessage = () => {
       if (!prompt && imageAttachments.length === 0) return false;
 
       const model = findModel(thread.settings.model);
+      if (model?.type === 'video' && !getProviderKey(accountId, 'openrouter')) {
+        toast.error('Video generation requires an OpenRouter BYOK key.');
+        return false;
+      }
       const hasUnsupportedAttachment = imageAttachments.some((attachment) =>
         attachment.mediaType.startsWith('image/') ? !model?.supportsVision : !model?.supportsFiles
       );
