@@ -524,6 +524,10 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
                   ? 'Saved keys unlock with your device. Your passphrase is kept as a recovery option.'
                   : 'This device cannot use secure passkey encryption. Saved keys require your passphrase.'}
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                The current models are for testing. Add a provider key to see more models available
+                from that provider.
+              </p>
             </div>
           </div>
 
