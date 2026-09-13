@@ -292,7 +292,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
       !window.confirm('Reset the BYOK vault? Saved provider keys cannot be recovered.')
     )
       return;
-      await resetVault(accountId);
+    await resetVault(accountId);
     setVaultExists(false);
     setVaultUnlocked(false);
     toast.success('BYOK vault reset');
@@ -521,7 +521,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               <p className="text-xs text-muted-foreground">
                 {prfSupported
                   ? 'Saved keys unlock with your device. Your passphrase is kept as a recovery option.'
-                  : 'This device cannot use secure passkey encryption. Saved keys require your passphrase.'}
+                  : 'Saved keys require your passphrase.'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 This starter list is for testing. Add a provider key to unlock more models from that
