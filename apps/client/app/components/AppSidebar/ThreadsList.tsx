@@ -297,7 +297,7 @@ const ThreadsList = () => {
                                   className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-sidebar-primary"
                                 />
                               )}
-                              <span className="flex min-w-0 flex-1 items-center gap-2">
+                              <span className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
                                 {activity?.state === 'streaming' && (
                                   <span
                                     aria-label="Generating response"
