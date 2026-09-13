@@ -321,7 +321,7 @@ const ThreadsList = () => {
                                 {isDemo && (
                                   <Badge
                                     variant="secondary"
-                                    className="min-w-0 max-w-14 shrink truncate px-1.5 py-0 text-[10px]">
+                                    className="shrink-0 whitespace-nowrap px-1.5 py-0 text-[10px]">
                                     Demo
                                   </Badge>
                                 )}
