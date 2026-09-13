@@ -283,7 +283,7 @@ const MessageSelectionBar = () => {
         </div>
       </div>
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+      <AlertDialogContent className="origin-center">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete selected messages?</AlertDialogTitle>
             <AlertDialogDescription>

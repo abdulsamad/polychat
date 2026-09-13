@@ -106,7 +106,7 @@ const ThreadsList = () => {
   }, [threadToRename]);
 
   const deleteChats = useCallback(
-    async (threadId: string) => {
+    async (threadId: string, deleteAllDemo = false) => {
       if (threadChatState[threadId]) {
         toast.info('Stop or cancel this chat before deleting it.');
         return;
@@ -116,7 +116,7 @@ const ThreadsList = () => {
           const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
           const remainingMessages = { ...(messages || {}) };
           const targetThread = (storedThreads || []).find(({ id }) => id === threadId);
-          const deletedIds = targetThread?.metadata.isDemo
+          const deletedIds = targetThread?.metadata.isDemo && deleteAllDemo
             ? (storedThreads || []).filter((thread) => thread.metadata.isDemo).map(({ id }) => id)
             : [threadId];
           deletedIds.forEach((id) => delete remainingMessages[id]);
@@ -356,11 +356,12 @@ const ThreadsList = () => {
           </SidebarMenu>
           <DeleteAlert
             open={threadToDelete !== null}
+            isDemo={threads.some(({ id, metadata }) => id === threadToDelete && metadata.isDemo)}
             onOpenChange={(open) => {
               if (!open) setThreadToDelete(null);
             }}
-            onDelete={() => {
-              if (threadToDelete) void deleteChats(threadToDelete);
+            onDelete={(deleteAllDemo) => {
+              if (threadToDelete) void deleteChats(threadToDelete, deleteAllDemo);
               setThreadToDelete(null);
             }}
           />
