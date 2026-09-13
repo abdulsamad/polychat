@@ -20,6 +20,7 @@ import {
 import { ChatStreamPart, getGeneratedText, getGeneratedImage } from '@/utils/api-calls';
 import { isDiscardedStream } from '@/utils/chat-stream-registry';
 import { markStartedToastAsSeen } from '@/utils/lforage';
+import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
 import useSpeechSynthesis from './useSpeechSynthesis';
 
@@ -63,7 +64,7 @@ const showResponseErrorToast = (
 const showStartedToastOnce = async (openSettings: () => void) => {
   try {
     if (await markStartedToastAsSeen()) {
-      toast.info('Did you know you can use your own API key?', {
+      toast.info('Unlock more models and capabilities', {
         description: (
           <>
             Add a provider key in{' '}
@@ -74,7 +75,7 @@ const showStartedToastOnce = async (openSettings: () => void) => {
               onClick={openSettings}>
               Settings
             </Button>{' '}
-            to use your own provider.
+            to access more models, image generation, vision, and file analysis.
           </>
         ),
         action: { label: 'Open settings', onClick: openSettings },
@@ -99,6 +100,7 @@ const useHandleChatResponse = () => {
 
   const { getToken } = useAuth();
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const [play] = useSound('notification.mp3');
   const { speak } = useSpeechSynthesis();
   const openByokSettings = () => {
@@ -120,18 +122,16 @@ const useHandleChatResponse = () => {
       supportedImageModels.some(({ name }) => name === thread.settings.model);
 
     try {
-      if (user?.id !== job.accountId) return { status: 'discarded' as const };
+      if (accountId !== job.accountId) return { status: 'discarded' as const };
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
-      const apiKey = user?.id ? getProviderKey(user.id, provider) : undefined;
+      const apiKey = getProviderKey(accountId, provider);
       isSharedApiRequest = !apiKey;
       if (isImageModel && !apiKey) {
         isSharedApiRequest = false;
         throw new Error(`Add your ${provider} BYOK key before using this image model.`);
       }
-      const hasConfiguredProvider = user?.id
-        ? await isProviderConfigured(user.id, provider)
-        : false;
+      const hasConfiguredProvider = await isProviderConfigured(accountId, provider);
       if (hasConfiguredProvider && !apiKey) {
         isSharedApiRequest = false;
         throw new Error(`Unlock your ${provider} BYOK vault key before chatting.`);

@@ -10,6 +10,8 @@ export const userSettingsKey = 'user-settings';
 
 export const messagesKey = 'messages';
 export const startedToastKey = 'has-seen-started-toast';
+export const demoThreadsDismissedKey = 'demo-threads-dismissed';
+const anonymousWorkspaceKey = 'anonymous-workspace-account';
 
 export const lforage = localforage.createInstance({
   name: 'polychat',
@@ -18,6 +20,17 @@ export const lforage = localforage.createInstance({
 });
 
 let activeWorkspaceAccount: string | null = null;
+
+export const getAnonymousWorkspaceAccount = () => {
+  if (typeof window === 'undefined') return 'anonymous-server';
+
+  const stored = window.localStorage.getItem(anonymousWorkspaceKey);
+  if (stored) return stored;
+
+  const accountId = `anonymous-${crypto.randomUUID()}`;
+  window.localStorage.setItem(anonymousWorkspaceKey, accountId);
+  return accountId;
+};
 
 const scopedKey = (key: string) =>
   activeWorkspaceAccount ? `${key}:${activeWorkspaceAccount}` : null;
@@ -115,6 +128,34 @@ export const markStartedToastAsSeen = async () => {
   return true;
 };
 
+export const hasSeenStartedToast = async () => {
+  const key = scopedKey(startedToastKey);
+  return key ? Boolean(await lforage.getItem<boolean>(key)) : false;
+};
+
+export const hasDismissedDemoThreads = async () => {
+  const key = scopedKey(demoThreadsDismissedKey);
+  return key ? Boolean(await lforage.getItem<boolean>(key)) : false;
+};
+
+export const removeDemoThreads = async () => {
+  const [threads, messages] = await Promise.all([getThreads(), getMessages()]);
+  const demoIds = new Set<string>(
+    (threads || []).filter((thread) => thread.metadata.isDemo).map(({ id }) => id)
+  );
+  if (!demoIds.size) return false;
+
+  await Promise.all([
+    setThreads((threads || []).filter(({ id }) => !demoIds.has(id))),
+    setMessages(
+      Object.fromEntries(Object.entries(messages || {}).filter(([id]) => !demoIds.has(id)))
+    ),
+  ]);
+  const dismissedKey = scopedKey(demoThreadsDismissedKey);
+  if (dismissedKey) await lforage.setItem(dismissedKey, true);
+  return true;
+};
+
 export const deleteAllChats = async () => {
   const threadsStorageKey = scopedKey(threadsKey);
   const messagesStorageKey = scopedKey(messagesKey);
@@ -126,7 +167,7 @@ export const deleteAllChats = async () => {
 };
 
 export const clearLocalData = async () => {
-  const keys = [settingsKey, threadsKey, userSettingsKey, messagesKey, startedToastKey]
+  const keys = [settingsKey, threadsKey, userSettingsKey, messagesKey, startedToastKey, demoThreadsDismissedKey]
     .map(scopedKey)
     .filter((key): key is string => Boolean(key));
   await Promise.all(keys.map((key) => lforage.removeItem(key)));

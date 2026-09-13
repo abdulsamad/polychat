@@ -27,6 +27,7 @@ import {
   setThreads as setStoredThreads,
 } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   ContextMenu,
@@ -111,11 +112,16 @@ const ThreadsList = () => {
         return;
       }
 
-      const { remainingMessages, nextThreads } = await enqueuePersistence(async () => {
-        const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
-        const remainingMessages = { ...(messages || {}) };
-        delete remainingMessages[threadId];
-        const nextThreads = (storedThreads || []).filter(({ id }) => id !== threadId);
+        const { remainingMessages, nextThreads } = await enqueuePersistence(async () => {
+          const [messages, storedThreads] = await Promise.all([getMessages(), getThreads()]);
+          const remainingMessages = { ...(messages || {}) };
+          const targetThread = (storedThreads || []).find(({ id }) => id === threadId);
+          const deletedIds = targetThread?.metadata.isDemo
+            ? (storedThreads || []).filter((thread) => thread.metadata.isDemo).map(({ id }) => id)
+            : [threadId];
+          deletedIds.forEach((id) => delete remainingMessages[id]);
+          const deletedIdSet = new Set(deletedIds);
+          const nextThreads = (storedThreads || []).filter(({ id }) => !deletedIdSet.has(id));
 
         await Promise.all([setMessages(remainingMessages), setStoredThreads(nextThreads)]);
 
@@ -207,7 +213,7 @@ const ThreadsList = () => {
                   </div>
                 </SidebarMenuItem>
               ))
-              : threads.map(({ id, metadata: { name, timestamp } }) => {
+              : threads.map(({ id, metadata: { name, timestamp, isDemo } }) => {
                 const isSelected = id === params.threadId;
                 const activity = threadChatState[id];
                 const error = threadChatErrors[id];
@@ -312,6 +318,11 @@ const ThreadsList = () => {
                                   title={name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}>
                                   {name || format(new Date(timestamp), 'hh:mm A - DD/MM/YY')}
                                 </p>
+                                {isDemo && (
+                                  <Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px]">
+                                    Demo
+                                  </Badge>
+                                )}
                               </span>
                             </NavLink>
                           </SidebarMenuButton>

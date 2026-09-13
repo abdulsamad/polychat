@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, Suspense } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { useAuth, useUser, RedirectToSignIn } from '@clerk/react-router';
+import { useAuth, useClerk, useUser } from '@clerk/react-router';
 import { useNavigate } from 'react-router';
 
 import {
@@ -27,17 +27,27 @@ import {
 import {
   getConfig,
   getActiveWorkspaceAccount,
+  getAnonymousWorkspaceAccount,
   getMessages,
   getThreads,
   getUserSettings,
+  hasDismissedDemoThreads,
+  removeDemoThreads,
+  setMessages,
   setActiveWorkspaceAccount,
   setThreads,
+  hasSeenStartedToast,
 } from '@/utils/lforage';
+import { createDemoWorkspace } from '@/utils/demo-threads';
+import { getProviderKey } from '@/utils/byok-vault';
+import { providerForModel } from '@/utils/byok-providers';
 import { abortAllStreams } from '@/utils/chat-stream-registry';
 import Input from '@/components/Input';
 import MessageSelectionBar from '@/components/MessageSelectionBar';
 import Thread from '@/components/Thread';
 import Loading from '@/loading';
+import { Button } from '@/components/ui/button';
+import { ArrowRightIcon, SparklesIcon } from 'lucide-react';
 
 import type { Route } from './+types/home';
 
@@ -48,6 +58,7 @@ export const meta = ({}: Route.MetaArgs) => [
 
 const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setThread = useSetAtom(threadAtom);
+  const thread = useAtomValue(threadAtom);
   const hydrateThreadMessages = useSetAtom(hydrateThreadMessagesAtom);
   const clearThreadMessages = useSetAtom(clearThreadMessagesAtom);
   const clearSelectedMessages = useSetAtom(clearSelectedMessagesAtom);
@@ -64,8 +75,17 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
   messagesByThreadRef.current = messagesByThread;
 
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isLoaded } = useAuth();
   const { user } = useUser();
+  const clerk = useClerk();
+  const workspaceAccountId = user?.id ?? getAnonymousWorkspaceAccount();
+  const hasByokKey = Boolean(
+    thread &&
+      getProviderKey(
+        workspaceAccountId,
+        providerForModel(thread.settings.model, thread.settings.modelProvider)
+      )
+  );
 
   // Subscribe to thread, message side effects to save changes locally
   useAtom(threadSaveEffect, { delay: 1000 });
@@ -74,10 +94,19 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
   const navigate = useNavigate();
 
+  const startFromDemo = async () => {
+    const newThread = getDefaultThread((await getUserSettings()) || undefined);
+    const storedThreads = (await getThreads()) || [];
+    await setThreads([newThread, ...storedThreads.filter(({ id }) => id !== newThread.id)]);
+    setThread(newThread);
+    replaceMessages([]);
+    navigate(`/${newThread.id}`, { replace: true });
+  };
+
   useEffect(() => {
     let cancelled = false;
 
-    if (!isLoaded || !isSignedIn || !user?.id) {
+    if (!isLoaded) {
       const previousAccountId = getActiveWorkspaceAccount();
       setWorkspaceReady(false);
       abortAllStreams();
@@ -110,7 +139,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
     const loadWorkspace = async () => {
       const previousAccountId = getActiveWorkspaceAccount();
-      const isAccountChange = previousAccountId !== user.id;
+      const isAccountChange = previousAccountId !== workspaceAccountId;
       const isInitialWorkspaceLoad = !isWorkspaceLoaded;
       if (isAccountChange || isInitialWorkspaceLoad) {
         setWorkspaceReady(false);
@@ -134,7 +163,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         }
         if (cancelled) return;
       }
-      setActiveWorkspaceAccount(user.id);
+      setActiveWorkspaceAccount(workspaceAccountId);
 
       try {
         const [threads, messages, userSettings, savedConfig] = await Promise.all([
@@ -145,8 +174,8 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         ]);
         if (cancelled) return;
 
-        const storedThreads = threads || [];
-        const storedMessages = Object.fromEntries(
+        let storedThreads = threads || [];
+        let storedMessages = Object.fromEntries(
           Object.entries(messages || {}).map(([id, threadMessages]) => [
             id,
             threadMessages.map((message) =>
@@ -160,6 +189,17 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
             ),
           ])
         );
+
+        if (
+          !storedThreads.length &&
+          !(await hasSeenStartedToast()) &&
+          !(await hasDismissedDemoThreads())
+        ) {
+          const demoWorkspace = createDemoWorkspace();
+          storedThreads = demoWorkspace.threads;
+          storedMessages = demoWorkspace.messages;
+          await Promise.all([setThreads(storedThreads), setMessages(storedMessages)]);
+        }
         const threadData = threadId
           ? storedThreads.find((thread) => thread.id === threadId) || null
           : (() => {
@@ -231,7 +271,6 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     };
   }, [
     isLoaded,
-    isSignedIn,
     navigate,
     clearThreadMessages,
     clearSelectedMessages,
@@ -246,14 +285,11 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
     isWorkspaceLoaded,
     threadId,
     user?.id,
+    workspaceAccountId,
   ]);
 
   if (!isLoaded) {
     return <Loading />;
-  }
-
-  if (!isSignedIn) {
-    return <RedirectToSignIn />;
   }
 
   if (!isWorkspaceLoaded) return <Loading />;
@@ -266,7 +302,34 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         </section>
         <section className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5 sm:pt-4">
           <div className="mx-auto w-full max-w-4xl">
-            {selectedMessageIds.length > 0 ? <MessageSelectionBar /> : <Input />}
+            {selectedMessageIds.length > 0 ? (
+              <MessageSelectionBar />
+            ) : thread?.metadata.isDemo ? (
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <SparklesIcon className="size-4 shrink-0 text-primary" />
+                  <p className="text-sm text-muted-foreground">
+                    This is a read-only demo. Start a new chat to try it yourself.
+                  </p>
+                </div>
+                <Button type="button" className="shrink-0" onClick={() => void startFromDemo()}>
+                  Start chatting
+                  <ArrowRightIcon className="ml-2 size-4" />
+                </Button>
+              </div>
+            ) : !user?.id && !hasByokKey ? (
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
+                <p className="text-sm text-muted-foreground">
+                  Sign in to start a chat with the models you configure.
+                </p>
+                <Button type="button" className="shrink-0" onClick={() => void clerk.redirectToSignIn()}>
+                  Sign in to chat
+                  <ArrowRightIcon className="ml-2 size-4" />
+                </Button>
+              </div>
+            ) : (
+              <Input />
+            )}
           </div>
         </section>
       </div>

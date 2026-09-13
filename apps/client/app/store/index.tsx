@@ -270,6 +270,7 @@ export interface IThread<T extends enabledModelsType> {
     timestamp: number;
     status: 'idle' | 'streaming' | 'saving';
     version: number;
+    isDemo?: boolean;
   };
   queue?: {
     pending: IMessage[];

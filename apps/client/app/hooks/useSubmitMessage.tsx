@@ -10,6 +10,7 @@ import {
   configAtom,
   enqueueChatJobAtom,
   messagesAtom,
+  refreshThreadsAtom,
   threadAtom,
   threadLoadingAtom,
   threadQueuedJobAtom,
@@ -18,6 +19,7 @@ import type { ImageAttachment } from 'utils';
 import { abortThreadStream } from '@/utils/chat-stream-registry';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
 import { providerForModel } from '@/utils/byok-providers';
+import { getAnonymousWorkspaceAccount, removeDemoThreads } from '@/utils/lforage';
 import { useByokModelAvailability } from './useByokModelAvailability';
 
 const useSubmitMessage = () => {
@@ -29,14 +31,16 @@ const useSubmitMessage = () => {
   const enqueueChatJob = useSetAtom(enqueueChatJobAtom);
   const cancelQueuedChatJob = useSetAtom(cancelQueuedChatJobAtom);
   const clearThreadChatError = useSetAtom(clearThreadChatErrorAtom);
+  const refreshThreads = useSetAtom(refreshThreadsAtom);
   const { user } = useUser();
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const { findModel } = useByokModelAvailability();
 
   const submitMessage = useCallback(
     (rawPrompt: string, imageAttachments: ImageAttachment[] = []) => {
       const prompt = rawPrompt.trim();
 
-      if (!thread || !user?.id) {
+      if (!thread) {
         toast.error('This chat is not ready yet.');
         return false;
       }
@@ -55,7 +59,7 @@ const useSubmitMessage = () => {
       clearThreadChatError(thread.id);
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
-      if (isProviderConfiguredSync(user.id, provider) && !getProviderKey(user.id, provider)) {
+      if (isProviderConfiguredSync(accountId, provider) && !getProviderKey(accountId, provider)) {
         toast.error(`Unlock your ${provider} BYOK vault key before chatting.`);
         return false;
       }
@@ -63,9 +67,9 @@ const useSubmitMessage = () => {
       const id = crypto.randomUUID();
       const assistantMessageId = crypto.randomUUID();
       const createdAt = getTime(new Date());
-      return enqueueChatJob({
+      const accepted = enqueueChatJob({
         id,
-        accountId: user.id,
+        accountId,
         threadId: thread.id,
         prompt,
         imageAttachments,
@@ -76,8 +80,15 @@ const useSubmitMessage = () => {
         config,
         createdAt,
       });
+
+      if (accepted) {
+        void removeDemoThreads().then((removed) => {
+          if (removed) refreshThreads();
+        });
+      }
+      return accepted;
     },
-    [clearThreadChatError, config, enqueueChatJob, findModel, messages, thread, user?.id]
+    [accountId, clearThreadChatError, config, enqueueChatJob, findModel, messages, refreshThreads, thread]
   );
 
   const stopChat = useCallback(() => {
