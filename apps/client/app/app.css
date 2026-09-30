@@ -48,6 +48,8 @@
     --sidebar-accent-foreground: 247 48% 38%;
     --sidebar-border: 218 25% 86%;
     --sidebar-ring: 247 64% 59%;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   }
 
   .dark {
@@ -192,7 +194,7 @@
   --color-code-header: hsl(var(--code-header));
 
   --animate-typing: typing 1.3s linear infinite;
-  --animate-wave: wave 2.5s infinite 1s;
+  --animate-wave: wave 500ms var(--ease-out) 160ms both;
   --animate-reasoning-down: reasoning-down 160ms ease-out;
   --animate-reasoning-up: reasoning-up 160ms ease-out;
 
@@ -290,6 +292,23 @@
 }
 
 @custom-variant dark (&:is(.dark *));
+
+.chat-message-entry {
+  animation: chat-message-enter 160ms var(--ease-out);
+}
+
+@keyframes chat-message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes chat-message-fade {
+  from {
+    opacity: 0;
+  }
+}
 
 .reasoning-content[data-state='open'] {
   animation: reasoning-down 160ms ease-out;
@@ -403,5 +422,22 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .chat-message-entry {
+    animation-name: chat-message-fade;
+    animation-duration: 160ms !important;
+  }
+
+  [data-sheet='overlay'],
+  [data-sheet='content'] {
+    animation-duration: 160ms !important;
+  }
+
+  [data-sheet='content'] {
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
   }
 }

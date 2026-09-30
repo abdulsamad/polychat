@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, Suspense } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, useClerk, useUser } from '@clerk/react-router';
 import { useNavigate } from 'react-router';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import {
   getDefaultThread,
@@ -71,6 +72,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   const setUserSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setWorkspaceReady = useSetAtom(workspaceReadyAtom);
   const [isWorkspaceLoaded, setIsWorkspaceLoaded] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
   const messagesByThreadRef = useRef(messagesByThread);
 
   messagesByThreadRef.current = messagesByThread;
@@ -294,6 +296,15 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
 
   if (!isWorkspaceLoaded) return <Loading />;
 
+  const composerState = selectedMessageIds.length
+    ? 'selection'
+    : thread?.metadata.isDemo
+      ? 'demo'
+      : !user?.id && !hasByokKey
+        ? 'sign-in'
+        : 'composer';
+  const composerOffset = shouldReduceMotion ? 'translateY(0)' : 'translateY(4px)';
+
   return (
     <Suspense fallback={<Loading />}>
       <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -301,35 +312,51 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
           <Thread className="h-full" />
         </section>
         <section className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5 sm:pt-4">
-          <div className="mx-auto w-full max-w-4xl">
-            {selectedMessageIds.length > 0 ? (
-              <MessageSelectionBar />
-            ) : thread?.metadata.isDemo ? (
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <SparklesIcon className="size-4 shrink-0 text-primary" />
-                  <p className="text-sm text-muted-foreground">
-                    This is a read-only demo. Start a new chat to try it yourself.
-                  </p>
-                </div>
-                <Button type="button" className="shrink-0" onClick={() => void startFromDemo()}>
-                  Start chatting
-                  <ArrowRightIcon className="ml-2 size-4" />
-                </Button>
-              </div>
-            ) : !user?.id && !hasByokKey ? (
-              <div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
-                <p className="text-sm text-muted-foreground">
-                  Sign in to start a chat with the models you configure.
-                </p>
-                <Button type="button" className="shrink-0" onClick={() => void clerk.redirectToSignIn()}>
-                  Sign in to chat
-                  <ArrowRightIcon className="ml-2 size-4" />
-                </Button>
-              </div>
-            ) : (
-              <Input />
-            )}
+          <div className="mx-auto grid w-full max-w-4xl">
+            <AnimatePresence initial={false}>
+              <motion.div
+                key={composerState}
+                className="col-start-1 row-start-1"
+                initial={{ opacity: 0, transform: composerOffset }}
+                animate={{ opacity: 1, transform: 'translateY(0)' }}
+                exit={{ opacity: 0, transform: composerOffset }}
+                transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}>
+                {selectedMessageIds.length > 0 ? (
+                  <MessageSelectionBar />
+                ) : thread?.metadata.isDemo ? (
+                  <div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <SparklesIcon className="size-4 shrink-0 text-primary" />
+                      <p className="text-sm text-muted-foreground">
+                        This is a read-only demo. Start a new chat to try it yourself.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      className="shrink-0"
+                      onClick={() => void startFromDemo()}>
+                      Start chatting
+                      <ArrowRightIcon className="ml-2 size-4" />
+                    </Button>
+                  </div>
+                ) : !user?.id && !hasByokKey ? (
+                  <div className="flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-4 py-3">
+                    <p className="text-sm text-muted-foreground">
+                      Sign in to start a chat with the models you configure.
+                    </p>
+                    <Button
+                      type="button"
+                      className="shrink-0"
+                      onClick={() => void clerk.redirectToSignIn()}>
+                      Sign in to chat
+                      <ArrowRightIcon className="ml-2 size-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Input />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </section>
       </div>

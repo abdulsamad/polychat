@@ -1,5 +1,4 @@
 import { memo, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
 import clsx from 'clsx';
 import { AlertCircleIcon, CopyIcon, ShareIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -78,7 +77,6 @@ const MessageContent = ({
   },
 }: MessageProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const shouldReduceMotion = useReducedMotion();
   const thread = useAtomValue(threadAtom);
   const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
   const selectMessage = useSetAtom(selectMessageAtom);
@@ -238,15 +236,9 @@ const MessageContent = ({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <motion.article
-            initial={shouldReduceMotion ? false : { opacity: 0, translateY: 8 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{
-              duration: shouldReduceMotion ? 0 : 0.18,
-              ease: 'easeOut',
-            }}
+          <article
             className={clsx(
-              'chat relative flex w-full min-w-0 scroll-mb-10 select-none transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
+              'chat chat-message-entry relative flex w-full min-w-0 scroll-mb-10 select-none transition-[background-color,box-shadow,filter] duration-150 data-[state=open]:z-20 data-[state=open]:bg-accent/40 data-[state=open]:blur-[1px] data-[state=open]:ring-1 data-[state=open]:ring-ring/30 data-[state=open]:ring-offset-2 data-[state=open]:ring-offset-background',
               'my-5 rounded-2xl',
               isSelected && 'chat-selection-highlight',
               chatOrigin,
@@ -442,7 +434,7 @@ const MessageContent = ({
                 )}
               </div>
             </div>
-          </motion.article>
+          </article>
         </ContextMenuTrigger>
         <ContextMenuContent>
           <ContextMenuItem

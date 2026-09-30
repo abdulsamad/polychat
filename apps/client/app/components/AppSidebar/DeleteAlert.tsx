@@ -62,7 +62,7 @@ const DeleteAlert = ({ children, onDelete, onCancel, open, onOpenChange, isDemo 
         <AlertDialogAction asChild>
           <Button
             variant="destructive"
-            className="transition-transform duration-300 ease-in-out hover:scale-95 active:scale-90"
+            className="transition-transform duration-[160ms] ease-[var(--ease-out)] active:scale-[0.97] motion-reduce:transform-none"
             onClick={(ev) => {
               ev.stopPropagation();
               onDelete(deleteAllDemo);
