@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import useSound from 'use-sound';
 
-import { supportedImageModels } from 'utils';
+import { VideoApiError, type VideoJob, supportedImageModels } from 'utils';
 import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfigured } from '@/utils/byok-vault';
 
@@ -136,13 +136,18 @@ const useHandleChatResponse = () => {
       thread.settings.modelType === 'image' ||
       supportedImageModels.some(({ name }) => name === thread.settings.model);
     const isVideoModel = thread.settings.modelType === 'video';
+    let videoJob: VideoJob | undefined;
+    const videoStartedAt = Date.now();
 
     try {
       if (accountId !== job.accountId) return { status: 'discarded' as const };
 
       const provider = providerForModel(thread.settings.model, thread.settings.modelProvider);
       const apiKey = getProviderKey(accountId, provider);
-      isSharedApiRequest = !apiKey;
+      isSharedApiRequest = !apiKey && !isVideoModel;
+      if (isVideoModel && !apiKey) {
+        throw new Error('Unlock or add your OpenRouter BYOK key in Settings.');
+      }
       if (isImageModel && !apiKey) {
         isSharedApiRequest = false;
         throw new Error(`Add your ${provider} BYOK key before using this image model.`);
@@ -166,7 +171,37 @@ const useHandleChatResponse = () => {
           apiKey,
           modelConfig,
           inputReferences: imageAttachments,
-          getToken,
+          onJob: (providerJob, downloading) => {
+            videoJob = providerJob;
+            upsertThreadMessage({
+              threadId: thread.id,
+              message: {
+                id: job.assistantMessageId,
+                content: '',
+                role: 'assistant',
+                type: 'video_url',
+                video_url: {
+                  url: '',
+                  mediaType: 'video/mp4',
+                  size: 0,
+                  status: 'generating',
+                  jobId: providerJob.id,
+                  startedAt: videoStartedAt,
+                  jobStatus: downloading
+                    ? 'completed'
+                    : providerJob.status === 'pending'
+                      ? 'pending'
+                      : 'in_progress',
+                },
+                metadata: {
+                  model: thread.settings.model,
+                  profile: thread.settings.profile,
+                  timestamp: videoStartedAt,
+                  requestId: job.id,
+                },
+              },
+            });
+          },
           signal,
         });
         if (!('url' in videoResponse)) {
@@ -475,7 +510,35 @@ const useHandleChatResponse = () => {
         return { status: signal?.aborted ? ('cancelled' as const) : ('completed' as const) };
       }
     } catch (err) {
-      if (signal?.aborted) return { status: 'cancelled' as const };
+      if (signal?.aborted) {
+        if (isVideoModel && videoJob) {
+          upsertThreadMessage({
+            threadId: thread.id,
+            message: {
+              id: job.assistantMessageId,
+              content: '',
+              role: 'assistant',
+              type: 'video_url',
+              video_url: {
+                url: '',
+                mediaType: 'video/mp4',
+                size: 0,
+                status: 'failed',
+                jobId: videoJob.id,
+                startedAt: videoStartedAt,
+                error: 'Stopped checking. The provider may still be generating your video.',
+              },
+              metadata: {
+                model: thread.settings.model,
+                profile: thread.settings.profile,
+                timestamp: videoStartedAt,
+                requestId: job.id,
+              },
+            },
+          });
+        }
+        return { status: 'cancelled' as const };
+      }
 
       console.error(err);
 
@@ -487,7 +550,16 @@ const useHandleChatResponse = () => {
             content: '',
             role: 'assistant',
             type: 'video_url',
-            video_url: { url: '', mediaType: 'video/mp4', size: 0, status: 'failed' },
+            video_url: {
+              url: '',
+              mediaType: 'video/mp4',
+              size: 0,
+              status: 'failed',
+              jobId: videoJob?.id,
+              startedAt: videoStartedAt,
+              error: err instanceof Error ? err.message : 'Video generation failed.',
+              terminal: err instanceof VideoApiError && err.terminal,
+            },
             metadata: {
               model: thread.settings.model,
               profile: thread.settings.profile,

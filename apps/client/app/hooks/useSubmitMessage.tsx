@@ -52,6 +52,27 @@ const useSubmitMessage = () => {
         toast.error('Video generation requires an OpenRouter BYOK key.');
         return false;
       }
+      if (model?.type === 'video' && model.videoCapabilities) {
+        const capabilities = model.videoCapabilities;
+        const settings = thread.settings.modelConfig;
+        const unsupported =
+          (settings.duration !== undefined &&
+            capabilities.durations?.length &&
+            !capabilities.durations.includes(settings.duration)) ||
+          (settings.resolution &&
+            capabilities.resolutions?.length &&
+            !capabilities.resolutions.includes(settings.resolution)) ||
+          (settings.aspectRatio &&
+            capabilities.aspectRatios?.length &&
+            !capabilities.aspectRatios.includes(settings.aspectRatio)) ||
+          (settings.generateAudio && capabilities.generateAudio === false);
+        if (unsupported) {
+          toast.error(
+            'This video model does not support the selected settings. Update duration, resolution, aspect ratio, or audio in thread settings.'
+          );
+          return false;
+        }
+      }
       const hasUnsupportedAttachment = imageAttachments.some((attachment) =>
         attachment.mediaType.startsWith('image/')
           ? model?.type === 'text'

@@ -13,6 +13,7 @@ import {
   type ChatStreamPart,
 } from 'utils';
 
+import { type VideoJob } from 'utils';
 import { IConfig, type IBaseModelConfig } from '@/store/index';
 import { generateByokImage, generateByokVideo, streamByokText } from './byok-providers';
 
@@ -300,8 +301,8 @@ export const getGeneratedVideo = async ({
   apiKey,
   modelConfig,
   inputReferences,
-  getToken,
   signal,
+  onJob,
 }: {
   prompt: string;
   model: enabledModelsType;
@@ -309,8 +310,8 @@ export const getGeneratedVideo = async ({
   apiKey?: string;
   modelConfig?: IBaseModelConfig;
   inputReferences?: ImageAttachment[];
-  getToken: (options?: GetTokenOptions) => Promise<string | null>;
   signal?: AbortSignal;
+  onJob?: (job: VideoJob, downloading: boolean) => void;
 }): Promise<
   | {
       url: string;
@@ -318,6 +319,8 @@ export const getGeneratedVideo = async ({
       size: number;
       sourceUrl?: string;
       thumbnail?: string;
+      jobId?: string;
+      cost?: number;
       status?: 'generating' | 'ready' | 'expired' | 'failed';
     }
   | ErrorType
@@ -326,6 +329,7 @@ export const getGeneratedVideo = async ({
     prompt,
     model,
     inputReferences,
+    seed: modelConfig?.seed,
     ...(modelConfig?.duration ? { duration: modelConfig.duration } : {}),
     ...(modelConfig?.resolution ? { resolution: modelConfig.resolution } : {}),
     ...(modelConfig?.aspectRatio ? { aspectRatio: modelConfig.aspectRatio } : {}),
@@ -338,36 +342,8 @@ export const getGeneratedVideo = async ({
   if (provider !== 'openrouter') {
     return { success: false, err: 'Video generation requires an OpenRouter BYOK key.' };
   }
-  try {
-    if (apiKey) {
-      return await generateByokVideo({
-        model,
-        apiKey,
-        prompt,
-        modelConfig,
-        inputReferences,
-        signal,
-      });
-    }
-    const token = await getToken();
-    const response = await axiosInstance.post('/video', requestBody.data, {
-      headers: { Authorization: `Bearer ${token}` },
-      validateStatus: () => true,
-      signal,
-    });
-    if (response.status < 200 || response.status >= 300 || !response.data) {
-      return {
-        success: false,
-        err: getErrorMessage(response.data, 'Video generation failed.'),
-        status: response.status,
-      };
-    }
-    return response.data;
-  } catch (error) {
-    if (signal?.aborted) throw error;
-    return {
-      success: false,
-      err: error instanceof Error ? error.message : 'Video generation failed.',
-    };
+  if (!apiKey?.trim()) {
+    return { success: false, err: 'Unlock or add your OpenRouter BYOK key in Settings.' };
   }
+  return generateByokVideo({ model, apiKey, prompt, modelConfig, inputReferences, signal, onJob });
 };

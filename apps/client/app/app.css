@@ -318,6 +318,31 @@
   animation: reasoning-up 160ms ease-out;
 }
 
+/* Confirm asynchronously loaded media without delaying interaction. */
+.composer-attachment-entry {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out);
+}
+
+.video-playback-entry {
+  opacity: 1;
+  transition: opacity 160ms var(--ease-out);
+}
+
+@starting-style {
+  .composer-attachment-entry {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  .video-playback-entry {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reasoning-content[data-state='open'],
   .reasoning-content[data-state='closed'] {
@@ -427,6 +452,22 @@
   .chat-message-entry {
     animation-name: chat-message-fade;
     animation-duration: 160ms !important;
+  }
+
+  .composer-attachment-entry,
+  .video-playback-entry {
+    transition-property: opacity;
+    transition-duration: 160ms !important;
+  }
+
+  .composer-attachment-entry {
+    transform: none;
+  }
+
+  @starting-style {
+    .composer-attachment-entry {
+      transform: none;
+    }
   }
 
   [data-sheet='overlay'],

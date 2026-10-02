@@ -128,7 +128,7 @@ const Text = () => {
       {imageAttachments.length > 0 && (
         <ul className="flex min-w-0 flex-wrap gap-2 px-1 pb-0.5" aria-label="Attached images">
           {imageAttachments.map((attachment) => (
-            <li key={attachment.id} className="min-w-0 max-w-full">
+            <li key={attachment.id} className="composer-attachment-entry min-w-0 max-w-full">
               <ImageAttachment
                 attachment={attachment}
                 compact

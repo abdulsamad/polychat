@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react';
-import { FilmIcon, LoaderCircleIcon, RefreshCwIcon } from 'lucide-react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { DownloadIcon, FilmIcon, LoaderCircleIcon, RefreshCwIcon } from 'lucide-react';
 import { useUser } from '@clerk/react-router';
 import { useSetAtom } from 'jotai';
+import { fetchVideoApi, VideoApiError } from 'utils';
 
 import type { IMessageCommons, IVideoMessage, ThreadId } from '@/store';
-import { upsertThreadMessageAtom } from '@/store';
+import {
+  upsertThreadMessageAtom,
+  userSettingsOpenAtom,
+  userSettingsScrollTargetAtom,
+} from '@/store';
 import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
-import { getProviderKey } from '@/utils/byok-vault';
+import { getProviderKey, subscribeVault } from '@/utils/byok-vault';
+import { finishVideoJob, isVideoJobActive } from '@/utils/video-jobs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface VideoProps {
   id: IMessageCommons['id'];
@@ -16,129 +24,236 @@ interface VideoProps {
   metadata: IMessageCommons['metadata'];
 }
 
-const Video = ({ id, video, model, threadId, metadata }: VideoProps) => {
+const Video = ({ id, video, threadId, metadata }: VideoProps) => {
   const { user } = useUser();
-  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
-  const [playbackUrl, setPlaybackUrl] = useState<string | null>(
-    video.url.startsWith('blob:') ? video.url : null
+  const accountId = user?.id ?? getAnonymousWorkspaceAccount();
+  const apiKey = useSyncExternalStore(
+    subscribeVault,
+    () => getProviderKey(accountId, 'openrouter') || '',
+    () => ''
   );
-  const [isExpired, setIsExpired] = useState(video.status === 'expired');
+  const upsert = useSetAtom(upsertThreadMessageAtom);
+  const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
+  const setSettingsTarget = useSetAtom(userSettingsScrollTargetAtom);
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string>();
+  const [checking, setChecking] = useState(false);
+  const [reload, setReload] = useState(0);
+  const resumeController = useRef<AbortController | null>(null);
 
-  const markExpired = () => {
-    if (isExpired || video.status === 'expired') return;
-    setIsExpired(true);
-    upsertThreadMessage({
+  const save = (next: IVideoMessage['video_url']) =>
+    upsert({
       threadId,
       message: {
         id,
         content: '',
         role: 'assistant',
         type: 'video_url',
-        video_url: { ...video, status: 'expired' },
+        video_url: next,
         metadata: { ...metadata, requestState: undefined },
       },
     });
+  const openSettings = () => {
+    setSettingsTarget('byok');
+    setSettingsOpen(true);
   };
 
-  useEffect(() => {
-    if (video.status === 'generating' || video.status === 'failed' || video.status === 'expired') {
-      return;
-    }
-    if (video.expiresAt && Date.now() >= video.expiresAt) {
-      markExpired();
-      return;
-    }
-    if (video.url.startsWith('blob:')) return;
+  useEffect(() => () => resumeController.current?.abort(), [accountId, threadId, id]);
 
+  useEffect(() => {
+    setPlaybackUrl(null);
+    setError(undefined);
+    if (video.status === 'generating' || video.status === 'failed' || video.status === 'expired')
+      return;
     const controller = new AbortController();
     let localUrl: string | undefined;
-    void fetch(video.url, {
-      headers: {
-        Authorization: `Bearer ${getProviderKey(user?.id ?? getAnonymousWorkspaceAccount(), 'openrouter') || ''}`,
-      },
-      signal: controller.signal,
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Video request failed: ${response.status}`);
-        return response.blob();
-      })
-      .then((blob) => {
+    const load = async () => {
+      try {
+        let response: Response;
+        if (video.url.startsWith('blob:')) {
+          try {
+            response = await fetch(video.url, { signal: controller.signal });
+          } catch (error) {
+            if (controller.signal.aborted || !video.sourceUrl) throw error;
+            response = await fetchVideoApi(video.sourceUrl, apiKey, { signal: controller.signal });
+          }
+        } else {
+          response = await fetchVideoApi(video.sourceUrl || video.url, apiKey, {
+            signal: controller.signal,
+          });
+        }
+        const blob = await response.blob();
+        controller.signal.throwIfAborted();
+        if (!blob.type.startsWith('video/'))
+          throw new Error('This file could not be played as a video.');
         localUrl = URL.createObjectURL(blob);
         setPlaybackUrl(localUrl);
-      })
-      .catch((error: unknown) => {
-        if ((error as Error).name !== 'AbortError') markExpired();
-      });
-
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (error instanceof VideoApiError && (error.status === 404 || error.status === 410)) {
+          save({ ...video, status: 'expired' });
+        } else {
+          setError(error instanceof Error ? error.message : 'Could not load the video. Try again.');
+        }
+      }
+    };
+    void load();
     return () => {
       controller.abort();
       if (localUrl) URL.revokeObjectURL(localUrl);
     };
-  }, [video.url, video.status, video.expiresAt]);
+  }, [video.url, video.sourceUrl, video.status, apiKey, reload, accountId, threadId, id]);
 
-  if (video.status === 'generating') {
-    return (
-      <div className="relative flex aspect-video w-full max-w-[52rem] items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted via-accent/40 to-muted" />
-        <div className="relative flex flex-col items-center gap-3 text-muted-foreground">
-          <LoaderCircleIcon className="size-8 animate-spin" aria-hidden="true" />
-          <p className="text-sm">Generating video...</p>
-          <p className="text-xs">This may take a few minutes.</p>
-        </div>
-      </div>
-    );
-  }
+  const resume = async () => {
+    if (!video.jobId || checking || isVideoJobActive(video.jobId)) return;
+    const controller = new AbortController();
+    resumeController.current = controller;
+    setChecking(true);
+    setError(undefined);
+    try {
+      const result = await finishVideoJob(
+        { id: video.jobId, status: 'pending' },
+        apiKey,
+        controller.signal
+      );
+      save({ ...result, startedAt: video.startedAt });
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        const message = error instanceof Error ? error.message : 'Could not check the video.';
+        setError(message);
+        save({
+          ...video,
+          status: 'failed',
+          error: message,
+          terminal: error instanceof VideoApiError && error.terminal,
+        });
+      }
+    } finally {
+      if (resumeController.current === controller) {
+        resumeController.current = null;
+        setChecking(false);
+      }
+    }
+  };
 
-  if (isExpired || video.status === 'expired') {
-    return (
-      <div className="relative aspect-video w-full max-w-[52rem] overflow-hidden rounded-xl border border-border bg-muted">
-        {video.thumbnail ? (
-          <img
-            className="size-full object-cover blur-md scale-105 opacity-60"
-            src={video.thumbnail}
-            alt="Expired video thumbnail"
-          />
-        ) : (
-          <div className="size-full bg-gradient-to-br from-muted to-accent/40" />
-        )}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/65 px-4 text-center backdrop-blur-sm">
-          <FilmIcon className="size-7 text-muted-foreground" aria-hidden="true" />
-          <p className="text-sm font-medium">This video link has expired</p>
-          <p className="text-xs text-muted-foreground">Generate again to watch it.</p>
-        </div>
-      </div>
-    );
-  }
+  const generating = video.status === 'generating';
+  const expired = video.status === 'expired';
+  const failed = video.status === 'failed';
+  const active = checking || !!(video.jobId && isVideoJobActive(video.jobId));
+  const canResume = !!video.jobId && !video.terminal && !active && (generating || failed);
+  const needsKey = !apiKey && (canResume || !!error);
+  const title = checking
+    ? 'Checking existing video...'
+    : expired
+      ? 'This video is no longer available'
+      : failed
+        ? 'Could not finish loading your video'
+        : canResume
+          ? 'Your video can be checked again'
+          : video.jobStatus === 'completed'
+            ? 'Downloading video...'
+            : video.jobStatus === 'pending'
+              ? 'Video queued...'
+              : 'Generating video...';
 
-  if (video.status === 'failed') {
+  if (generating || failed || expired || error) {
     return (
-      <div className="flex aspect-video w-full max-w-[52rem] flex-col items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 text-center">
-        <FilmIcon className="size-7 text-destructive" aria-hidden="true" />
-        <p className="text-sm font-medium">Video generation failed</p>
-        <p className="text-xs text-muted-foreground">Check your BYOK key and try again.</p>
-      </div>
+      <Card className="w-full min-w-0 max-w-[52rem] bg-muted shadow-none">
+        <CardContent
+          className="flex min-h-48 flex-col items-center justify-center gap-3 p-5 text-center"
+          aria-live="polite">
+          {(generating && !canResume) || checking ? (
+            <LoaderCircleIcon
+              className="size-7 animate-spin motion-reduce:animate-none text-muted-foreground"
+              aria-hidden="true"
+            />
+          ) : (
+            <FilmIcon className="size-7 text-muted-foreground" aria-hidden="true" />
+          )}
+          {expired && video.thumbnail && (
+            <img
+              src={video.thumbnail}
+              alt="Generated video preview"
+              className="max-h-40 w-full rounded-lg object-contain"
+            />
+          )}
+          <p className="text-sm font-medium">
+            {error && !failed ? 'Could not load the video' : title}
+          </p>
+          <p className="max-w-md text-xs text-muted-foreground break-words">
+            {error ||
+              video.error ||
+              (expired
+                ? 'Download completed videos to keep a permanent copy.'
+                : canResume
+                  ? 'Check the existing job without starting or paying for another generation.'
+                  : 'This can take several minutes. Your job is saved once the provider accepts it.')}
+          </p>
+          {needsKey ? (
+            <Button variant="outline" size="sm" onClick={openSettings}>
+              Open BYOK settings
+            </Button>
+          ) : canResume ? (
+            <Button variant="outline" size="sm" onClick={() => void resume()}>
+              <RefreshCwIcon aria-hidden="true" />
+              Check existing video
+            </Button>
+          ) : error && !failed && !expired ? (
+            <Button variant="outline" size="sm" onClick={() => setReload((value) => value + 1)}>
+              Retry loading
+            </Button>
+          ) : null}
+          {checking && (
+            <Button variant="ghost" size="sm" onClick={() => resumeController.current?.abort()}>
+              Stop checking
+            </Button>
+          )}
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="flex w-full max-w-[52rem] flex-col gap-2">
+    <section
+      className="flex w-full min-w-0 max-w-[52rem] flex-col gap-2"
+      aria-label="Generated video">
       {playbackUrl ? (
         <video
-          className="max-h-[min(70vh,40rem)] w-full rounded-xl border border-border bg-muted object-contain"
+          className="video-playback-entry max-h-[min(70vh,40rem)] w-full rounded-xl border border-border bg-muted object-contain"
           src={playbackUrl}
           controls
           playsInline
           preload="metadata"
-          onError={markExpired}
+          onError={() => setError('Your browser could not play this video. Try loading it again.')}
         />
       ) : (
-        <div className="flex aspect-video items-center justify-center rounded-xl border border-border bg-muted">
-          <RefreshCwIcon className="size-6 animate-spin text-muted-foreground" aria-hidden="true" />
-        </div>
+        <Card className="bg-muted shadow-none">
+          <CardContent
+            className="flex aspect-video items-center justify-center p-4"
+            role="status"
+            aria-label="Loading video">
+            <LoaderCircleIcon
+              className="size-6 animate-spin motion-reduce:animate-none text-muted-foreground"
+              aria-hidden="true"
+            />
+          </CardContent>
+        </Card>
       )}
-      <p className="text-xs text-muted-foreground">Video links are temporary and may expire.</p>
-    </div>
+      {playbackUrl && (
+        <Button variant="outline" size="sm" className="video-playback-entry self-start" asChild>
+          <a
+            href={playbackUrl}
+            download={`polychat-video-${id}.${video.mediaType === 'video/webm' ? 'webm' : 'mp4'}`}>
+            <DownloadIcon aria-hidden="true" />
+            Download video
+          </a>
+        </Button>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Video links are temporary. Download to keep a copy.
+        {typeof video.cost === 'number' && ` Provider cost: $${video.cost.toFixed(4)}.`}
+      </p>
+    </section>
   );
 };
-
 export default Video;

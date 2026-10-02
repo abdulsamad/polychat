@@ -66,16 +66,10 @@ const MessageContent = ({
   imageAttachments,
   fileAttachments,
   role,
-  metadata: {
-    model,
-    usage,
-    finishReason,
-    cancelled,
-    requestState,
-    emptyResponse,
-    reasoningComplete,
-  },
+  metadata,
 }: MessageProps) => {
+  const { model, usage, finishReason, cancelled, requestState, emptyResponse, reasoningComplete } =
+    metadata;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const thread = useAtomValue(threadAtom);
   const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
@@ -295,11 +289,7 @@ const MessageContent = ({
                     video={video}
                     model={model}
                     threadId={thread?.id || ''}
-                    metadata={{
-                      model,
-                      profile: thread?.settings.profile || null,
-                      timestamp: Date.now(),
-                    }}
+                    metadata={metadata}
                   />
                 ) : (
                   <div

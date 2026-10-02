@@ -80,6 +80,12 @@ export interface IVideoMessage {
     thumbnail?: string;
     status?: 'generating' | 'ready' | 'expired' | 'failed';
     expiresAt?: number;
+    jobId?: string;
+    jobStatus?: 'pending' | 'in_progress' | 'completed';
+    startedAt?: number;
+    error?: string;
+    terminal?: boolean;
+    cost?: number;
   };
 }
 
@@ -561,7 +567,11 @@ export const messageSaveEffect = atomEffect((get, set) => {
         messages
           .filter(
             (message) =>
-              !(message.type === 'video_url' && message.video_url.status === 'generating')
+              !(
+                message.type === 'video_url' &&
+                message.video_url.status === 'generating' &&
+                !message.video_url.jobId
+              )
           )
           .map((message) => {
             if (message.type !== 'video_url') return message;

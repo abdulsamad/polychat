@@ -119,6 +119,7 @@ export const videoRequestSchema = z.object({
   resolution: z.string().trim().min(1).max(32).optional(),
   aspectRatio: z.string().trim().min(1).max(16).optional(),
   generateAudio: z.boolean().optional(),
+  seed: z.number().int().optional(),
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
