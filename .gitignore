@@ -73,7 +73,38 @@ jspm_packages
 # Cloudflare
 .dev.vars
 
-# AI
-.serena/cache
+# ====AI==== #
+# Serena Framework Exclusions
+.serena/cache/
 .serena/project.local.yml
+
+# Graphify Output Targets
 graphify-out/
+
+# Headroom Core & Process Locks
+.headroom/
+headroom.db
+headroom_*.db
+*.lock
+settings.lock
+
+# Temporary wrapper configuration files and JSON session hook dumps
+.claude/.headroom_wrap_*.json
+.cursor/.headroom_wrap_*.json
+*.local.json
+tsheadroom.config.json
+*.config.json.tmp
+
+# Headroom Learn automated outputs
+CLAUDE.local.md
+*.jsonl
+
+# Codex local configuration overrides and dynamic states
+.codex/config.local.toml
+.codex/session_state/
+*.codexignore
+
+# Headroom + Codex temporary context wrappers
+.codex/.headroom_wrap_*.json
+codex.local.md
+CODEX.local.md
