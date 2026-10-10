@@ -41,11 +41,13 @@ const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((listener) => listener());
 const encode = (value: Uint8Array) => btoa(String.fromCharCode(...value));
 const decode = (value: string) => Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
-const saveSessionVaultKey = async (accountId: string, key: CryptoKey) => {
+const saveSessionVaultKey = (accountId: string, rawKey: Uint8Array) => {
   try {
     // sessionStorage lasts for the lifetime of this browser tab, including a
-    // reload. The actual provider keys remain encrypted in IndexedDB.
-    sessionStorage.setItem(sessionVaultKey(accountId), encode(new Uint8Array(await crypto.subtle.exportKey('raw', key))));
+    // reload. The actual provider keys remain encrypted in IndexedDB. The raw
+    // bytes come from the unwrap step because the imported CryptoKey is
+    // non-extractable.
+    sessionStorage.setItem(sessionVaultKey(accountId), encode(rawKey));
   } catch (error) {
     console.warn('Could not preserve the BYOK session', error);
   }
@@ -118,8 +120,27 @@ const decrypt = (
     decode(value.ciphertext)
   );
 
+const forgetDeviceCredential = (credentialId: Uint8Array) => {
+  // Ask the passkey provider to hide a credential that cannot provide PRF, so a
+  // useless "PolyChat vault" passkey does not linger in the user's manager.
+  const signal = (
+    PublicKeyCredential as typeof PublicKeyCredential & {
+      signalUnknownCredential?: (options: { rpId: string; credentialId: string }) => Promise<void>;
+    }
+  ).signalUnknownCredential;
+  if (!signal) return;
+  const credentialIdBase64Url = encode(credentialId)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  void signal
+    .call(PublicKeyCredential, { rpId: window.location.hostname, credentialId: credentialIdBase64Url })
+    .catch(() => undefined);
+};
 const createDeviceCredential = async (accountId: string) => {
   const prfSalt = randomBytes(32);
+  let credentialId: Uint8Array;
+  let prf: { enabled?: boolean; results?: { first?: BufferSource } } | undefined;
   try {
     const credential = (await navigator.credentials.create({
       publicKey: {
@@ -138,14 +159,28 @@ const createDeviceCredential = async (accountId: string) => {
       },
     })) as PublicKeyCredential | null;
     if (!credential) throw new Error('Device authentication setup was not completed.');
-    const extensions = (credential as PublicKeyCredential & { getClientExtensionResults?: () => any })
-      .getClientExtensionResults?.();
-    return extensions?.prf?.enabled
-      ? { credentialId: new Uint8Array(credential.rawId), prfSalt }
-      : null;
+    credentialId = new Uint8Array(credential.rawId);
+    prf = (credential as PublicKeyCredential & { getClientExtensionResults?: () => any })
+      .getClientExtensionResults?.()?.prf;
   } catch (error) {
     logVaultError('WebAuthn device credential setup', error);
     throw error;
+  }
+  if (prf?.enabled === false) {
+    forgetDeviceCredential(credentialId);
+    return null;
+  }
+  // Some authenticators evaluate PRF during registration; others only report
+  // support, and some report nothing until the first assertion. Probe with one
+  // assertion before deciding the credential cannot unlock the vault.
+  if (prf?.results?.first) {
+    return { credentialId, prfSalt, deviceKey: await importAesKey(prf.results.first) };
+  }
+  try {
+    return { credentialId, prfSalt, deviceKey: await verifyDevice(credentialId, prfSalt) };
+  } catch {
+    forgetDeviceCredential(credentialId);
+    return null;
   }
 };
 const verifyDevice = async (credentialId: Uint8Array, prfSalt: Uint8Array) => {
@@ -194,15 +229,17 @@ export const isPrfSupported = async () => {
   if (!isDeviceUnlockSupported()) return false;
   const getClientCapabilities = (
     PublicKeyCredential as typeof PublicKeyCredential & {
-      getClientCapabilities?: (kind?: string) => Promise<{ extensions?: string[] }>;
+      getClientCapabilities?: () => Promise<Record<string, boolean | undefined>>;
     }
   ).getClientCapabilities;
-  if (!getClientCapabilities) return false;
+  // Without the capabilities API, or when the browser does not report PRF, support
+  // is unknown rather than absent. Registration probes the authenticator directly.
+  if (!getClientCapabilities) return true;
   try {
-    const capabilities = await getClientCapabilities('public-key');
-    return capabilities.extensions?.includes('prf') ?? false;
+    const capabilities = await getClientCapabilities.call(PublicKeyCredential);
+    return capabilities['extension:prf'] !== false;
   } catch {
-    return false;
+    return true;
   }
 };
 export const subscribeVault = (listener: () => void) => {
@@ -270,6 +307,12 @@ export const hasVault = async (accountId: string) => {
 };
 export const isVaultUnlocked = (accountId: string) =>
   activeAccount === accountId && activeKey !== null;
+export const hasDeviceUnlock = async (accountId: string) => {
+  const envelope = await vaultStore.getItem<VaultEnvelope | LegacyVaultEnvelope>(
+    storageKey(accountId)
+  );
+  return envelope?.version === 4 && Boolean((envelope as VaultEnvelope).device?.wrappedVaultKey);
+};
 
 export const createVault = async (
   accountId: string,
@@ -281,7 +324,15 @@ export const createVault = async (
   if (!passphrase.trim() || !value.trim()) throw new Error('Passphrase and API key are required');
   if (useDevice && !isDeviceUnlockSupported())
     throw new Error('Device authentication requires HTTPS and WebAuthn support.');
-  const deviceCredential = useDevice ? await createDeviceCredential(accountId) : null;
+  let deviceCredential: Awaited<ReturnType<typeof createDeviceCredential>> = null;
+  if (useDevice) {
+    try {
+      deviceCredential = await createDeviceCredential(accountId);
+    } catch {
+      // Cancelled or unsupported device setup still leaves a usable passphrase vault.
+      deviceCredential = null;
+    }
+  }
   const vaultKeyRaw = randomBytes(32);
   const vaultKey = await importAesKey(vaultKeyRaw);
   const salt = randomBytes(16);
@@ -295,12 +346,7 @@ export const createVault = async (
   );
   const wrappedVaultKey = await encrypt(passphraseKey, vaultKeyRaw, accountId, 'vault-key');
   const deviceWrappedVaultKey = deviceCredential
-    ? await encrypt(
-        await verifyDevice(deviceCredential.credentialId, deviceCredential.prfSalt),
-        vaultKeyRaw,
-        accountId,
-        'vault-key'
-      )
+    ? await encrypt(deviceCredential.deviceKey, vaultKeyRaw, accountId, 'vault-key')
     : undefined;
   await vaultStore.setItem(storageKey(accountId), {
     version: 4,
@@ -325,7 +371,41 @@ export const createVault = async (
   activeKey = vaultKey;
   activeKeys = keys;
   sessionKeys = {};
-  void saveSessionVaultKey(accountId, vaultKey);
+  saveSessionVaultKey(accountId, vaultKeyRaw);
+  notify();
+  return { deviceUnlock: Boolean(deviceCredential) };
+};
+export const enableDeviceUnlock = async (accountId: string, passphrase: string) => {
+  ensureAccount(accountId);
+  if (!passphrase) throw new Error('Enter your vault passphrase to enable device unlock.');
+  if (!isDeviceUnlockSupported())
+    throw new Error('Device authentication requires HTTPS and WebAuthn support.');
+  const envelope = await vaultStore.getItem<VaultEnvelope>(storageKey(accountId));
+  if (!envelope || envelope.version !== 4) throw new Error('Unlock your BYOK vault first');
+  const passphraseKey = await derivePassphraseKey(passphrase, decode(envelope.recovery.kdf.salt));
+  let vaultKeyRaw: Uint8Array<ArrayBuffer>;
+  try {
+    vaultKeyRaw = new Uint8Array(
+      await decrypt(passphraseKey, envelope.recovery.wrappedVaultKey, accountId, 'vault-key')
+    );
+  } catch {
+    throw new Error('Incorrect vault passphrase.');
+  }
+  const deviceCredential = await createDeviceCredential(accountId);
+  if (!deviceCredential) {
+    throw new Error(
+      'This passkey cannot provide a device unlock secret. Try a different passkey provider.'
+    );
+  }
+  const wrappedVaultKey = await encrypt(deviceCredential.deviceKey, vaultKeyRaw, accountId, 'vault-key');
+  await vaultStore.setItem(storageKey(accountId), {
+    ...envelope,
+    device: {
+      credentialId: encode(deviceCredential.credentialId),
+      prfSalt: encode(deviceCredential.prfSalt),
+      wrappedVaultKey,
+    },
+  } satisfies VaultEnvelope);
   notify();
 };
 export const unlockVault = async (accountId: string, passphrase?: string) => {
@@ -337,14 +417,15 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
     if (!passphrase) throw new Error('Enter your vault passphrase to migrate this older vault.');
     await verifyDeviceLegacy(decode((envelope as any).device.credentialId));
     const passphraseKey = await derivePassphraseKey(passphrase, decode((envelope as any).recovery.kdf.salt));
-    let legacyVaultKey: CryptoKey;
+    let legacyVaultKeyRaw: Uint8Array<ArrayBuffer>;
     try {
-      legacyVaultKey = await importAesKey(
+      legacyVaultKeyRaw = new Uint8Array(
         await decrypt(passphraseKey, (envelope as any).recovery.wrappedVaultKey, accountId, 'vault-key')
       );
     } catch {
       throw new Error('Incorrect vault passphrase.');
     }
+    const legacyVaultKey = await importAesKey(legacyVaultKeyRaw);
     const plaintext = await decrypt(legacyVaultKey, (envelope as any).cipher, accountId, 'payload');
     const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
     if (!keys || typeof keys !== 'object') throw new Error('Invalid BYOK vault');
@@ -352,33 +433,39 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
     activeKey = legacyVaultKey;
     activeKeys = keys as ProviderKeys;
     sessionKeys = {};
-    void saveSessionVaultKey(accountId, legacyVaultKey);
+    saveSessionVaultKey(accountId, legacyVaultKeyRaw);
     notify();
     return;
   }
   if (envelope.version !== 4) throw new Error('Unsupported BYOK vault version.');
-  let vaultKey: CryptoKey;
+  let vaultKeyRaw: Uint8Array<ArrayBuffer>;
   try {
     if (!envelope.device?.wrappedVaultKey) throw new Error('Device PRF is unavailable');
-    vaultKey = await verifyDevice(decode(envelope.device.credentialId), decode(envelope.device.prfSalt));
-    vaultKey = await importAesKey(
-      await decrypt(vaultKey, envelope.device.wrappedVaultKey!, accountId, 'vault-key')
+    const deviceKey = await verifyDevice(
+      decode(envelope.device.credentialId),
+      decode(envelope.device.prfSalt)
+    );
+    vaultKeyRaw = new Uint8Array(
+      await decrypt(deviceKey, envelope.device.wrappedVaultKey, accountId, 'vault-key')
     );
   } catch (deviceError) {
     if (!passphrase) {
       throw new Error(
-        'This passkey does not support device-only unlock. Enter your vault passphrase instead.'
+        envelope.device?.wrappedVaultKey
+          ? 'Device unlock did not complete. Enter your vault passphrase instead.'
+          : 'Enter your vault passphrase.'
       );
     }
     const passphraseKey = await derivePassphraseKey(passphrase, decode(envelope.recovery.kdf.salt));
     try {
-      vaultKey = await importAesKey(
+      vaultKeyRaw = new Uint8Array(
         await decrypt(passphraseKey, envelope.recovery.wrappedVaultKey, accountId, 'vault-key')
       );
     } catch {
       throw new Error('Incorrect vault passphrase.');
     }
   }
+  const vaultKey = await importAesKey(vaultKeyRaw);
   const plaintext = await decrypt(vaultKey, envelope.cipher, accountId, 'payload');
   const keys: unknown = JSON.parse(new TextDecoder().decode(plaintext));
   if (!keys || typeof keys !== 'object') throw new Error('Invalid BYOK vault');
@@ -386,7 +473,7 @@ export const unlockVault = async (accountId: string, passphrase?: string) => {
   activeKey = vaultKey;
   activeKeys = keys as ProviderKeys;
   sessionKeys = {};
-  void saveSessionVaultKey(accountId, vaultKey);
+  saveSessionVaultKey(accountId, vaultKeyRaw);
   notify();
 };
 export const saveProviderKey = async (accountId: string, provider: ByokProvider, value: string) => {

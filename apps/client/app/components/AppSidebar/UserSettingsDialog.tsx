@@ -46,6 +46,8 @@ import {
 import { abortAllStreams } from '@/utils/chat-stream-registry';
 import {
   createVault,
+  enableDeviceUnlock,
+  hasDeviceUnlock,
   hasVault,
   isVaultUnlocked,
   lockVault,
@@ -128,6 +130,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const [isLoading, setIsLoading] = useState(true);
   const [vaultExists, setVaultExists] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(false);
+  const [deviceUnlock, setDeviceUnlock] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [provider, setProvider] = useState<ByokProvider>('google');
@@ -169,6 +172,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   const refreshVault = async () => {
     setVaultExists(await hasVault(accountId));
     setVaultUnlocked(isVaultUnlocked(accountId));
+    setDeviceUnlock(await hasDeviceUnlock(accountId));
     const configured = await Promise.all(
       byokProviders.map(async ({ id }) => ((await isProviderConfigured(accountId, id)) ? id : null))
     );
@@ -181,6 +185,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     return subscribeVault(() => {
       setVaultUnlocked(isVaultUnlocked(accountId));
       void hasVault(accountId).then(setVaultExists);
+      void hasDeviceUnlock(accountId).then(setDeviceUnlock);
     });
   }, [accountId, open]);
 
@@ -194,11 +199,11 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
   }, [open]);
 
   useEffect(() => {
-    if (!open || !vaultExists || vaultUnlocked || !isPrfSupportResolved || prfSupported) return;
+    if (!open || !vaultExists || vaultUnlocked || !isPrfSupportResolved || deviceUnlock) return;
 
     const frame = requestAnimationFrame(() => unlockPassphraseRef.current?.focus());
     return () => cancelAnimationFrame(frame);
-  }, [open, vaultExists, vaultUnlocked, isPrfSupportResolved, prfSupported]);
+  }, [open, vaultExists, vaultUnlocked, isPrfSupportResolved, deviceUnlock]);
 
   const handleUnlock = async () => {
     if (!accountId) return;
@@ -215,6 +220,22 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
     }
   };
 
+  const handleEnableDeviceUnlock = async () => {
+    if (!accountId || !passphrase) return;
+    try {
+      await enableDeviceUnlock(accountId, passphrase);
+      setPassphrase('');
+      setDeviceUnlock(true);
+      toast.success('Device unlock enabled');
+    } catch (error) {
+      console.error('[BYOK vault] Enable device unlock failed', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      toast.error(error instanceof Error ? error.message : 'Could not enable device unlock.');
+    }
+  };
+
   const handleSaveKey = async (persistent: boolean) => {
     if (!apiKey.trim()) return;
     try {
@@ -224,7 +245,16 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             toast.error('Enter and confirm a vault passphrase.');
             return;
           }
-          await createVault(accountId, passphrase, provider, apiKey, prfSupported);
+          const { deviceUnlock: createdWithDevice } = await createVault(
+            accountId,
+            passphrase,
+            provider,
+            apiKey,
+            prfSupported
+          );
+          if (prfSupported && !createdWithDevice) {
+            toast.info('Device unlock is unavailable with this passkey. Using your passphrase.');
+          }
           setPassphrase('');
           setConfirmPassphrase('');
         } else {
@@ -553,7 +583,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
             <div>
               <h2 className="text-sm font-semibold">Bring your own keys</h2>
               <p className="text-xs text-muted-foreground">
-                {prfSupported
+                {(vaultExists ? deviceUnlock : prfSupported)
                   ? 'Saved keys unlock with your device. Your passphrase is kept as a recovery option.'
                   : 'Saved keys require your passphrase.'}
               </p>
@@ -616,9 +646,29 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               <Button
                 type="button"
                 onClick={() => void handleUnlock()}
-                disabled={!prfSupported && !passphrase}>
+                disabled={!deviceUnlock && !passphrase}>
                 <KeyRoundIcon className="mr-2 size-4" />
-                {passphrase ? 'Use passphrase backup' : 'Unlock with device'}
+                {passphrase || !deviceUnlock ? 'Use passphrase backup' : 'Unlock with device'}
+              </Button>
+            </div>
+          ) : null}
+
+          {vaultUnlocked && !deviceUnlock && prfSupported ? (
+            <div className="mb-4 flex gap-2">
+              <Input
+                type="password"
+                value={passphrase}
+                onChange={(event) => setPassphrase(event.target.value)}
+                placeholder="Vault passphrase"
+                autoComplete="current-password"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleEnableDeviceUnlock()}
+                disabled={!passphrase}>
+                <KeyRoundIcon className="mr-2 size-4" />
+                Enable device unlock
               </Button>
             </div>
           ) : null}
@@ -706,7 +756,11 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
               Use this session
             </Button>
             <Button type="button" onClick={() => void handleSaveKey(true)}>
-              {prfSupported ? 'Save with device (passphrase backup)' : 'Save with passphrase'}
+              {vaultExists
+                ? 'Save to vault'
+                : prfSupported
+                  ? 'Save with device (passphrase backup)'
+                  : 'Save with passphrase'}
             </Button>
             {vaultUnlocked ? (
               <Button
