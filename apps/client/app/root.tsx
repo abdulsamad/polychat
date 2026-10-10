@@ -26,7 +26,13 @@ import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 
 export const meta: MetaFunction = () => [
   { charSet: 'utf-8' },
-  { name: 'viewport', content: 'width=device-width,initial-scale=1' },
+  {
+    name: 'viewport',
+    content:
+      'width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content',
+  },
+  { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#f4f6fb' },
+  { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#080d16' },
   { name: 'color-scheme', content: 'light dark' },
   { title: 'PolyChat - The AI Chat App' },
   {
@@ -62,7 +68,6 @@ export const links: Route.LinksFunction = () => [
     href: 'https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap',
   },
   { rel: 'icon', href: '/favicon.ico' },
-  { rel: 'theme-color', href: '#6656D9' },
   { rel: 'manifest', href: '/manifest.webmanifest' },
 ];
 

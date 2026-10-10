@@ -89,13 +89,14 @@ const Empty = ({ name, showHints }: IEmpty) => {
             </blockquote>
         {showHints && <h3 className="my-3 font-semibold">Try a prompt</h3>}
         {showHints && <div className="grid gap-2 sm:grid-cols-2">
-              {hints.map((hint) => (
+              {hints.map((hint, index) => (
                 <Button
                   key={hint}
+                  style={{ animationDelay: `${index * 40}ms` }}
                   variant="outline"
                   onClick={() => submitMessage(hint)}
                   disabled={isChatLoading || isQueued}
-                  className="h-full min-w-0 rounded-xl bg-card/70 px-3 py-3 text-left shadow-sm hover:border-primary/50 hover:bg-accent/70">
+                  className="empty-hint-entry h-full min-w-0 rounded-xl bg-card/70 px-3 py-3 text-left shadow-sm hover:border-primary/50 hover:bg-accent/70">
                   <p className="max-w-full whitespace-break-spaces [overflow-wrap:anywhere]">
                     {hint}
                   </p>

@@ -26,7 +26,7 @@ const Voice = () => {
       }
       size="icon"
       className={clsx(
-        'group flex size-10 items-center justify-center rounded-full bg-primary p-0 text-primary-foreground shadow-md transition-[transform,background-color,box-shadow,color,border-color] duration-200 hover:-translate-y-0.5 hover:text-primary-foreground hover:shadow-primary/30 active:scale-90 disabled:transform-none disabled:cursor-not-allowed disabled:opacity-60 sm:size-11',
+        'group flex size-10 items-center justify-center rounded-full bg-primary p-0 text-primary-foreground shadow-md transition-[translate,scale,background-color,box-shadow,color,border-color] duration-150 ease-[var(--ease-out)] hover:-translate-y-0.5 hover:text-primary-foreground hover:shadow-primary/30 active:scale-[0.95] motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100 disabled:translate-none disabled:scale-100 disabled:cursor-not-allowed disabled:opacity-60 sm:size-11',
         isListening &&
           'animate-pulse border-2 border-sky-200 text-sky-200 shadow-[0_0_1px_#fff,inset_0_0_1px_#fff,0_0_2px_#08f,0_0_6px_#08f,0_0_15px_#08f]'
       )}

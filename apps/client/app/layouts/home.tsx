@@ -10,7 +10,7 @@ const Home = () => {
     <SidebarProvider>
       <ChatQueueProvider />
       <AppSidebar />
-      <main className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      <main className="flex h-dvh min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background pr-[env(safe-area-inset-right,0px)] pl-[env(safe-area-inset-left,0px)]">
         <Nav />
         <div className="min-h-0 min-w-0 flex-1">
           <Outlet />

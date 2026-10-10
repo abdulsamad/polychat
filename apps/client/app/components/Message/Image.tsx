@@ -34,7 +34,7 @@ interface ImageControlsOptions {
 }
 
 const imageActionClassName =
-  'transition-[transform,background-color,border-color,color] duration-150 hover:-translate-y-0.5 active:scale-90';
+  'transition-[translate,scale,background-color,border-color,color] duration-150 ease-[var(--ease-out)] hover:-translate-y-0.5 active:scale-[0.95] motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100';
 
 const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
   const [rotation, setRotation] = useState(0);
@@ -351,7 +351,7 @@ const Image = ({ image: { url, alt, size }, model }: ImageProps) => {
           <button
             type="button"
             onClick={() => setIsFullscreen(true)}
-            className="block w-full overflow-hidden rounded-2xl transition-[transform,box-shadow] duration-200 hover:shadow-lg active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="block w-full overflow-hidden rounded-2xl transition-[scale,box-shadow] duration-200 ease-[var(--ease-out)] hover:shadow-lg active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="View image fullscreen">
             <img
               src={url}

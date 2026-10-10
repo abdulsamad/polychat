@@ -88,7 +88,7 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
             title={`Download ${downloadName}`}
             aria-label={`Download ${downloadName}`}
             onClick={downloadCode}
-            className="h-8 px-2 text-code-foreground transition-[transform,background-color,color] duration-150 hover:-translate-y-0.5 hover:bg-white/10 hover:text-code-foreground active:scale-90">
+            className="h-8 px-2 text-code-foreground transition-[translate,scale,background-color,color] duration-150 ease-[var(--ease-out)] hover:-translate-y-0.5 hover:bg-white/10 hover:text-code-foreground active:scale-[0.95] motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100">
             <DownloadIcon className="size-3.5" />
             <span className="hidden sm:inline">Download</span>
           </Button>

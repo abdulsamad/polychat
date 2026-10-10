@@ -45,20 +45,20 @@ const CopyButton = ({ text, label, className }: CopyButtonProps) => {
       aria-label={`Copy ${label.toLowerCase()}`}
       onClick={() => void copyText()}
       className={clsx(
-        'size-7 text-muted-foreground transition-transform duration-150 active:scale-90',
+        'size-7 text-muted-foreground active:scale-[0.95]',
         copied && 'text-primary',
         className
       )}>
       <span className="relative flex size-3.5" aria-hidden="true">
         <CopyIcon
           className={clsx(
-            'absolute size-3.5 transition-all duration-150',
+            'absolute size-3.5 transition-[opacity,scale] duration-150 ease-[var(--ease-out)]',
             copied ? 'scale-50 opacity-0' : 'scale-100 opacity-100'
           )}
         />
         <CheckIcon
           className={clsx(
-            'absolute size-3.5 transition-all duration-150',
+            'absolute size-3.5 transition-[opacity,scale] duration-150 ease-[var(--ease-out)]',
             copied ? 'scale-100 opacity-100' : 'scale-50 opacity-0'
           )}
         />
