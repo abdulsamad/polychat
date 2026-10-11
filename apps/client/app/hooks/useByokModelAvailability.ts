@@ -374,8 +374,10 @@ export const useByokModelAvailability = () => {
       ...Array.from(discoveredByName.values()).filter(({ name }) => !catalogNames.has(name)),
     ].map((model) => ({
       ...model,
+      // Catalog entries marked disabled are locked hints for BYOK providers;
+      // they unlock once the user stores a key for that provider.
       disabled:
-        model.disabled ||
+        (model.disabled && !(model.type === 'text' && getProviderKey(accountId, model.provider))) ||
         ((model.type === 'image' || model.type === 'video') &&
           !getProviderKey(accountId, model.provider)),
     }));
