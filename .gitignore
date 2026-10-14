@@ -89,7 +89,7 @@ headroom_*.db
 settings.lock
 
 # Temporary wrapper configuration files and JSON session hook dumps
-.claude/.headroom_wrap_*.json
+.claude/
 .cursor/.headroom_wrap_*.json
 *.local.json
 tsheadroom.config.json
