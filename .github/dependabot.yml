@@ -1,0 +1,22 @@
+version: 2
+
+# One weekly PR for every npm version update.
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    multi-ecosystem-group: "all-dependencies"
+    patterns: ["*"]
+    # Mirrors pnpm-workspace.yaml minimumReleaseAge (7 days)
+    cooldown:
+      default-days: 7
+    groups:
+      # Security fixes skip cooldown and land in one PR of their own
+      security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
