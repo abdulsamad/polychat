@@ -12,6 +12,7 @@ catalog:
 allowBuilds:
   '@clerk/shared': false
   esbuild: false
+minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - '@ai-sdk/gateway@4.0.53 || 4.0.74'
   - '@ai-sdk/google@4.0.45'
