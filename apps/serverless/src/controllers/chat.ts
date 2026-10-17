@@ -1,7 +1,12 @@
 import { Context } from 'hono';
 import { streamText, APICallError, type ModelMessage } from 'ai';
 
-import { chatRequestSchema, getAssistantConfig } from 'utils';
+import {
+  chatRequestSchema,
+  getAssistantConfig,
+  supportedModels,
+  type SupportedModel,
+} from 'utils';
 
 import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
@@ -32,6 +37,7 @@ const getGeneratedFileName = (mediaType: string) => {
   const extensionByMediaType: Record<string, string> = {
     'application/pdf': 'pdf',
     'application/json': 'json',
+    'audio/mpeg': 'mp3',
     'text/plain': 'txt',
     'text/markdown': 'md',
     'text/csv': 'csv',
@@ -124,6 +130,12 @@ const chat = async (c: Context<AppContext>) => {
     );
 
     const modelInstance = modelFactory.createModel(model);
+    // Image output is driven by the catalog entry, never by the client request.
+    // No hosted model sets it yet, so this stays inert until one is flagged.
+    const catalogModel = (supportedModels as readonly SupportedModel[]).find(
+      (entry) => entry.name === model
+    );
+    const imageOutput = Boolean(catalogModel?.supportsImageOutput);
     const config = {
       ...getAssistantConfig(
         profile as Parameters<typeof getAssistantConfig>[0],
@@ -148,18 +160,24 @@ const chat = async (c: Context<AppContext>) => {
       frequencyPenalty: config.frequencyPenalty,
       presencePenalty: config.presencePenalty,
       stopSequences: config.stopSequences,
-      providerOptions: model?.startsWith('gemini')
-        ? {
-            google: {
-              safetySettings: [
-                {
-                  category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                  threshold: 'BLOCK_ONLY_HIGH',
-                },
-              ],
-            },
-          }
-        : undefined,
+      providerOptions: {
+        ...(model?.startsWith('gemini')
+          ? {
+              google: {
+                safetySettings: [
+                  {
+                    category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                    threshold: 'BLOCK_ONLY_HIGH',
+                  },
+                ],
+                ...(imageOutput ? { responseModalities: ['TEXT', 'IMAGE'] } : {}),
+              },
+            }
+          : {}),
+        ...(imageOutput && catalogModel?.provider === 'openrouter'
+          ? { openrouter: { modalities: ['image', 'text'] } }
+          : {}),
+      },
       abortSignal: signal,
       onError: (event) => {
         console.error(`[CHAT] Stream error for user ${user.id}: ${event.error}`);

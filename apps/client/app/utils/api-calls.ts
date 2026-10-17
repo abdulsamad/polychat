@@ -58,6 +58,7 @@ interface IGetGeneratedTextBase {
   customInstructions?: string;
   modelConfig?: IBaseModelConfig;
   imageAttachments?: ImageAttachment[];
+  imageOutput?: boolean;
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
@@ -93,6 +94,7 @@ export const getGeneratedText = async ({
   customInstructions,
   modelConfig,
   imageAttachments,
+  imageOutput,
   signal,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
   const requestPayload = {
@@ -123,6 +125,7 @@ export const getGeneratedText = async ({
         prompt,
         messages,
         imageAttachments,
+        imageOutput,
         apiKey,
         signal,
       });

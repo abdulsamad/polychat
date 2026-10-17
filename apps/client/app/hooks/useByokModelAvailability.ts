@@ -51,6 +51,19 @@ const hasImageOutput = (entry: Record<string, unknown>) => {
   );
 };
 
+// Chat models that can return images inline (alongside text), unlike dedicated
+// image models that only work through the image generation endpoint.
+const hasTextAndImageOutput = (entry: Record<string, unknown>) => {
+  const architecture = entry.architecture;
+  if (!architecture || typeof architecture !== 'object') return false;
+  const outputModalities = (architecture as { output_modalities?: unknown }).output_modalities;
+  return (
+    Array.isArray(outputModalities) &&
+    outputModalities.includes('image') &&
+    outputModalities.includes('text')
+  );
+};
+
 const hasImageInput = (entry: Record<string, unknown>) => {
   const architecture = entry.architecture;
   if (architecture && typeof architecture === 'object') {
@@ -225,9 +238,12 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
         : Array.isArray(entry.supportedActions)
           ? entry.supportedActions
           : [];
+      const isGeminiImageOutput =
+        /^gemini.*image/i.test(modelId) && (!actions.length || actions.includes('generateContent'));
       const isImage =
-        actions.some((action) => /generateImages?|image/i.test(String(action))) ||
-        isImageModelId(modelId);
+        !isGeminiImageOutput &&
+        (actions.some((action) => /generateImages?|image/i.test(String(action))) ||
+          isImageModelId(modelId));
       if (actions.length && !actions.includes('generateContent') && !isImage) return [];
       return [
         {
@@ -240,13 +256,17 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
             hasReasoningModelId(provider, modelId) || hasReasoningParameter(entry)
           ),
           type: isImage ? 'image' : 'text',
+          ...(isGeminiImageOutput ? { supportsImageOutput: true } : {}),
         },
       ];
     }
 
+    const isChatImageOutput = provider === 'openrouter' && hasTextAndImageOutput(entry);
     const isImage =
       (provider === 'openai' && isOpenAIImageModel(rawId)) ||
-      (provider !== 'openai' && (hasImageOutput(entry) || isImageModelId(rawId)));
+      (provider !== 'openai' &&
+        !isChatImageOutput &&
+        (hasImageOutput(entry) || isImageModelId(rawId)));
 
     if (provider === 'openai' && !isOpenAITextModel(rawId) && !isImage) return [];
     if (provider === 'mistral') {
@@ -273,6 +293,7 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
         ),
         type: isImage ? 'image' : 'text',
         ...(isImage ? { supportsImageReferences: hasImageInput(entry) } : {}),
+        ...(isChatImageOutput ? { supportsImageOutput: true } : {}),
       },
     ];
   });

@@ -319,7 +319,11 @@ const MessageContent = ({
                       <ImageAttachment key={attachment.id} attachment={attachment} compact />
                     ))}
                     {fileAttachments?.map((attachment) => (
-                      <ImageAttachment key={attachment.id} attachment={attachment} compact />
+                      <ImageAttachment
+                        key={attachment.id}
+                        attachment={attachment}
+                        compact={isUser || !/^(image|audio|video)\//.test(attachment.mediaType)}
+                      />
                     ))}
                     {!isUser && finishReason === 'length' && (
                       <Alert className="w-full max-w-[40rem] border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground [&>svg]:left-3 [&>svg]:top-2.5 [&>svg]:size-3.5 [&>svg~*]:pl-5">

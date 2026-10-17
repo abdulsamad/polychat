@@ -71,6 +71,7 @@ export const streamByokText = async ({
   prompt,
   messages,
   imageAttachments,
+  imageOutput,
   customInstructions,
   modelConfig,
   signal,
@@ -87,6 +88,7 @@ export const streamByokText = async ({
     imageAttachments?: ImageAttachment[];
   }>;
   imageAttachments?: ImageAttachment[];
+  imageOutput?: boolean;
   customInstructions?: string;
   modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
@@ -108,15 +110,22 @@ export const streamByokText = async ({
     presencePenalty: config.presencePenalty,
     abortSignal: signal,
     stopSequences: config.stopSequences,
-    providerOptions: model.startsWith('gemini')
-      ? {
-          google: {
-            safetySettings: [
-              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-            ],
-          },
-        }
-      : undefined,
+    providerOptions: {
+      ...(model.startsWith('gemini')
+        ? {
+            google: {
+              safetySettings: [
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+              ],
+              ...(imageOutput ? { responseModalities: ['TEXT', 'IMAGE'] } : {}),
+            },
+          }
+        : {}),
+      // OpenRouter only returns inline images when modalities are requested.
+      ...(imageOutput && provider === 'openrouter'
+        ? { openrouter: { modalities: ['image', 'text'] } }
+        : {}),
+    },
   } as any);
 
   return new ReadableStream<ChatStreamPart>({

@@ -18,6 +18,7 @@ export type SupportedModel = {
   supportsVision?: boolean;
   supportsFiles?: boolean;
   supportsImageReferences?: boolean;
+  supportsImageOutput?: boolean;
   supportsVideoReferences?: boolean;
   supportsReasoning?: boolean;
 };

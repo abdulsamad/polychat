@@ -1,7 +1,8 @@
-import { useRef } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { EditorContent, useEditorState } from '@tiptap/react';
 import { ImagePlus, SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
 import { useAtomValue } from 'jotai';
+import { toast } from 'sonner';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
 import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
@@ -27,6 +28,8 @@ const Text = () => {
     removeImageAttachment,
   } = useCustomTiptapEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const canAttach = canAttachImages || canAttachVideos || canAttachFiles;
   const isSpeaking = useAtomValue(speechPlaybackAtom);
   const { cancel } = useSpeechSynthesis();
   const hasText = useEditorState({
@@ -34,15 +37,47 @@ const Text = () => {
     selector: ({ editor: currentEditor }) => Boolean(currentEditor?.getText().trim()),
   });
 
+  // Handled in the capture phase so the editor never inserts or navigates to dropped files.
+  const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+
+  const handleDragOver = (event: DragEvent) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = canAttach ? 'copy' : 'none';
+    setIsDraggingFiles(canAttach);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLFormElement>) => {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingFiles(false);
+  };
+
+  const handleDrop = (event: DragEvent) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDraggingFiles(false);
+    if (!canAttach) {
+      toast.error('This model does not support file attachments.');
+      return;
+    }
+    void addImageFiles(event.dataTransfer.files);
+  };
+
   return (
     <form
-      className="composer-shell flex min-w-0 flex-col gap-1.5 rounded-[1.4rem] border border-input bg-card/95 p-1.5 shadow-[0_12px_36px_hsl(var(--foreground)/0.08)] transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] sm:gap-2 sm:p-2"
+      onDragOverCapture={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDropCapture={handleDrop}
+      data-dragging={isDraggingFiles || undefined}
+      className="composer-shell flex min-w-0 flex-col gap-1.5 rounded-[1.4rem] border border-input bg-card/95 p-1.5 shadow-[0_12px_36px_hsl(var(--foreground)/0.08)] transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] data-[dragging]:border-ring data-[dragging]:bg-accent/40 data-[dragging]:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] sm:gap-2 sm:p-2"
       onSubmit={(event) => {
         event.preventDefault();
         void handleSubmit();
       }}>
       <div className="flex min-w-0 items-end gap-2 sm:gap-3">
-        {(canAttachImages || canAttachVideos || canAttachFiles) && (
+        {canAttach && (
           <>
             <input
               ref={fileInputRef}

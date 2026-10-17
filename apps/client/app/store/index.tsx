@@ -278,6 +278,7 @@ export interface IThreadSettings<T extends enabledModelsType> {
   model: T;
   modelProvider?: modelProviderType;
   modelType?: 'text' | 'image' | 'video';
+  supportsImageOutput?: boolean;
   profile: profilesType;
   conversationContextMode: ConversationContextMode;
   isTextToSpeechEnabled: boolean;

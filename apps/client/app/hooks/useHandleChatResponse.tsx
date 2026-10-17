@@ -311,6 +311,7 @@ const useHandleChatResponse = () => {
           language,
           customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
           modelConfig,
+          imageOutput: thread.settings.supportsImageOutput,
           getToken,
           apiKey,
           signal,

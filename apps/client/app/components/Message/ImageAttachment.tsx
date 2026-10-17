@@ -30,7 +30,17 @@ const ImageAttachment = ({ attachment, compact = false, onRemove }: ImageAttachm
           ? 'flex w-full max-w-[22rem] items-center gap-2 overflow-hidden rounded-xl border border-border/70 bg-muted/50 p-1.5'
           : 'w-full max-w-[28rem] overflow-hidden rounded-xl border border-border/70 bg-muted/40'
       }>
-      {!isImage ? (
+      {!compact && attachment.dataUrl && attachment.mediaType.startsWith('audio/') ? (
+        <audio controls src={attachment.dataUrl} className="block w-full" preload="metadata" />
+      ) : !compact && attachment.dataUrl && attachment.mediaType.startsWith('video/') ? (
+        <video
+          controls
+          playsInline
+          src={attachment.dataUrl}
+          className="block max-h-80 w-full bg-black object-contain"
+          preload="metadata"
+        />
+      ) : !isImage ? (
         <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
           <FileTextIcon className="size-5" aria-hidden="true" />
         </div>

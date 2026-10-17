@@ -87,6 +87,7 @@ const SettingsDropdown = () => {
             ? {
                 modelProvider: selectedModel?.provider,
                 modelType: selectedModel?.type,
+                supportsImageOutput: selectedModel?.supportsImageOutput,
                 modelConfig: getDefaultModelConfig(
                   value,
                   selectedModel?.imageCapabilities,

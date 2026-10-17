@@ -439,6 +439,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
       const selectedModel = findModel(String(value));
       nextSettings.modelProvider = selectedModel?.provider;
       nextSettings.modelType = selectedModel?.type;
+      nextSettings.supportsImageOutput = selectedModel?.supportsImageOutput;
       nextSettings.modelConfig = getDefaultModelConfig(
         String(value),
         selectedModel?.imageCapabilities,
