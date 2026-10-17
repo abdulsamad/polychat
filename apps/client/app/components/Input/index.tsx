@@ -1,8 +1,8 @@
 import { useRef, useState, type DragEvent } from 'react';
 import { EditorContent, useEditorState } from '@tiptap/react';
-import { ImagePlus, SendHorizonal, Square, VolumeX, XIcon } from 'lucide-react';
+import { BanIcon, ImagePlus, SendHorizonal, Square, UploadIcon, VolumeX, XIcon } from 'lucide-react';
 import { useAtomValue } from 'jotai';
-import { toast } from 'sonner';
+import clsx from 'clsx';
 
 import useCustomTiptapEditor from '@/hooks/useCustomEditor';
 import { IS_SPEECH_RECOGNITION_SUPPORTED } from '@/utils';
@@ -11,6 +11,67 @@ import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
 import Voice from '@/components/Input/Voice';
 import { Button } from '@/components/ui/button';
 import ImageAttachment from '@/components/Message/ImageAttachment';
+
+// Enter eases out at 200ms, leave is quicker at 150ms. Transitions (not keyframes) so a
+// drag that enters and leaves rapidly retargets from the current value instead of restarting.
+const dropEase =
+  'ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transform-none motion-reduce:duration-150';
+
+const DropOverlay = ({ state }: { state: 'idle' | 'accept' | 'reject' }) => {
+  const isActive = state !== 'idle';
+  const isReject = state === 'reject';
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className={clsx(
+          'pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[inherit] bg-card/75 backdrop-blur-[2px] transition-opacity',
+          dropEase,
+          isActive ? 'opacity-100 duration-200' : 'opacity-0 duration-150'
+        )}>
+        <div
+          className={clsx(
+            'absolute inset-1.5 rounded-[1.1rem] border-2 border-dashed transition-[opacity,transform]',
+            dropEase,
+            isReject ? 'border-destructive/50' : 'border-ring/60',
+            isActive ? 'scale-100 opacity-100 duration-200' : 'scale-[0.97] opacity-0 duration-150'
+          )}
+        />
+        <div
+          className={clsx(
+            'flex flex-col items-center gap-1.5 transition-[opacity,transform]',
+            dropEase,
+            isActive
+              ? 'translate-y-0 scale-100 opacity-100 delay-[40ms] duration-200'
+              : 'translate-y-1 scale-90 opacity-0 duration-150'
+          )}>
+          <span
+            className={clsx(
+              'flex size-10 items-center justify-center rounded-full',
+              isReject ? 'bg-destructive/10 text-destructive' : 'bg-accent text-accent-foreground'
+            )}>
+            {isReject ? (
+              <BanIcon className="size-5" aria-hidden="true" />
+            ) : (
+              <UploadIcon className="size-5" aria-hidden="true" />
+            )}
+          </span>
+          <span
+            className={clsx(
+              'text-xs font-medium',
+              isReject ? 'text-destructive' : 'text-foreground'
+            )}>
+            {isReject ? 'This model cannot take files' : 'Drop to attach'}
+          </span>
+        </div>
+      </div>
+      <p role="status" className="sr-only">
+        {isActive ? (isReject ? 'This model cannot take files' : 'Drop files to attach') : ''}
+      </p>
+    </>
+  );
+};
 
 const Text = () => {
   const {
@@ -28,7 +89,8 @@ const Text = () => {
     removeImageAttachment,
   } = useCustomTiptapEditor();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  // 'accept' when the model takes files, 'reject' when it does not.
+  const [dragState, setDragState] = useState<'idle' | 'accept' | 'reject'>('idle');
   const canAttach = canAttachImages || canAttachVideos || canAttachFiles;
   const isSpeaking = useAtomValue(speechPlaybackAtom);
   const { cancel } = useSpeechSynthesis();
@@ -45,23 +107,22 @@ const Text = () => {
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = canAttach ? 'copy' : 'none';
-    setIsDraggingFiles(canAttach);
+    setDragState(canAttach ? 'accept' : 'reject');
   };
 
   const handleDragLeave = (event: DragEvent<HTMLFormElement>) => {
     if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-    setIsDraggingFiles(false);
+    setDragState('idle');
   };
 
   const handleDrop = (event: DragEvent) => {
     if (!hasFiles(event)) return;
     event.preventDefault();
     event.stopPropagation();
-    setIsDraggingFiles(false);
-    if (!canAttach) {
-      toast.error('This model does not support file attachments.');
-      return;
-    }
+    setDragState('idle');
+    if (!canAttach) return;
+    // Haptic lands on the same frame as the overlay starting to leave.
+    navigator.vibrate?.(10);
     void addImageFiles(event.dataTransfer.files);
   };
 
@@ -70,8 +131,8 @@ const Text = () => {
       onDragOverCapture={handleDragOver}
       onDragLeave={handleDragLeave}
       onDropCapture={handleDrop}
-      data-dragging={isDraggingFiles || undefined}
-      className="composer-shell flex min-w-0 flex-col gap-1.5 rounded-[1.4rem] border border-input bg-card/95 p-1.5 shadow-[0_12px_36px_hsl(var(--foreground)/0.08)] transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] data-[dragging]:border-ring data-[dragging]:bg-accent/40 data-[dragging]:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] sm:gap-2 sm:p-2"
+      data-dragging={dragState === 'idle' ? undefined : dragState}
+      className="composer-shell relative flex min-w-0 flex-col gap-1.5 rounded-[1.4rem] border border-input bg-card/95 p-1.5 shadow-[0_12px_36px_hsl(var(--foreground)/0.08)] transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] data-[dragging=accept]:border-ring data-[dragging=accept]:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] data-[dragging=reject]:border-destructive/50 sm:gap-2 sm:p-2"
       onSubmit={(event) => {
         event.preventDefault();
         void handleSubmit();
@@ -173,6 +234,7 @@ const Text = () => {
           ))}
         </ul>
       )}
+      <DropOverlay state={dragState} />
       <p id="composer-help" className="sr-only">
         Press Enter to send. Press Shift and Enter for a new line.
       </p>
