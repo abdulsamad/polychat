@@ -1,4 +1,5 @@
-import { generateImage, streamText } from 'ai';
+import { generateImage, stepCountIs, streamText, tool } from 'ai';
+import { z } from 'zod';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -72,6 +73,7 @@ export const streamByokText = async ({
   messages,
   imageAttachments,
   imageOutput,
+  imageTool,
   customInstructions,
   modelConfig,
   signal,
@@ -88,12 +90,46 @@ export const streamByokText = async ({
     imageAttachments?: ImageAttachment[];
   }>;
   imageAttachments?: ImageAttachment[];
+  // The model returns images itself (needs provider options to enable it).
   imageOutput?: boolean;
+  // Text-only models get a generate_image tool backed by this image model instead.
+  imageTool?: {
+    model: availableModelsType;
+    provider: modelProviderType;
+    referenceImages?: ImageAttachment[];
+  };
   customInstructions?: string;
   modelConfig?: IBaseModelConfig;
   signal?: AbortSignal;
 }): Promise<ReadableStream<ChatStreamPart>> => {
   const config = { ...getAssistantConfig(profile, language, customInstructions), ...modelConfig };
+  // Images stay out of the tool result so the base64 is never sent back to the chat model.
+  const generatedImages = new Map<string, string>();
+  const generateImageTool = imageTool
+    ? {
+        generate_image: tool({
+          description:
+            'Generate an image from a text description. Call this whenever the user asks you to create, draw or generate an image. The image is shown to the user automatically, so do not include links, SVG or base64 for it in your reply.',
+          inputSchema: z.object({
+            prompt: z.string().describe('A detailed description of the image to generate.'),
+          }),
+          execute: async ({ prompt: imagePrompt }, { toolCallId }) => {
+            const image = await generateByokImage({
+              model: imageTool.model,
+              provider: imageTool.provider,
+              apiKey,
+              prompt: imagePrompt,
+              referenceImages: imageTool.referenceImages,
+              quality: 'standard',
+              style: 'vivid',
+              signal,
+            });
+            generatedImages.set(toolCallId, image.b64_json);
+            return 'The image was generated and is already displayed to the user.';
+          },
+        }),
+      }
+    : {};
   const result = streamText({
     model: modelInstance(model, apiKey, provider),
     instructions: config.prompt,
@@ -102,7 +138,9 @@ export const streamByokText = async ({
     ],
     temperature: config.temperature,
     seed: config.seed,
-    tools: config.tools,
+    tools: { ...config.tools, ...generateImageTool },
+    // Lets the model write its reply after the tool has run.
+    ...(imageTool ? { stopWhen: stepCountIs(3) } : {}),
     toolChoice: config.toolChoice,
     maxOutputTokens: config.maxTokens,
     topP: config.topP,
@@ -149,7 +187,17 @@ export const streamByokText = async ({
                 name: `generated-file.${part.file.mediaType.split('/')[1] || 'bin'}`,
               },
             });
-          else if (part.type === 'finish-step') {
+          else if (part.type === 'tool-result' && generatedImages.has(part.toolCallId)) {
+            controller.enqueue({
+              type: 'file',
+              file: {
+                base64: generatedImages.get(part.toolCallId) as string,
+                mediaType: 'image/png',
+                name: 'generated-image.png',
+              },
+            });
+            generatedImages.delete(part.toolCallId);
+          } else if (part.type === 'finish-step') {
             responseId = part.response.id;
             responseModelId = part.response.modelId;
             responseTimestamp = part.response.timestamp.toISOString();

@@ -9,6 +9,7 @@ import useSound from 'use-sound';
 import { VideoApiError, type VideoJob, supportedImageModels } from 'utils';
 import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfigured } from '@/utils/byok-vault';
+import { useByokModelAvailability } from './useByokModelAvailability';
 
 import {
   type ChatJob,
@@ -108,6 +109,7 @@ const useHandleChatResponse = () => {
   const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const [play] = useSound('notification.mp3');
   const { speak } = useSpeechSynthesis();
+  const { findModel, imageModels } = useByokModelAvailability();
   const openByokSettings = () => {
     setSettingsScrollTarget('byok');
     setSettingsOpen(true);
@@ -290,6 +292,24 @@ const useHandleChatResponse = () => {
 
         return { status: 'completed' as const };
       } else {
+        // Text-only models cannot return pictures, so give them a generate_image tool backed
+        // by an image model from the same provider. Models that return images natively, or
+        // that cannot call tools, are left alone.
+        const referenceImages = imageAttachments.filter((attachment) =>
+          attachment.mediaType.startsWith('image/')
+        );
+        const chatModel = findModel(thread.settings.model);
+        const imageToolModel =
+          chatModel?.type === 'text' &&
+          !chatModel.supportsImageOutput &&
+          chatModel.supportsTools !== false
+            ? (imageModels.find(
+                (entry) =>
+                  entry.provider === provider &&
+                  !entry.disabled &&
+                  (!referenceImages.length || entry.supportsImageReferences)
+              ) ?? imageModels.find((entry) => entry.provider === provider && !entry.disabled))
+            : undefined;
         const stream = await getGeneratedText({
           ...(thread.settings.conversationContextMode === 'multi-turn'
             ? {
@@ -312,6 +332,16 @@ const useHandleChatResponse = () => {
           customInstructions: thread.settings.profile === 'custom' ? customInstructions : undefined,
           modelConfig,
           imageOutput: thread.settings.supportsImageOutput,
+          imageTool: imageToolModel
+            ? {
+                model: imageToolModel.name as typeof thread.settings.model,
+                provider,
+                // Only sent when the chosen image model accepts reference images.
+                referenceImages: imageToolModel.supportsImageReferences
+                  ? referenceImages
+                  : undefined,
+              }
+            : undefined,
           getToken,
           apiKey,
           signal,

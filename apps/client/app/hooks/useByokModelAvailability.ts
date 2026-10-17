@@ -23,6 +23,8 @@ export type ModelOption = Omit<SupportedModel, 'name' | 'disabled'> & {
   isDiscovered?: boolean;
   imageCapabilities?: ImageModelCapabilities;
   videoCapabilities?: VideoModelCapabilities;
+  // Only set to false when the provider lists the model without tool calling.
+  supportsTools?: boolean;
 };
 
 interface VideoModelResponse {
@@ -62,6 +64,11 @@ const hasTextAndImageOutput = (entry: Record<string, unknown>) => {
     outputModalities.includes('image') &&
     outputModalities.includes('text')
   );
+};
+
+const hasSupportedParameter = (entry: Record<string, unknown>, name: string) => {
+  const supportedParameters = entry.supported_parameters;
+  return Array.isArray(supportedParameters) && supportedParameters.includes(name);
 };
 
 const hasImageInput = (entry: Record<string, unknown>) => {
@@ -294,6 +301,9 @@ const parseModels = (provider: ByokProvider, response: ProviderModelResponse): M
         type: isImage ? 'image' : 'text',
         ...(isImage ? { supportsImageReferences: hasImageInput(entry) } : {}),
         ...(isChatImageOutput ? { supportsImageOutput: true } : {}),
+        ...(provider === 'openrouter' && !hasSupportedParameter(entry, 'tools')
+          ? { supportsTools: false }
+          : {}),
       },
     ];
   });
