@@ -288,8 +288,8 @@ importers:
         specifier: 'catalog:'
         version: 4.0.78(zod@4.5.4)
       '@hono/node-server':
-        specifier: ^1.19.17
-        version: 1.19.17(hono@4.13.5)
+        specifier: ^2.1.4
+        version: 2.1.4(hono@4.13.5)
       '@openrouter/ai-sdk-provider':
         specifier: 'catalog:'
         version: 3.0.0(ai@7.0.118(zod@4.5.4))(zod@4.5.4)
@@ -1359,11 +1359,11 @@ packages:
   '@fontsource/fira-code@5.3.0':
     resolution: {integrity: sha512-EJL968RJRkakubAj/coU8pSUaeTE5UNoRjtzAr6kGiSZ3jWuN8/AKWHwym/PFUaQL1q7IL/H+EXs4358YhrTBQ==}
 
-  '@hono/node-server@1.19.17':
-    resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
-    engines: {node: '>=18.14.1'}
+  '@hono/node-server@2.1.4':
+    resolution: {integrity: sha512-2g1qeHl4BduwDn6L8nkAvDrPUWPMlkQ//a5NhP/zIyaXKMjZNRV+cG9Csu+BiJFf6+68pqzjf4Hi5sJGKHuS1g==}
+    engines: {node: '>=20'}
     peerDependencies:
-      hono: ^4
+      hono: ^4 || ^5.0.0-0
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -6243,7 +6243,7 @@ snapshots:
 
   '@fontsource/fira-code@5.3.0': {}
 
-  '@hono/node-server@1.19.17(hono@4.13.5)':
+  '@hono/node-server@2.1.4(hono@4.13.5)':
     dependencies:
       hono: 4.13.5
 
