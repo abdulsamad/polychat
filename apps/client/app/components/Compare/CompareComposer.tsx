@@ -133,7 +133,6 @@ const CompareComposer = ({
                 type="button"
                 variant="secondary"
                 size="icon"
-                disabled={isRunning}
                 aria-label={`Remove ${image.name}`}
                 className="absolute top-0.5 right-0.5 size-6 rounded-full p-0 shadow-sm [&_svg]:size-3"
                 onClick={() => onRemoveImage(image.id)}>
@@ -160,7 +159,7 @@ const CompareComposer = ({
           type="button"
           variant="ghost"
           size="icon"
-          disabled={!canAttachImages || isRunning}
+          disabled={!canAttachImages}
           title={attachImagesHint}
           aria-label={`Attach images. ${attachImagesHint}`}
           className="size-10 shrink-0 rounded-full text-muted-foreground hover:text-foreground sm:size-11"
@@ -182,8 +181,11 @@ const CompareComposer = ({
           enterKeyHint="send"
           className="max-h-[calc(4*1.5rem+1rem)] min-h-10 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-3 py-2 leading-6 shadow-none focus-visible:ring-0 sm:max-h-[calc(6*1.5rem+1rem)]"
         />
+        {/* Distinct keys keep Stop and Send separate elements. Reusing one <button> lets the
+            Stop click, once the run ends mid-click, finish as a submit and start a new run. */}
         {isRunning ? (
           <Button
+            key="stop"
             type="button"
             onClick={onStop}
             className="size-10 shrink-0 rounded-full border border-destructive/30 bg-destructive/15 p-0 text-destructive shadow-sm duration-150 ease-[var(--ease-out)] animate-in fade-in-0 hover:bg-destructive/25 focus-visible:ring-destructive/30 motion-safe:zoom-in-90 sm:size-11">
@@ -192,6 +194,7 @@ const CompareComposer = ({
           </Button>
         ) : (
           <Button
+            key="send"
             type="submit"
             disabled={!canSubmit}
             title={disabledReason}

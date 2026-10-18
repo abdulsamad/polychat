@@ -74,6 +74,7 @@ export const streamByokText = async ({
   imageAttachments,
   customInstructions,
   modelConfig,
+  maxRetries,
   signal,
 }: {
   model: availableModelsType;
@@ -90,6 +91,8 @@ export const streamByokText = async ({
   imageAttachments?: ImageAttachment[];
   customInstructions?: string;
   modelConfig?: IBaseModelConfig;
+  /** Provider retries on transient errors; omitted keeps the AI SDK default. */
+  maxRetries?: number;
   signal?: AbortSignal;
 }): Promise<ReadableStream<ChatStreamPart>> => {
   const config = { ...getAssistantConfig(profile, language, customInstructions), ...modelConfig };
@@ -109,6 +112,7 @@ export const streamByokText = async ({
     presencePenalty: config.presencePenalty,
     abortSignal: signal,
     stopSequences: config.stopSequences,
+    maxRetries,
     providerOptions: model.startsWith('gemini')
       ? {
           google: {

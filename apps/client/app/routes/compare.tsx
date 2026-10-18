@@ -110,7 +110,12 @@ const getRunStatus = (run: CompareRunState, getModelLabel: (model: string) => st
   const total = run.columns.length;
   const settled = run.columns.filter(({ status }) => isSettledStatus(status)).length;
 
-  if (settled < total) return `Comparing ${total} models: ${settled} of ${total} finished.`;
+  const progress = `${settled} of ${total} finished.`;
+  if (settled < total) {
+    return run.winner && run.winner !== 'tie' && run.winner !== 'none'
+      ? `Vote saved: ${getModelLabel(run.winner)} wins. ${progress}`
+      : `Comparing ${total} models: ${progress}`;
+  }
   if (!run.columns.some(hasAnswer)) {
     return 'No model returned an answer. Check the errors and try again.';
   }
@@ -150,6 +155,7 @@ const Compare = () => {
     retryColumn,
     vote,
     rate,
+    setBlind,
     open,
     close,
   } = useCompareRun({
@@ -372,6 +378,8 @@ const Compare = () => {
   const toggleBlind = () => {
     const next = !isBlind;
     setIsBlind(next);
+    // The current run follows too until it is voted on: off reveals names, on hides them.
+    setBlind(next);
     try {
       window.localStorage.setItem(blindPreferenceKey, next ? '1' : '0');
     } catch {
@@ -418,9 +426,8 @@ const Compare = () => {
   }));
   const isSettled = Boolean(run) && !isRunning;
   const isIdentityHidden = Boolean(run?.blind && !run.winner);
-  // Saved runs have no live request to repeat, a vote fixes the answers, and a suite has already
-  // moved on to its next prompt.
-  const canRetryColumns = Boolean(run && !run.isFromHistory && !run.winner && !activeSuite);
+  // Saved runs have no live request to repeat, and a suite has already moved on to its next prompt.
+  const canRetryColumns = Boolean(run && !run.isFromHistory && !activeSuite);
   const totalCost = run && isSettled ? runCost(run.columns, getColumnCost) : undefined;
   const hasEnoughModels = runnableModels.length >= MIN_COMPARE_MODELS;
 
@@ -539,7 +546,7 @@ const Compare = () => {
                 aria-label="Other votes"
                 className={cn(
                   'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
-                  !canVote && 'opacity-60'
+                  (!canVote || isRunning) && 'opacity-60'
                 )}>
                 {(['tie', 'none'] as const).map((choice) => {
                   const isPressed = run.winner === choice;
@@ -554,7 +561,8 @@ const Compare = () => {
                         isPressed &&
                           'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
                       )}
-                      disabled={!canVote}
+                      // Tie and none judge every answer, so they wait for the whole run.
+                      disabled={!canVote || isRunning}
                       aria-pressed={isPressed}
                       aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
                       onClick={() => handleVote(choice)}>
@@ -711,7 +719,7 @@ const Compare = () => {
                     slots={slots}
                     findModel={findModel}
                     onChange={setSlots}
-                    disabled={isRunning || isFollowingUp}
+                    disabled={isFollowingUp}
                   />
                 </div>
                 <CompareSuites
@@ -730,11 +738,10 @@ const Compare = () => {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={isRunning}
                   aria-pressed={isBlind}
                   title={
                     isBlind
-                      ? 'Blind mode on: columns are shuffled and names stay hidden until you vote'
+                      ? 'Blind mode on: new runs are shuffled, and names stay hidden until you vote'
                       : 'Blind mode off: model names are shown while you judge'
                   }
                   className={cn(

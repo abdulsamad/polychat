@@ -106,6 +106,7 @@ const chat = async (c: Context<AppContext>) => {
       model,
       modelConfig,
       imageAttachments = [],
+      maxRetries,
     } = parsed.data;
 
     if (!isHostedModel(model, 'text')) {
@@ -153,6 +154,7 @@ const chat = async (c: Context<AppContext>) => {
       frequencyPenalty: config.frequencyPenalty,
       presencePenalty: config.presencePenalty,
       stopSequences: config.stopSequences,
+      maxRetries,
       providerOptions: model?.startsWith('gemini')
         ? {
             google: {

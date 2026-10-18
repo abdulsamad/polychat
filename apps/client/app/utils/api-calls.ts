@@ -61,6 +61,8 @@ interface IGetGeneratedTextBase {
   language?: string;
   getToken: (options?: GetTokenOptions) => Promise<string | null>;
   apiKey?: string;
+  /** Provider retries on transient errors; omitted keeps the AI SDK default. */
+  maxRetries?: number;
   signal?: AbortSignal;
 }
 
@@ -93,6 +95,7 @@ export const getGeneratedText = async ({
   customInstructions,
   modelConfig,
   imageAttachments,
+  maxRetries,
   signal,
 }: IGetGeneratedText): Promise<ReadableStream<ChatStreamPart> | ErrorType> => {
   const requestPayload = {
@@ -104,6 +107,7 @@ export const getGeneratedText = async ({
     customInstructions,
     modelConfig,
     imageAttachments,
+    maxRetries,
   };
   const requestBody = apiKey
     ? { success: true as const, data: requestPayload }
@@ -124,6 +128,7 @@ export const getGeneratedText = async ({
         messages,
         imageAttachments,
         apiKey,
+        maxRetries,
         signal,
       });
     } catch {

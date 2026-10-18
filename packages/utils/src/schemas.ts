@@ -84,6 +84,8 @@ export const chatRequestSchema = z
       })
       .optional(),
     model: modelSchema,
+    /** Provider retries on transient errors; omitted keeps the AI SDK default. */
+    maxRetries: z.number().int().min(0).max(2).optional(),
   })
   .refine(({ prompt, messages }) => Boolean(prompt?.trim() || messages?.length), {
     message: 'Prompt or messages not found',

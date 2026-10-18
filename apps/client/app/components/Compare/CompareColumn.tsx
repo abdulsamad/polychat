@@ -499,7 +499,7 @@ const CompareColumn = ({
             size="sm"
             variant={isWinner ? 'default' : 'outline'}
             className="h-9 rounded-full px-3.5"
-            disabled={!canVote || !hasContent}
+            disabled={!canVote || !hasContent || isActive}
             aria-pressed={isWinner}
             aria-label={`Vote ${displayLabel} as the best answer`}
             onClick={() => onVote(column.model, id)}>

@@ -115,10 +115,11 @@ const toRunRecord = ({
 });
 
 /** Everything about a settled run that the history copy must reflect, including retried columns. */
-const getHistorySignature = ({ winner, winnerColumnId, columns }: CompareRunState) =>
+const getHistorySignature = ({ winner, winnerColumnId, blind, columns }: CompareRunState) =>
   JSON.stringify([
     winner,
     winnerColumnId ?? null,
+    Boolean(blind),
     columns.map(({ status, content, error, rubric }) => [
       status,
       content.length,
@@ -237,6 +238,11 @@ const useCompareRun = ({
   onRunSavedRef.current = onRunSaved;
   /** The history signature last written per run, so each settled state is saved once. */
   const persistedRunsRef = useRef(new Map<string, string>());
+  /**
+   * Set when the saved vote of this run was written before its columns had all settled (a vote
+   * cast mid-run, or a retry after the vote), so the vote is saved again with the final results.
+   */
+  const staleVoteRunRef = useRef<string | null>(null);
   /** The last winner that was actually written for a run, used to roll back a failed change. */
   const savedVoteRef = useRef<{
     runId: string;
@@ -306,6 +312,23 @@ const useCompareRun = ({
     if (persisted.get(run.id) === signature) return;
     persisted.set(run.id, signature);
 
+    if (
+      run.winner &&
+      staleVoteRunRef.current === run.id &&
+      savedVoteRef.current?.runId === run.id
+    ) {
+      staleVoteRunRef.current = null;
+      const vote = toVoteRecord(run, run.winner, run.winnerColumnId);
+      enqueuePersistence(() => saveCompareVote(vote))
+        .then((saved) => {
+          if (saved) onVoteSavedRef.current?.();
+        })
+        .catch((error) => {
+          console.error('Failed to update compare vote', error);
+          toast.error('Could not update your vote with the final answers.');
+        });
+    }
+
     const record = toRunRecord(run);
     enqueuePersistence(() => saveCompareRun(record))
       .then((saved) => {
@@ -365,6 +388,9 @@ const useCompareRun = ({
           modelConfig: toModelConfig(model, settings),
           getToken,
           apiKey,
+          // Compare measures each answer, so a hidden retry would hide the failure and add its
+          // backoff to the timings. Failed columns get a visible Retry instead.
+          maxRetries: 0,
           signal,
         };
         const result = await getGeneratedText(
@@ -573,17 +599,19 @@ const useCompareRun = ({
 
   /**
    * Sends a failed column's request again, keeping the other answers. Only the live run can be
-   * retried, and only before a vote, so a stored vote never describes a different answer.
+   * retried. A saved vote is written again once the retried column settles; the voted column
+   * itself cannot be retried, so a vote never points at an answer that changed.
    */
   const retryColumn = useCallback(
     (columnId: string) => {
       const current = runRef.current;
       const runId = runIdRef.current;
-      if (!current || current.id !== runId || current.winner) return;
+      if (!current || current.id !== runId || current.winnerColumnId === columnId) return;
 
       const index = columnsRef.current.findIndex(({ id }) => id === columnId);
       const column = columnsRef.current[index];
       if (!column || column.status !== 'failed') return;
+      if (savedVoteRef.current?.runId === runId) staleVoteRunRef.current = runId;
 
       const { id, model, modelLabel, provider, settings, sample, history } = column;
       columnsRef.current[index] = {
@@ -607,10 +635,21 @@ const useCompareRun = ({
     [flush, runColumn]
   );
 
-  /** A column id identifies the winner when the same model runs in several columns. */
+  /**
+   * A column id identifies the winner when the same model runs in several columns. A finished
+   * answer can win while other columns still stream; tie and none judge every answer, so they
+   * wait for the whole run. A vote cast mid-run is saved again once the run settles.
+   */
   const vote = useCallback(async (winner: CompareWinner, winnerColumnId?: string) => {
     const run = runRef.current;
-    if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
+    if (!run) return;
+    const isRunSettled = run.columns.every(({ status }) => isSettledStatus(status));
+    if (winner === 'tie' || winner === 'none') {
+      if (!isRunSettled) return;
+    } else {
+      const column = run.columns.find(({ id }) => id === winnerColumnId);
+      if (!column || !isSettledStatus(column.status) || !column.content.trim()) return;
+    }
 
     const record = toVoteRecord(run, winner, winnerColumnId);
     setRun((current) =>
@@ -620,6 +659,7 @@ const useCompareRun = ({
       const saved = await enqueuePersistence(() => saveCompareVote(record));
       if (!saved) throw new Error('No active workspace');
       savedVoteRef.current = { runId: run.id, winner, winnerColumnId };
+      if (!isRunSettled) staleVoteRunRef.current = run.id;
       onVoteSavedRef.current?.();
     } catch (error) {
       console.error('Failed to save compare vote', error);
@@ -648,7 +688,8 @@ const useCompareRun = ({
   const rate = useCallback(
     (columnId: string, criterion: CompareRubricCriterion, score?: number) => {
       const run = runRef.current;
-      if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
+      const target = run?.columns.find(({ id }) => id === columnId);
+      if (!run || !target || !isSettledStatus(target.status)) return;
 
       const columns = run.columns.map((column) => {
         if (column.id !== columnId) return column;
@@ -663,6 +704,11 @@ const useCompareRun = ({
 
       const winner = run.winner;
       if (!winner || savedVoteRef.current?.runId !== run.id) return;
+      if (!run.columns.every(({ status }) => isSettledStatus(status))) {
+        // The settle-time vote refresh picks this score up with the final answers.
+        staleVoteRunRef.current = run.id;
+        return;
+      }
       enqueuePersistence(() =>
         saveCompareVote(toVoteRecord({ ...run, columns }, winner, run.winnerColumnId))
       )
@@ -676,6 +722,18 @@ const useCompareRun = ({
     },
     []
   );
+
+  /**
+   * Hides or reveals model names on the current run until it is voted on. Columns keep their
+   * order; only a run started blind was shuffled. A vote records whether names were hidden.
+   */
+  const setBlind = useCallback((blind: boolean) => {
+    setRun((current) =>
+      current && !current.winner && Boolean(current.blind) !== blind
+        ? { ...current, blind }
+        : current
+    );
+  }, []);
 
   /** Shows a saved run read-only (votes can still change). Any live run is aborted first. */
   const open = useCallback(
@@ -702,8 +760,9 @@ const useCompareRun = ({
   }, [detachRun]);
 
   const isRunning = Boolean(run?.columns.some(({ status }) => !isSettledStatus(status)));
+  /** True once any answer has finished; tie and none additionally wait for `isRunning`. */
   const canVote = Boolean(
-    run && !isRunning && run.columns.some(({ content }) => content.trim().length > 0)
+    run?.columns.some(({ status, content }) => isSettledStatus(status) && content.trim().length > 0)
   );
 
   const canFollowUp = Boolean(
@@ -724,6 +783,7 @@ const useCompareRun = ({
     retryColumn,
     vote,
     rate,
+    setBlind,
     open,
     close,
   };
