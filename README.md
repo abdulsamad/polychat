@@ -2,19 +2,35 @@
 
 PolyChat is a focused workspace for thinking, creating, and working with AI.
 
+![Compare mode: one prompt streamed to three models side by side, with per-model latency and token metrics](docs/screenshots/compare-light.png)
+
+## Screenshots
+
+| Chat with reasoning and rich Markdown                                                                                               | Vision analysis                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| ![Chat thread with a collapsible reasoning section, formatted Markdown and syntax-highlighted code](docs/screenshots/chat-dark.png) | ![Image attachment with a model's description of the image](docs/screenshots/vision-light.png) |
+
+| Compare leaderboard                                                                                                         | Compare on mobile                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| ![Leaderboard of wins, runs and win rate per model above a voted comparison](docs/screenshots/compare-leaderboard-dark.png) | <img src="docs/screenshots/compare-mobile-dark.png" alt="Compare mode on a phone, with answer columns that scroll horizontally" width="260"> |
+
+Screenshots use the built-in demo threads and mocked model responses.
+
 ## Features
 
-- **Choose the right model** - Switch between supported language and image models from a single conversation workspace.
+- **Compare models side by side** - Send one prompt to two to four text models at once and watch the answers stream in parallel. Each answer shows time to first token, total time, and input/output tokens. Vote for the best answer (or call a tie) to build a local leaderboard of wins, runs, and win rate per model.
+- **Choose the right model** - Switch between supported language, image, and video models from a single conversation workspace.
 - **Tune each thread** - Choose a supported model, assistant profile, response language, and whether to send previous messages as multi-turn context.
 - **Use focused profiles** - Switch between Normal, Developer, Snarky Bot, Grammar Corrector, Doctor, Teacher, Historian, Chef, Data Scientist, Legal Advisor, and Custom profiles.
 - **Personalize responses** - Save up to 4,000 characters of custom instructions locally and use them with the Custom profile.
 - **Inspect usage** - Enable detailed token counts for individual messages and the active thread.
 - **Keep your work close** - Store threads, messages, generated images, preferences, and custom instructions locally in your browser.
 - **Manage local data** - Rename or delete individual threads, delete all chats, or reset all local data from Settings.
-- **Bring your own keys** - Use Google Gemini, OpenAI, Anthropic, Mistral, or DeepSeek keys through a browser-local session key or encrypted vault.
+- **Bring your own keys** - Use Google Gemini, OpenAI, Anthropic, Mistral, DeepSeek, or OpenRouter keys through a browser-local session key or encrypted vault. Adding a key discovers the models available to it from that provider.
+- **Keep chatting while answers stream** - Send messages in several threads; requests queue and keep streaming in the background while you switch between threads.
 - **Write and read naturally** - Use a responsive TipTap composer, voice input, and speech playback where your browser supports them.
 - **Work with rich answers** - Stream Markdown responses with tables, links, lists, syntax-highlighted code, copy actions, and downloadable files. Open a message context menu to copy, share, copy images, or delete messages with confirmation.
-- **Create visuals** - Generate images from prompts, choose supported image options, and download the results.
+- **Create visuals** - Generate images from prompts, choose supported image options, and download the results. Generate short videos through an OpenRouter key, with duration, resolution, aspect ratio, and audio options where the model supports them.
 - **Add image and document context** - Attach images or PDF, DOC, DOCX, TXT, Markdown, CSV, and JSON files to models that advertise file support. Unsupported models show a clear validation message instead of sending.
 - **Stay comfortable anywhere** - Light, dark, and system themes, keyboard-friendly controls, and layouts that adapt from desktop to mobile.
 
@@ -25,9 +41,15 @@ PolyChat is a local-first React application backed by a small authenticated API:
 - React 19, React Router 7, TypeScript 7, and Tailwind CSS 4
 - TipTap, Jotai, shadcn, and Radix UI for the interface
 - Clerk for authentication
-- Vercel AI SDK 7 with Google, OpenAI, Anthropic, Mistral, and DeepSeek provider integrations
-- Hono, Node.js 22, and AWS Lambda for authenticated chat and image requests
-- IndexedDB via localForage for local threads, images, and the encrypted BYOK vault
+- Vercel AI SDK 7 with Google, OpenAI, Anthropic, Mistral, DeepSeek, and OpenRouter provider integrations
+- Hono, Node.js 22, and AWS Lambda for authenticated chat, image, and video requests
+- IndexedDB via localForage for local threads, images, compare votes, and the encrypted BYOK vault
+
+## Architecture
+
+![PolyChat architecture: chat workspace, local state and keys, generation API, and model runtime](docs/architecture.png)
+
+The diagram covers the chat workspace, local persistence, the generation API, and the model runtime. Compare mode (`/compare`) reuses the same generation requests, but runs its streams independently of the chat queue and threads; only votes are persisted.
 
 ## BYOK vault and device unlock
 
