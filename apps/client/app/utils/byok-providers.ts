@@ -14,6 +14,7 @@ import {
   type ImageAttachment,
   type ChatResponseMetadata,
   type ChatStreamPart,
+  getReportedCostUsd,
 } from 'utils';
 import { fetchVideoApi, parseVideoJob, type VideoJob } from 'utils';
 import { finishVideoJob } from './video-jobs';
@@ -125,6 +126,7 @@ export const streamByokText = async ({
       let responseModelId: string | undefined;
       let responseTimestamp: string | undefined;
       let finishReason: string | undefined;
+      let costUsd: number | undefined;
       try {
         for await (const part of result.fullStream) {
           if (part.type === 'text-delta') controller.enqueue({ type: 'text', text: part.text });
@@ -145,6 +147,8 @@ export const streamByokText = async ({
             responseModelId = part.response.modelId;
             responseTimestamp = part.response.timestamp.toISOString();
             finishReason = part.finishReason;
+            const stepCost = getReportedCostUsd(part.providerMetadata);
+            if (stepCost !== undefined) costUsd = (costUsd ?? 0) + stepCost;
           } else if (part.type === 'finish') {
             const metadata: ChatResponseMetadata = {
               usage: {
@@ -155,6 +159,7 @@ export const streamByokText = async ({
                 cachedInputTokens: part.totalUsage.inputTokenDetails.cacheReadTokens,
               },
               finishReason: finishReason || part.finishReason,
+              costUsd,
               responseId,
               modelId: responseModelId,
               timestamp: responseTimestamp,

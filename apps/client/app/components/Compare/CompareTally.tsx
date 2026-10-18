@@ -36,6 +36,8 @@ interface CompareTallyProps {
   onClear: () => Promise<void>;
   /** Header content rendered next to the leaderboard toggle. */
   children?: ReactNode;
+  /** Extra header controls placed just before the leaderboard toggle. */
+  actions?: ReactNode;
 }
 
 const percent = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 });
@@ -49,14 +51,16 @@ const CompareTally = ({
   getModelLabel,
   onClear,
   children,
+  actions,
 }: CompareTallyProps) => {
   const [open, setOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="shrink-0 border-b border-border/70">
-      <div className="flex min-w-0 items-center gap-3 px-3 py-2 sm:px-5">
+      <div className="flex min-w-0 items-center gap-1 px-3 py-2 sm:px-5">
         {children}
+        {actions}
         <CollapsibleTrigger asChild>
           <Button
             type="button"
@@ -64,9 +68,17 @@ const CompareTally = ({
             size="sm"
             className="group h-9 shrink-0 gap-1.5 rounded-full px-3">
             <TrophyIcon className="text-primary" />
-            Leaderboard
-            <Badge variant="secondary" className="rounded-full px-1.5 py-0 tabular-nums">
-              {isLoading ? '-' : total}
+            <span className="hidden sm:inline">Leaderboard</span>
+            <span className="sr-only sm:hidden">Leaderboard</span>
+            <Badge
+              variant="secondary"
+              className="overflow-hidden rounded-full px-1.5 py-0 tabular-nums">
+              {/* Keyed by the count so a saved vote ticks in, tying the vote to the leaderboard. */}
+              <span
+                key={isLoading ? 'loading' : total}
+                className="duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:slide-in-from-bottom-2">
+                {isLoading ? '-' : total}
+              </span>
               <span className="sr-only"> votes</span>
             </Badge>
             <ChevronDownIcon className="transition-transform duration-150 group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
@@ -112,9 +124,10 @@ const CompareTally = ({
                         <span
                           aria-hidden="true"
                           className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-muted sm:block">
+                          {/* scaleX keeps a changed vote's bar update on the compositor. */}
                           <span
-                            className="block h-full rounded-full bg-primary"
-                            style={{ width: `${Math.round(winRate * 100)}%` }}
+                            className="block h-full w-full origin-left rounded-full bg-primary transition-transform duration-250 ease-[var(--ease-out)]"
+                            style={{ transform: `scaleX(${winRate})` }}
                           />
                         </span>
                         <span className="tabular-nums">{percent.format(winRate)}</span>

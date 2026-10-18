@@ -14,6 +14,11 @@ export const demoThreadsDismissedKey = 'demo-threads-dismissed';
 export const compareVotesKey = 'compare-votes';
 /** Only the newest compare votes are kept so the store stays small. */
 export const MAX_COMPARE_VOTES = 500;
+export const compareRunsKey = 'compare-runs';
+/** Runs include full answers, so history keeps fewer records than votes. */
+export const MAX_COMPARE_RUNS = 100;
+/** Shared, account-independent cache of public model prices. */
+export const modelPricingKey = 'openrouter-model-pricing';
 const anonymousWorkspaceKey = 'anonymous-workspace-account';
 
 export const lforage = localforage.createInstance({
@@ -177,7 +182,38 @@ export interface ICompareVoteResult {
   ttftMs: number | null;
   totalMs: number | null;
   usage?: ChatResponseMetadata['usage'];
+  /** Exact provider-reported cost. Estimates are derived at read time from current prices. */
+  costUsd?: number;
+  finishReason?: string;
   failed: boolean;
+}
+
+/** A settled compare column as stored in run history. */
+export interface ICompareRunColumn {
+  id: string;
+  model: enabledModelsType;
+  modelLabel: string;
+  provider: modelProviderType;
+  status: 'done' | 'failed' | 'stopped';
+  content: string;
+  error?: string;
+  /** Milliseconds from request start; reasoning start is set only when reasoning was streamed. */
+  ttftMs?: number;
+  totalMs?: number;
+  reasoningStartMs?: number;
+  usage?: ChatResponseMetadata['usage'];
+  finishReason?: string;
+  /** The model that actually served the request, when the provider reports a different id. */
+  servedModelId?: string;
+  costUsd?: number;
+}
+
+export interface ICompareRun {
+  id: string;
+  timestamp: number;
+  prompt: string;
+  columns: ICompareRunColumn[];
+  winner: CompareWinner | null;
 }
 
 export interface ICompareVote {
@@ -215,6 +251,40 @@ export const clearCompareVotes = async () => {
   if (key) await lforage.removeItem(key);
 };
 
+export const getCompareRuns = async (): Promise<ICompareRun[]> => {
+  const key = scopedKey(compareRunsKey);
+  if (!key) return [];
+
+  const runs = await lforage.getItem<ICompareRun[]>(key);
+  return Array.isArray(runs) ? runs : [];
+};
+
+/** Insert or replace a run by id, keeping the newest MAX_COMPARE_RUNS records. */
+export const saveCompareRun = async (run: ICompareRun) => {
+  const key = scopedKey(compareRunsKey);
+  if (!key) return false;
+
+  const runs = await getCompareRuns();
+  const nextRuns = [run, ...runs.filter(({ id }) => id !== run.id)]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, MAX_COMPARE_RUNS);
+  await lforage.setItem(key, nextRuns);
+  return true;
+};
+
+export const deleteCompareRun = async (runId: string) => {
+  const key = scopedKey(compareRunsKey);
+  if (!key) return;
+
+  const runs = await getCompareRuns();
+  await lforage.setItem(key, runs.filter(({ id }) => id !== runId));
+};
+
+export const clearCompareRuns = async () => {
+  const key = scopedKey(compareRunsKey);
+  if (key) await lforage.removeItem(key);
+};
+
 export const clearLocalData = async () => {
   const keys = [
     settingsKey,
@@ -224,6 +294,7 @@ export const clearLocalData = async () => {
     startedToastKey,
     demoThreadsDismissedKey,
     compareVotesKey,
+    compareRunsKey,
   ]
     .map(scopedKey)
     .filter((key): key is string => Boolean(key));

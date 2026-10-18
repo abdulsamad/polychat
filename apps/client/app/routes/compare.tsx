@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useAuth, useClerk } from '@clerk/react-router';
-import { AlertCircleIcon, ArrowRightIcon, Columns3Icon, KeyRoundIcon } from 'lucide-react';
+import {
+  AlertCircleIcon,
+  ArrowRightIcon,
+  Columns3Icon,
+  HistoryIcon,
+  KeyRoundIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { defaultModel } from 'utils';
 import { userSettingsOpenAtom, userSettingsScrollTargetAtom } from '@/store';
+import { cn } from '@/utils';
 import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
 import useCompareRun, {
   isSettledStatus,
@@ -13,10 +20,21 @@ import useCompareRun, {
   type CompareColumnState,
   type CompareRunState,
 } from '@/hooks/useCompareRun';
+import useCompareHistory from '@/hooks/useCompareHistory';
 import useCompareVotes from '@/hooks/useCompareVotes';
 import useCompareWorkspace from '@/hooks/useCompareWorkspace';
+import useModelPricing from '@/hooks/useModelPricing';
+import {
+  formatCost,
+  getBests,
+  resultCost,
+  runCost,
+  tokensPerSecond,
+} from '@/utils/compare-metrics';
+import type { ICompareRun, ICompareRunColumn } from '@/utils/lforage';
 import CompareColumn from '@/components/Compare/CompareColumn';
 import CompareComposer from '@/components/Compare/CompareComposer';
+import CompareHistory from '@/components/Compare/CompareHistory';
 import ComparePickers, {
   createCompareSlot,
   type CompareSlot,
@@ -44,13 +62,10 @@ const suggestions = [
 
 const hasAnswer = ({ content }: CompareColumnState) => content.trim().length > 0;
 
-const getFastest = (columns: CompareColumnState[], key: 'ttftMs' | 'totalMs') => {
-  const finished = columns.filter(
-    (column) => column.status === 'done' && hasAnswer(column) && column[key] !== undefined
-  );
-  if (finished.length < 2) return null;
-  return finished.reduce((best, column) => (column[key]! < best[key]! ? column : best)).id;
-};
+const savedRunDate = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 const getRunStatus = (run: CompareRunState, getModelLabel: (model: string) => string) => {
   const total = run.columns.length;
@@ -75,8 +90,11 @@ const Compare = () => {
   const { textModels, findModel, isModelAvailable, isProviderAvailable } =
     useByokModelAvailability();
   const votes = useCompareVotes(isReady);
-  const { run, isRunning, canVote, start, stop, stopColumn, vote } = useCompareRun({
+  const history = useCompareHistory(isReady);
+  const { getPrice } = useModelPricing();
+  const { run, isRunning, canVote, start, stop, stopColumn, vote, open, close } = useCompareRun({
     onVoteSaved: votes.refresh,
+    onRunSaved: history.refresh,
   });
   const [slots, setSlots] = useState<CompareSlot[]>([]);
   const [prompt, setPrompt] = useState('');
@@ -137,6 +155,43 @@ const Compare = () => {
     setSettingsScrollTarget('byok');
     setSettingsOpen(true);
   };
+  const getColumnCost = useCallback(
+    (column: ICompareRunColumn | CompareColumnState) =>
+      resultCost(column, getPrice(column.model, column.provider)),
+    [getPrice]
+  );
+  const getRunCost = useCallback(
+    (stored: ICompareRun) => runCost(stored.columns, getColumnCost),
+    [getColumnCost]
+  );
+  // Rerun a saved prompt on the same models. Unavailable models are left for the user to replace.
+  const rerun = (stored: ICompareRun) => {
+    const models = stored.columns.flatMap(({ model }) =>
+      runnableModels.filter(({ name }) => name === model)
+    );
+    setPrompt(stored.prompt);
+    setSlots(models.map(({ name }) => createCompareSlot(name)));
+    if (models.length === stored.columns.length && models.length >= MIN_COMPARE_MODELS) {
+      start(stored.prompt, models);
+    } else {
+      toast.error('Some models from that run are unavailable. Pick replacements, then send.');
+    }
+  };
+  const deleteRun = async (runId: string) => {
+    await history.remove(runId);
+    // A deleted run that stays open would be saved again by its next vote.
+    if (run?.id === runId && !isRunning) close();
+  };
+  const clearHistory = async () => {
+    try {
+      await history.clear();
+      if (run?.isFromHistory) close();
+      toast.success('History cleared');
+    } catch (error) {
+      console.error('Failed to clear compare history', error);
+      toast.error('Could not clear history.');
+    }
+  };
   const clearVotes = async () => {
     try {
       await votes.clear();
@@ -166,8 +221,17 @@ const Compare = () => {
 
   if (!isReady) return <Loading />;
 
-  const fastestTtft = run ? getFastest(run.columns, 'ttftMs') : null;
-  const fastestTotal = run ? getFastest(run.columns, 'totalMs') : null;
+  const answeredColumns = run
+    ? run.columns.filter((column) => column.status === 'done' && hasAnswer(column))
+    : [];
+  const bests = getBests(answeredColumns, (column) => ({
+    ttft: column.ttftMs,
+    total: column.totalMs,
+    speed: tokensPerSecond(column),
+    cost: getColumnCost(column)?.usd,
+  }));
+  const isSettled = Boolean(run) && !isRunning;
+  const totalCost = run && isSettled ? runCost(run.columns, getColumnCost) : undefined;
   const hasEnoughModels = runnableModels.length >= MIN_COMPARE_MODELS;
 
   return (
@@ -179,7 +243,25 @@ const Compare = () => {
         none={votes.none}
         isLoading={votes.isLoading}
         getModelLabel={getModelLabel}
-        onClear={clearVotes}>
+        onClear={clearVotes}
+        actions={
+          <CompareHistory
+            runs={history.runs}
+            isLoading={history.isLoading}
+            error={history.error}
+            activeRunId={run?.id}
+            isRunning={isRunning}
+            getModelLabel={getModelLabel}
+            getColumnCost={getColumnCost}
+            getRunCost={getRunCost}
+            onOpenRun={open}
+            onRerun={rerun}
+            onDelete={deleteRun}
+            onRestore={history.restore}
+            onRetry={() => void history.refresh()}
+            onClear={clearHistory}
+          />
+        }>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
             Compare models
@@ -193,53 +275,100 @@ const Compare = () => {
       <section aria-label="Answers" className="flex min-h-0 min-w-0 flex-1 flex-col">
         {run ? (
           <>
-            <div className="flex min-w-0 shrink-0 items-center gap-2 px-3 pt-3 sm:px-5">
-              <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 shrink-0 items-center gap-3 px-3 pt-3 sm:px-5">
+              {/* Keyed by run so a new prompt settles in instead of swapping text in place. */}
+              <div key={run.id} className="chat-message-entry min-w-0 flex-1">
+                {run.isFromHistory && (
+                  <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <HistoryIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                    <span className="truncate">
+                      Saved run - {savedRunDate.format(run.timestamp)}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      className="h-auto shrink-0 p-0 text-xs"
+                      onClick={close}>
+                      New comparison
+                    </Button>
+                  </p>
+                )}
                 <p className="truncate text-sm font-medium text-foreground" title={run.prompt}>
                   {run.prompt}
                 </p>
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="truncate text-xs text-muted-foreground">
-                  {getRunStatus(run, getModelLabel)}
+                <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                  <span role="status" aria-live="polite" className="truncate">
+                    {getRunStatus(run, getModelLabel)}
+                  </span>
+                  {totalCost && (
+                    <span
+                      className="shrink-0 font-mono tabular-nums duration-200 ease-[var(--ease-out)] animate-in fade-in-0"
+                      title={
+                        totalCost.isEstimate
+                          ? 'Includes estimates from OpenRouter list prices'
+                          : 'Reported by the providers'
+                      }>
+                      Run cost {formatCost(totalCost)}
+                    </span>
+                  )}
                 </p>
               </div>
+              {/* A segmented group keeps the run-level verdicts visually apart from the per-answer
+                  Best buttons; the pressed segment lifts onto the background like a thumb. */}
               <div
                 role="group"
                 aria-label="Other votes"
-                className="flex shrink-0 items-center gap-1.5">
-                {(['tie', 'none'] as const).map((choice) => (
-                  <Button
-                    key={choice}
-                    type="button"
-                    size="sm"
-                    variant={run.winner === choice ? 'default' : 'outline'}
-                    className="h-9 rounded-full px-3"
-                    disabled={!canVote}
-                    aria-pressed={run.winner === choice}
-                    aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
-                    onClick={() => handleVote(choice)}>
-                    {choice === 'tie' ? 'Tie' : 'None'}
-                  </Button>
-                ))}
+                className={cn(
+                  'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
+                  !canVote && 'opacity-60'
+                )}>
+                {(['tie', 'none'] as const).map((choice) => {
+                  const isPressed = run.winner === choice;
+                  return (
+                    <Button
+                      key={choice}
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className={cn(
+                        'h-8 rounded-full px-3.5 text-muted-foreground hover:bg-background/60 hover:text-foreground disabled:opacity-100',
+                        isPressed &&
+                          'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
+                      )}
+                      disabled={!canVote}
+                      aria-pressed={isPressed}
+                      aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
+                      onClick={() => handleVote(choice)}>
+                      {choice === 'tie' ? 'Tie' : 'None'}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
             <div className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-px-3 gap-3 overflow-x-auto overscroll-x-contain px-3 py-3 [scrollbar-width:thin] sm:scroll-px-5 sm:px-5 xl:overflow-x-hidden">
-              {run.columns.map((column, index) => (
-                <CompareColumn
-                  key={column.id}
-                  index={index}
-                  column={column}
-                  canVote={canVote}
-                  isWinner={run.winner === column.model}
-                  isFastestTtft={fastestTtft === column.id}
-                  isFastestTotal={fastestTotal === column.id}
-                  onVote={handleVote}
-                  onStop={stopColumn}
-                  className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
-                />
-              ))}
+              {run.columns.map((column, index) => {
+                const cost = getColumnCost(column);
+                return (
+                  <CompareColumn
+                    key={column.id}
+                    index={index}
+                    column={column}
+                    canVote={canVote}
+                    isWinner={run.winner === column.model}
+                    startedAt={run.startedAt}
+                    isBestTtft={bests.ttft === column.id}
+                    isBestTotal={bests.total === column.id}
+                    isBestSpeed={bests.speed === column.id}
+                    isCheapest={bests.cost === column.id}
+                    costUsd={cost?.usd}
+                    isCostEstimate={Boolean(cost?.isEstimate)}
+                    onVote={handleVote}
+                    onStop={stopColumn}
+                    className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
+                  />
+                );
+              })}
             </div>
           </>
         ) : (
@@ -263,8 +392,11 @@ const Compare = () => {
                     to build your own leaderboard.
                   </p>
                   <ul className="mt-1 flex flex-col items-stretch gap-2 sm:items-center">
-                    {suggestions.map((suggestion) => (
-                      <li key={suggestion}>
+                    {suggestions.map((suggestion, index) => (
+                      <li
+                        key={suggestion}
+                        className="empty-hint-entry"
+                        style={{ animationDelay: `${index * 50}ms` }}>
                         <Button
                           type="button"
                           variant="outline"
