@@ -284,7 +284,8 @@ const chat = async (c: Context<AppContext>) => {
     return new Response(stream, {
       headers: {
         'Content-Type': 'application/x-ndjson; charset=utf-8',
-        'Cache-Control': 'no-cache',
+        // no-transform stops Cloudflare from compressing/buffering the stream at the edge.
+        'Cache-Control': 'no-cache, no-transform',
       },
     });
   } catch (err) {
