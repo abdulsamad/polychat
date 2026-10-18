@@ -17,10 +17,10 @@
     "@openrouter/ai-sdk-provider": "catalog:",
     "@hono/node-server": "^2.1.4",
     "ai": "catalog:",
-    "hono": "^4.13.5",
+    "hono": "^4.13.13",
     "jose": "^5.10.0",
     "utils": "workspace:*",
-    "zod": "^4.5.4"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
