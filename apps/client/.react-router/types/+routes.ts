@@ -14,6 +14,9 @@ type Pages = {
   "/": {
     params: {};
   };
+  "/compare": {
+    params: {};
+  };
   "/:threadId?": {
     params: {
       "threadId"?: string;
@@ -29,11 +32,15 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/:threadId?" | "/*";
+    page: "/" | "/compare" | "/:threadId?" | "/*";
   };
   "./layouts/home.tsx": {
     id: "layouts/home";
-    page: "/:threadId?" | "/*";
+    page: "/compare" | "/:threadId?" | "/*";
+  };
+  "routes/compare.tsx": {
+    id: "routes/compare";
+    page: "/compare";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -48,6 +55,7 @@ type RouteFiles = {
 type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "layouts/home": typeof import("./app/./layouts/home.tsx");
+  "routes/compare": typeof import("./app/routes/compare.tsx");
   "routes/home": typeof import("./app/routes/home.tsx");
   "routes/not-found": typeof import("./app/routes/not-found.tsx");
 };
