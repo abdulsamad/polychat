@@ -23,7 +23,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

@@ -72,7 +72,7 @@
   "devDependencies": {
     "@react-router/dev": "^7.2.0",
     "@tailwindcss/vite": "^4.0.13",
-    "@types/node": "^22.13.8",
+    "@types/node": "^26.6.5",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "@types/react-syntax-highlighter": "^15.5.13",
