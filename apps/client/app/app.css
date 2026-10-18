@@ -35,9 +35,9 @@
     --input: 219 21% 76%;
     --ring: 247 64% 59%;
 
-    --code: 222 38% 12%;
-    --code-foreground: 220 33% 96%;
-    --code-header: 221 32% 16%;
+    --code: 0 0% 100%;
+    --code-foreground: 219 38% 15%;
+    --code-header: 216 38% 95%;
 
     --sidebar: 216 38% 95%;
     --sidebar-background: 216 38% 95%;
