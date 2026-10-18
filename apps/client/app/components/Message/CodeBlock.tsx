@@ -1,6 +1,7 @@
 import { DownloadIcon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { PrismAsync as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark as codeTheme } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import { oneDark, oneLight } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 
 import { Button } from '@/components/ui/button';
 import CopyButton from './CopyButton';
@@ -49,6 +50,9 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
     extensionByLanguage[normalizedLanguage] ||
     (/^[a-z0-9]{1,12}$/.test(normalizedLanguage) ? normalizedLanguage : 'txt');
   const downloadName = safeFilename(filename || '') || `snippet-${index}.${extension}`;
+  const { resolvedTheme } = useTheme();
+  // Dark is the default until the resolved theme is known.
+  const codeTheme = resolvedTheme === 'light' ? oneLight : oneDark;
 
   const downloadCode = () => {
     const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
@@ -65,13 +69,13 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
   };
 
   return (
-    <figure className="my-4 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-white/10 bg-code text-code-foreground shadow-sm">
-      <figcaption className="flex min-h-10 items-center justify-between gap-3 border-b border-white/10 bg-code-header px-2.5 py-1.5 sm:px-3">
+    <figure className="my-4 block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-code-foreground/10 bg-code text-code-foreground shadow-sm">
+      <figcaption className="flex min-h-10 items-center justify-between gap-3 border-b border-code-foreground/10 bg-code-header px-2.5 py-1.5 sm:px-3">
         <div className="flex min-w-0 items-center gap-2 font-mono text-xs">
           <span className="truncate text-code-foreground" title={downloadName}>
             {downloadName}
           </span>
-          <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[0.6875rem] text-code-foreground/65">
+          <span className="shrink-0 rounded-md border border-code-foreground/10 px-1.5 py-0.5 text-[0.6875rem] text-code-foreground/75">
             {normalizedLanguage}
           </span>
         </div>
@@ -79,7 +83,7 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
           <CopyButton
             text={code}
             label="Code"
-            className="text-code-foreground hover:bg-white/10 hover:text-code-foreground"
+            className="text-code-foreground hover:bg-code-foreground/10 hover:text-code-foreground"
           />
           <Button
             type="button"
@@ -88,7 +92,7 @@ const CodeBlock = ({ code, filename, index, language = 'text' }: CodeBlockProps)
             title={`Download ${downloadName}`}
             aria-label={`Download ${downloadName}`}
             onClick={downloadCode}
-            className="h-8 px-2 text-code-foreground transition-[translate,scale,background-color,color] duration-150 ease-[var(--ease-out)] hover:-translate-y-0.5 hover:bg-white/10 hover:text-code-foreground active:scale-[0.95] motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100">
+            className="h-8 px-2 text-code-foreground transition-[translate,scale,background-color,color] duration-150 ease-[var(--ease-out)] hover:-translate-y-0.5 hover:bg-code-foreground/10 hover:text-code-foreground active:scale-[0.95] motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100">
             <DownloadIcon className="size-3.5" />
             <span className="hidden sm:inline">Download</span>
           </Button>

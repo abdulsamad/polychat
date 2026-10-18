@@ -1,10 +1,5 @@
 import { Hono } from 'hono';
-import {
-  handle,
-  streamHandle,
-  type LambdaEvent,
-  ApiGatewayRequestContextV2,
-} from 'hono/aws-lambda';
+import { handle, type LambdaEvent, ApiGatewayRequestContextV2 } from 'hono/aws-lambda';
 import { logger } from 'hono/logger';
 import { type JWTPayload } from 'jose';
 
@@ -14,6 +9,7 @@ import video, { videoStatus, videoContent } from '@controllers/video';
 import { authMiddleware, proxyMiddleware } from '@middlewares/index';
 
 import type { User } from '@types';
+import { streamHandle } from './utils/lambda-stream';
 
 export type AppContext = {
   Bindings: {

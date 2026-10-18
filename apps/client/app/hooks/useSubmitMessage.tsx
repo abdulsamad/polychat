@@ -9,6 +9,7 @@ import {
   clearThreadChatErrorAtom,
   configAtom,
   enqueueChatJobAtom,
+  enqueuePersistence,
   messagesAtom,
   refreshThreadsAtom,
   threadAtom,
@@ -113,7 +114,7 @@ const useSubmitMessage = () => {
       });
 
       if (accepted) {
-        void removeDemoThreads().then((removed) => {
+        void enqueuePersistence(removeDemoThreads).then((removed) => {
           if (removed) refreshThreads();
         });
       }
