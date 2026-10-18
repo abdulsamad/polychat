@@ -5,7 +5,7 @@
 PolyChat is a pnpm/Turborepo monorepo for a local-first AI chat app.
 
 - `apps/client` is a React 19 + React Router 7 SPA. It uses Jotai for state, TipTap for input, shadcn/Radix UI components, Clerk for auth, and localForage/IndexedDB for thread persistence.
-- `apps/serverless` is a Hono API bundled for AWS Lambda with esbuild. It authenticates Clerk JWTs and exposes `/chat` and `/image` endpoints.
+- `apps/serverless` is a Hono API bundled for AWS Lambda with esbuild. It authenticates Clerk JWTs and exposes `/chat`, `/image`, and `/video` endpoints.
 - `packages/utils` is the shared package for model metadata, AI SDK-derived model types, languages, variations, and assistant configuration.
 - `pnpm-lock.yaml` is the workspace lockfile. Use the globally installed pnpm 11 store and Node.js 22.12+; do not create or configure a workspace-local pnpm store.
 
@@ -54,7 +54,8 @@ There is no reliable test suite configured in the individual packages currently.
 
 ## Client architecture and rules
 
-- Routes are defined in `apps/client/app/routes.ts`; the main route is `routes/home.tsx` under `layouts/home.tsx`.
+- Routes are defined in `apps/client/app/routes.ts`; the main route is `routes/home.tsx` under `layouts/home.tsx`. The static `/compare` route (`routes/compare.tsx`) must stay registered before `/:threadId?`.
+- Compare mode runs its streams in `hooks/useCompareRun.ts`, independent of the chat queue (`ChatQueueProvider`, `activeChatJobAtom`) and of threads. Do not route compare requests through the chat queue or write them to `threadMessagesAtom`; only votes are persisted, through `lforage.ts`.
 - Use `@/*` imports for client application code and `utils` for shared package exports. Keep generated React Router types under `.react-router/types`. Client aliases are defined with relative `paths` entries because TypeScript 7 no longer supports `baseUrl`.
 - Jotai atoms live in `apps/client/app/store/index.tsx`. `threadAtom` and `messagesAtom` represent the active conversation.
 - Threads and messages are persisted through `apps/client/app/utils/lforage.ts`. Keep thread IDs stable and keep the route `/:threadId` synchronized with the active thread.
@@ -82,7 +83,7 @@ There is no reliable test suite configured in the individual packages currently.
 ## Serverless API rules
 
 - `apps/serverless/src/index.ts` owns the Hono app and route registration.
-- Authentication is applied by `authMiddleware` before `/chat` and `/image`. Preserve bearer-token verification and issuer/algorithm checks.
+- Authentication is applied by `authMiddleware` before `/chat`, `/image`, and the `/video` routes. Preserve bearer-token verification and issuer/algorithm checks.
 - `CLERK_AUTHORIZED_PARTIES` is a required, comma-separated allowlist of exact frontend origins checked against the Clerk JWT `azp` claim. Include the protocol and port when applicable, such as `http://localhost:3000` or `https://mydomain.example.com`; do not include URL paths.
 - Controllers should return appropriate HTTP status codes and avoid leaking provider credentials or sensitive internals.
 - Provider clients are created in `src/models/index.ts`; model selection and caching belong in `src/models/factory.ts`.
