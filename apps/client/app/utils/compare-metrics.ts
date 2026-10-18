@@ -34,6 +34,13 @@ export const thinkingMs = ({ reasoningStartMs, ttftMs, totalMs }: TimedResult) =
   return end !== undefined && end > reasoningStartMs ? end - reasoningStartMs : undefined;
 };
 
+export const median = (values: readonly number[]) => {
+  if (!values.length) return undefined;
+  const sorted = values.slice().sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
 export const wordCount = (content: string) => content.trim().split(/\s+/).filter(Boolean).length;
 
 /** Prefers the provider-reported cost; otherwise estimates from token usage and published prices. */

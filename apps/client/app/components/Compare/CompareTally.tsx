@@ -1,7 +1,9 @@
 import { useState, type ReactNode } from 'react';
-import { ChevronDownIcon, Trash2Icon, TrophyIcon } from 'lucide-react';
+import { ChevronDownIcon, ListOrderedIcon, SwordsIcon, Trash2Icon, TrophyIcon } from 'lucide-react';
 
-import type { CompareTallyRow } from '@/hooks/useCompareVotes';
+import { cn } from '@/utils';
+import type { CompareTallyRow, HeadToHeadRecord } from '@/hooks/useCompareVotes';
+import { HeadToHeadMatrix, RatingsTable } from '@/components/Compare/CompareLeaderboard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -17,14 +19,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+
+const leaderboardViews = [
+  { id: 'ratings', label: 'Ratings', icon: ListOrderedIcon },
+  { id: 'h2h', label: 'Head-to-head', icon: SwordsIcon },
+] as const;
 
 interface CompareTallyProps {
   tally: CompareTallyRow[];
@@ -33,14 +32,13 @@ interface CompareTallyProps {
   none: number;
   isLoading: boolean;
   getModelLabel: (model: string) => string;
+  getHeadToHead: (model: string, opponent: string) => HeadToHeadRecord | undefined;
   onClear: () => Promise<void>;
   /** Header content rendered next to the leaderboard toggle. */
   children?: ReactNode;
   /** Extra header controls placed just before the leaderboard toggle. */
   actions?: ReactNode;
 }
-
-const percent = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 0 });
 
 const CompareTally = ({
   tally,
@@ -49,12 +47,14 @@ const CompareTally = ({
   none,
   isLoading,
   getModelLabel,
+  getHeadToHead,
   onClear,
   children,
   actions,
 }: CompareTallyProps) => {
   const [open, setOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [view, setView] = useState<(typeof leaderboardViews)[number]['id']>('ratings');
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="shrink-0 border-b border-border/70">
@@ -86,7 +86,41 @@ const CompareTally = ({
         </CollapsibleTrigger>
       </div>
       <CollapsibleContent className="min-w-0 px-3 pb-3 duration-150 ease-[var(--ease-out)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:px-5 motion-safe:data-[state=closed]:slide-out-to-top-1 motion-safe:data-[state=open]:slide-in-from-top-1">
-        <div className="max-h-40 min-w-0 overflow-y-auto sm:max-h-64 overscroll-contain rounded-xl border border-border/70 bg-card/60">
+        {!isLoading && total > 0 && (
+          <div
+            role="tablist"
+            aria-label="Leaderboard view"
+            className="mb-2 inline-flex items-center gap-0.5 rounded-full bg-muted p-0.5">
+            {leaderboardViews.map(({ id, label, icon: Icon }) => {
+              const isSelected = view === id;
+              return (
+                <Button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  id={`compare-leaderboard-tab-${id}`}
+                  aria-selected={isSelected}
+                  aria-controls="compare-leaderboard-panel"
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-8 rounded-full px-3 text-muted-foreground hover:bg-background/60 hover:text-foreground',
+                    isSelected &&
+                      'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
+                  )}
+                  onClick={() => setView(id)}>
+                  <Icon />
+                  {label}
+                </Button>
+              );
+            })}
+          </div>
+        )}
+        <div
+          id="compare-leaderboard-panel"
+          role={!isLoading && total > 0 ? 'tabpanel' : undefined}
+          aria-labelledby={!isLoading && total > 0 ? `compare-leaderboard-tab-${view}` : undefined}
+          className="max-h-48 min-w-0 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-card/60 sm:max-h-72">
           {isLoading ? (
             <div className="flex flex-col gap-2 p-3" aria-label="Loading results">
               <Skeleton className="h-4 w-2/3" />
@@ -98,45 +132,17 @@ const CompareTally = ({
               No votes yet. Run a comparison and pick the best answer to start the leaderboard.
             </p>
           ) : (
-            <Table className="text-sm">
-              <TableHeader className="bg-muted/60">
-                <TableRow>
-                  <TableHead className="h-9 px-3">Model</TableHead>
-                  <TableHead className="h-9 px-3 text-right">Wins</TableHead>
-                  <TableHead className="h-9 px-3 text-right">Runs</TableHead>
-                  <TableHead className="h-9 px-3 text-right whitespace-nowrap">Win rate</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tally.map(({ model, wins, appearances, winRate }) => (
-                  <TableRow key={model}>
-                    <TableCell className="max-w-48 px-3 py-2">
-                      <span className="block truncate font-medium" title={getModelLabel(model)}>
-                        {getModelLabel(model)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-3 py-2 text-right tabular-nums">{wins}</TableCell>
-                    <TableCell className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {appearances}
-                    </TableCell>
-                    <TableCell className="px-3 py-2">
-                      <span className="flex items-center justify-end gap-2">
-                        <span
-                          aria-hidden="true"
-                          className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-muted sm:block">
-                          {/* scaleX keeps a changed vote's bar update on the compositor. */}
-                          <span
-                            className="block h-full w-full origin-left rounded-full bg-primary transition-transform duration-250 ease-[var(--ease-out)]"
-                            style={{ transform: `scaleX(${winRate})` }}
-                          />
-                        </span>
-                        <span className="tabular-nums">{percent.format(winRate)}</span>
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div key={view} className="duration-150 ease-[var(--ease-out)] animate-in fade-in-0">
+              {view === 'ratings' ? (
+                <RatingsTable tally={tally} getModelLabel={getModelLabel} />
+              ) : (
+                <HeadToHeadMatrix
+                  tally={tally}
+                  getModelLabel={getModelLabel}
+                  getHeadToHead={getHeadToHead}
+                />
+              )}
+            </div>
           )}
         </div>
         {!isLoading && total > 0 && (
