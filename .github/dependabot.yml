@@ -1,22 +1,36 @@
 version: 2
 
-# One weekly PR for every npm version update.
-multi-ecosystem-groups:
-  all-dependencies:
-    schedule:
-      interval: "weekly"
-      day: "monday"
-
 updates:
   - package-ecosystem: "npm"
     directory: "/"
-    multi-ecosystem-group: "all-dependencies"
-    patterns: ["*"]
+    schedule:
+      interval: "weekly"
+      day: "monday"
     # Mirrors pnpm-workspace.yaml minimumReleaseAge (7 days)
     cooldown:
       default-days: 7
+    open-pull-requests-limit: 10
     groups:
       # Security fixes skip cooldown and land in one PR of their own
       security-updates:
         applies-to: security-updates
+        patterns: ["*"]
+      # Packages that must move across a major version together
+      react-router-major:
+        applies-to: version-updates
+        update-types: ["major"]
+        patterns: ["react-router", "@react-router/*"]
+      react-major:
+        applies-to: version-updates
+        update-types: ["major"]
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      ai-sdk-major:
+        applies-to: version-updates
+        update-types: ["major"]
+        patterns: ["ai", "@ai-sdk/*", "@openrouter/ai-sdk-provider"]
+      # One weekly PR for safe updates. Any other major opens its own PR so
+      # it can be reviewed and migrated deliberately.
+      minor-and-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
         patterns: ["*"]
