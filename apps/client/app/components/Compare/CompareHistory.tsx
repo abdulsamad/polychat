@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react';
-import { DownloadIcon, HistoryIcon, RotateCcwIcon, Trash2Icon, TrophyIcon } from 'lucide-react';
+import {
+  DownloadIcon,
+  HistoryIcon,
+  ListChecksIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+  TrophyIcon,
+} from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { cn } from '@/utils';
 import { formatCost, type ResultCost } from '@/utils/compare-metrics';
 import { exportRunsCsv, exportRunsJson } from '@/utils/compare-export';
+import { describeSettings } from '@/utils/compare-settings';
+import SuiteSummary, { getSuiteExecutions } from '@/components/Compare/CompareSuiteSummary';
 import type { ICompareRun, ICompareRunColumn } from '@/utils/lforage';
 import {
   AlertDialog,
@@ -89,6 +98,12 @@ const CompareHistory = ({
 
   /** The last deleted run, offered for undo inside the sheet (a toast is unreachable under the modal). */
   const [deletedRun, setDeletedRun] = useState<ICompareRun | null>(null);
+  const [suiteFilter, setSuiteFilter] = useState<string | null>(null);
+  const executions = getSuiteExecutions(runs);
+  const selectedExecution = executions.find(({ suiteRunId }) => suiteRunId === suiteFilter);
+  const visibleRuns = selectedExecution
+    ? runs.filter(({ suite }) => suite?.suiteRunId === selectedExecution.suiteRunId)
+    : runs;
 
   useEffect(() => {
     if (!deletedRun) return;
@@ -261,96 +276,152 @@ const CompareHistory = ({
           ) : (
             // popLayout takes a deleted row out of flow at once, so the rows below glide up
             // (layout) while it fades; Undo plays the same path in reverse.
-            <ul className="relative flex min-w-0 flex-col gap-1 p-2">
-              <AnimatePresence initial={false} mode="popLayout">
-                {runs.map((run) => {
-                  const isActive = run.id === activeRunId;
-                  // An unvoted blind run keeps its models hidden here as well as on screen.
-                  const isHidden = Boolean(run.blind && !run.winner);
-                  const cost = isHidden ? undefined : getRunCost(run);
-                  return (
-                    <motion.li
-                      key={run.id}
-                      layout={shouldReduceMotion ? false : 'position'}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                      className={cn(
-                        'flex min-w-0 items-start gap-1 rounded-xl transition-colors duration-150',
-                        isActive && 'bg-accent/70'
-                      )}>
-                      <button
-                        type="button"
-                        aria-current={isActive || undefined}
-                        disabled={isRunning}
-                        onClick={() => closeAfter(onOpenRun, run)}
-                        className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-xl px-3 py-2.5 text-left transition-[background-color,scale] duration-150 ease-[var(--ease-out)] hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60 motion-reduce:active:scale-100">
-                        <span className="line-clamp-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">
-                          {run.prompt}
-                        </span>
-                        <span className="flex min-w-0 flex-wrap gap-1">
-                          {run.columns.map((column, columnIndex) => {
-                            const isWinner = run.winner === column.model;
-                            return (
-                              <span
-                                key={column.id}
-                                className={cn(
-                                  'inline-flex max-w-full items-center gap-1 truncate rounded-full px-2 py-0.5 text-[0.6875rem] leading-4',
-                                  isWinner
-                                    ? 'bg-primary/15 font-medium text-foreground'
-                                    : 'bg-muted text-muted-foreground',
-                                  column.status !== 'done' &&
-                                    'line-through decoration-muted-foreground/60'
-                                )}>
-                                {isWinner && (
-                                  <TrophyIcon
-                                    className="size-3 shrink-0 fill-current text-primary"
-                                    aria-label="Winner"
-                                  />
-                                )}
-                                <span className="truncate">
-                                  {isHidden
-                                    ? `Model ${String.fromCharCode(65 + columnIndex)}`
-                                    : getModelLabel(column.model)}
-                                </span>
-                              </span>
-                            );
-                          })}
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {dateFormat.format(run.timestamp)} - {getWinnerLabel(run, getModelLabel)}
-                          {cost && ` - ${formatCost(cost)}`}
-                        </span>
-                      </button>
-                      <div className="flex shrink-0 flex-col py-1 pr-1">
+            <div className="flex min-w-0 flex-col gap-2 p-2">
+              {executions.length > 0 && (
+                <div className="flex min-w-0 flex-col gap-2 px-1 pt-1">
+                  <div
+                    role="group"
+                    aria-label="Filter by suite"
+                    className="flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none]">
+                    {[null, ...executions].map((execution) => {
+                      const id = execution?.suiteRunId ?? null;
+                      const isSelected = suiteFilter === id;
+                      return (
                         <Button
+                          key={id ?? 'all'}
                           type="button"
                           variant="ghost"
-                          size="icon"
-                          className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+                          size="sm"
+                          aria-pressed={isSelected}
+                          className={cn(
+                            'h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:text-foreground',
+                            isSelected &&
+                              'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
+                          )}
+                          onClick={() => setSuiteFilter(id)}>
+                          {execution ? (
+                            <>
+                              <ListChecksIcon className="size-3.5" />
+                              {execution.suiteName} - {dateFormat.format(execution.timestamp)}
+                            </>
+                          ) : (
+                            'All runs'
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  {selectedExecution && (
+                    <SuiteSummary
+                      execution={selectedExecution}
+                      getModelLabel={getModelLabel}
+                      getColumnCost={getColumnCost}
+                    />
+                  )}
+                </div>
+              )}
+              <ul className="relative flex min-w-0 flex-col gap-1">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {visibleRuns.map((run) => {
+                    const isActive = run.id === activeRunId;
+                    // An unvoted blind run keeps its models hidden here as well as on screen.
+                    const isHidden = Boolean(run.blind && !run.winner);
+                    const cost = isHidden ? undefined : getRunCost(run);
+                    return (
+                      <motion.li
+                        key={run.id}
+                        layout={shouldReduceMotion ? false : 'position'}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                        className={cn(
+                          'flex min-w-0 items-start gap-1 rounded-xl transition-colors duration-150',
+                          isActive && 'bg-accent/70'
+                        )}>
+                        <button
+                          type="button"
+                          aria-current={isActive || undefined}
                           disabled={isRunning}
-                          aria-label={`Run "${run.prompt.slice(0, 60)}" again`}
-                          title="Run again"
-                          onClick={() => closeAfter(onRerun, run)}>
-                          <RotateCcwIcon />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-9 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          aria-label={`Delete "${run.prompt.slice(0, 60)}"`}
-                          title="Delete"
-                          onClick={() => void deleteRun(run)}>
-                          <Trash2Icon />
-                        </Button>
-                      </div>
-                    </motion.li>
-                  );
-                })}
-              </AnimatePresence>
-            </ul>
+                          onClick={() => closeAfter(onOpenRun, run)}
+                          className="flex min-w-0 flex-1 flex-col gap-1.5 rounded-xl px-3 py-2.5 text-left transition-[background-color,scale] duration-150 ease-[var(--ease-out)] hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-none active:scale-[0.99] disabled:pointer-events-none disabled:opacity-60 motion-reduce:active:scale-100">
+                          <span className="line-clamp-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">
+                            {run.prompt}
+                          </span>
+                          <span className="flex min-w-0 flex-wrap gap-1">
+                            {run.columns.map((column, columnIndex) => {
+                              // The column id decides when one model ran in several columns.
+                              const isWinner = run.winnerColumnId
+                                ? run.winnerColumnId === column.id
+                                : run.winner === column.model;
+                              const variant = [
+                                describeSettings(column.settings),
+                                column.sample !== undefined && `#${column.sample}`,
+                              ]
+                                .filter(Boolean)
+                                .join(' ');
+                              return (
+                                <span
+                                  key={column.id}
+                                  className={cn(
+                                    'inline-flex max-w-full items-center gap-1 truncate rounded-full px-2 py-0.5 text-[0.6875rem] leading-4',
+                                    isWinner
+                                      ? 'bg-primary/15 font-medium text-foreground'
+                                      : 'bg-muted text-muted-foreground',
+                                    column.status !== 'done' &&
+                                      'line-through decoration-muted-foreground/60'
+                                  )}>
+                                  {isWinner && (
+                                    <TrophyIcon
+                                      className="size-3 shrink-0 fill-current text-primary"
+                                      aria-label="Winner"
+                                    />
+                                  )}
+                                  <span className="truncate">
+                                    {isHidden
+                                      ? `Model ${String.fromCharCode(65 + columnIndex)}`
+                                      : getModelLabel(column.model)}
+                                    {variant && <span className="opacity-70"> {variant}</span>}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                          </span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {dateFormat.format(run.timestamp)} -{' '}
+                            {getWinnerLabel(run, getModelLabel)}
+                            {cost && ` - ${formatCost(cost)}`}
+                          </span>
+                        </button>
+                        <div className="flex shrink-0 flex-col py-1 pr-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-9 rounded-full text-muted-foreground hover:text-foreground"
+                            disabled={isRunning}
+                            aria-label={`Run "${run.prompt.slice(0, 60)}" again`}
+                            title="Run again"
+                            onClick={() => closeAfter(onRerun, run)}>
+                            <RotateCcwIcon />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-9 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete "${run.prompt.slice(0, 60)}"`}
+                            title="Delete"
+                            onClick={() => void deleteRun(run)}>
+                            <Trash2Icon />
+                          </Button>
+                        </div>
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
+              </ul>
+            </div>
           )}
         </ScrollArea>
         <div role="status" aria-live="polite" className="shrink-0 empty:hidden">

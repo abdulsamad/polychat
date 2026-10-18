@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { editorAtom, threadAtom } from '@/store/index';
 import type { ImageAttachment } from 'utils';
 import { useAtomValue } from 'jotai';
+import { MAX_HOSTED_FILE_BYTES, MAX_IMAGE_ATTACHMENTS, readFileAsDataUrl } from '@/utils';
 import { getProviderKey } from '@/utils/byok-vault';
 import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 import { useByokModelAvailability } from './useByokModelAvailability';
@@ -24,10 +25,6 @@ const extensions = [
   Placeholder.configure({ placeholder: 'Ask anything...' }),
 ];
 
-export const MAX_IMAGE_ATTACHMENTS = 4;
-// Keep this aligned with the serverless limit. Data URLs are base64 encoded,
-// so the final JSON request is larger than the original files.
-export const MAX_HOSTED_FILE_BYTES = 2 * 1024 * 1024;
 const supportedDocumentTypes = [
   'application/pdf',
   'application/msword',
@@ -39,14 +36,6 @@ const supportedDocumentTypes = [
 ] as const;
 const isSupportedDocument = (file: File) =>
   supportedDocumentTypes.includes(file.type as (typeof supportedDocumentTypes)[number]);
-
-const readImageAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error || new Error('Image could not be read.'));
-    reader.readAsDataURL(file);
-  });
 
 const getClipboardImageFiles = (clipboardData: DataTransfer | null) => {
   if (!clipboardData) return [];
@@ -143,7 +132,7 @@ const useCustomEditor = () => {
           name: file.name,
           mediaType: file.type,
           size: file.size,
-          dataUrl: await readImageAsDataUrl(file),
+          dataUrl: await readFileAsDataUrl(file),
         }))
       );
       setImageAttachments((current) => [...current, ...attachments]);

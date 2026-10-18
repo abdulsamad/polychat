@@ -1,8 +1,17 @@
 import { useLayoutEffect, useRef, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
-import { SendHorizonalIcon, SquareIcon } from 'lucide-react';
+import {
+  CornerDownRightIcon,
+  ImagePlusIcon,
+  SendHorizonalIcon,
+  SquareIcon,
+  XIcon,
+} from 'lucide-react';
 
+import type { ImageAttachment } from 'utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+
+export const COMPARE_IMAGE_TYPES = 'image/jpeg,image/png,image/webp,image/gif';
 
 /** Mirrors the server-side prompt limit in `chatRequestSchema`. */
 const MAX_PROMPT_LENGTH = 32_000;
@@ -16,6 +25,18 @@ interface CompareComposerProps {
   canSubmit: boolean;
   disabledReason?: string;
   children?: ReactNode;
+  images: readonly ImageAttachment[];
+  /** Images can only be attached when every model in the run accepts them. */
+  canAttachImages: boolean;
+  attachImagesHint: string;
+  onAddImages: (files: FileList) => void;
+  onRemoveImage: (id: string) => void;
+  /** Present when the shown run can be continued. */
+  followUp?: {
+    isActive: boolean;
+    parentPrompt: string;
+    onToggle: () => void;
+  };
 }
 
 const CompareComposer = ({
@@ -27,8 +48,16 @@ const CompareComposer = ({
   canSubmit,
   disabledReason,
   children,
+  images,
+  canAttachImages,
+  attachImagesHint,
+  onAddImages,
+  onRemoveImage,
+  followUp,
 }: CompareComposerProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFollowingUp = Boolean(followUp?.isActive);
 
   // Grow with the content; CSS caps it at 4 lines on mobile and 6 lines on larger screens.
   useLayoutEffect(() => {
@@ -67,7 +96,77 @@ const CompareComposer = ({
       aria-label="Compare prompt"
       className="flex min-w-0 flex-col gap-2 rounded-[1.4rem] border border-input bg-card/95 p-2 shadow-[0_12px_36px_hsl(var(--foreground)/0.08)] transition-[border-color,box-shadow] focus-within:border-ring focus-within:shadow-[0_0_0_3px_hsl(var(--ring)/0.18)] motion-reduce:transition-none">
       {children}
+      {followUp && (
+        <div className="flex min-w-0 items-center gap-2 px-1 duration-150 ease-[var(--ease-out)] animate-in fade-in-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-pressed={isFollowingUp}
+            disabled={isRunning}
+            className={
+              isFollowingUp
+                ? 'h-8 shrink-0 gap-1.5 rounded-full bg-accent px-3 text-accent-foreground hover:bg-accent hover:text-accent-foreground'
+                : 'h-8 shrink-0 gap-1.5 rounded-full px-3 text-muted-foreground hover:text-foreground'
+            }
+            onClick={followUp.onToggle}>
+            <CornerDownRightIcon />
+            Follow up
+          </Button>
+          <p
+            className="min-w-0 truncate text-xs text-muted-foreground"
+            title={followUp.parentPrompt}>
+            {isFollowingUp
+              ? `Continuing each model's answer to "${followUp.parentPrompt}"`
+              : 'Send a new comparison, or follow up on this one.'}
+          </p>
+        </div>
+      )}
+      {images.length > 0 && (
+        <ul aria-label="Attached images" className="flex min-w-0 gap-2 overflow-x-auto px-1 pt-1">
+          {images.map((image) => (
+            <li
+              key={image.id}
+              className="composer-attachment-entry relative size-14 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-muted">
+              <img src={image.dataUrl} alt={image.name} className="size-full object-cover" />
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                disabled={isRunning}
+                aria-label={`Remove ${image.name}`}
+                className="absolute top-0.5 right-0.5 size-6 rounded-full p-0 shadow-sm [&_svg]:size-3"
+                onClick={() => onRemoveImage(image.id)}>
+                <XIcon />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="flex min-w-0 items-end gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={COMPARE_IMAGE_TYPES}
+          multiple
+          hidden
+          tabIndex={-1}
+          onChange={(event) => {
+            if (event.target.files?.length) onAddImages(event.target.files);
+            event.target.value = '';
+          }}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={!canAttachImages || isRunning}
+          title={attachImagesHint}
+          aria-label={`Attach images. ${attachImagesHint}`}
+          className="size-10 shrink-0 rounded-full text-muted-foreground hover:text-foreground sm:size-11"
+          onClick={() => fileInputRef.current?.click()}>
+          <ImagePlusIcon className="size-4" />
+        </Button>
         <Textarea
           ref={textareaRef}
           rows={1}
@@ -75,8 +174,10 @@ const CompareComposer = ({
           maxLength={MAX_PROMPT_LENGTH}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask every model the same question..."
-          aria-label="Prompt"
+          placeholder={
+            isFollowingUp ? 'Follow up with every model...' : 'Ask every model the same question...'
+          }
+          aria-label={isFollowingUp ? 'Follow-up prompt' : 'Prompt'}
           aria-describedby="compare-composer-help"
           enterKeyHint="send"
           className="max-h-[calc(4*1.5rem+1rem)] min-h-10 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-3 py-2 leading-6 shadow-none focus-visible:ring-0 sm:max-h-[calc(6*1.5rem+1rem)]"
