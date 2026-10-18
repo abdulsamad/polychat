@@ -87,7 +87,9 @@ const Text = () => {
             // but AWS Lambda/provider work may continue because disconnects do not cancel Lambda.
             // This is a current limitation to revisit when cooperative server-side cancellation
             // is added.
+            // Keyed so Stop never becomes the Send element mid-click and submits a typed draft.
             <Button
+              key="stop"
               id="text-stop-btn"
               type="button"
               title="Stop generating"
@@ -114,6 +116,7 @@ const Text = () => {
             <Voice />
           ) : (
             <Button
+              key="send"
               id="text-submit-btn"
               type="submit"
               title="Send message"

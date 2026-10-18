@@ -1,12 +1,21 @@
-import { CircleAlertIcon } from 'lucide-react';
+import { CircleAlertIcon, RotateCcwIcon } from 'lucide-react';
 import { imageDimensions } from 'utils';
+
+import { Button } from '@/components/ui/button';
 
 interface ImageGeneratingProps {
   size?: string;
   error?: string;
+  onRetry?: () => void;
+  canRetry?: boolean;
 }
 
-const ImageGenerating = ({ size = '1024x1024', error }: ImageGeneratingProps) => {
+const ImageGenerating = ({
+  size = '1024x1024',
+  error,
+  onRetry,
+  canRetry = true,
+}: ImageGeneratingProps) => {
   const [width, height] = imageDimensions(size);
   const aspectRatio = width > 0 && height > 0 ? `${width} / ${height}` : '1 / 1';
 
@@ -38,6 +47,18 @@ const ImageGenerating = ({ size = '1024x1024', error }: ImageGeneratingProps) =>
         <p className="mt-2 max-w-[400px] text-xs leading-4 text-destructive" role="alert">
           {error}
         </p>
+      )}
+      {error && onRetry && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2 h-9 self-start"
+          disabled={!canRetry}
+          onClick={onRetry}>
+          <RotateCcwIcon />
+          Retry
+        </Button>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import clsx from 'clsx';
-import { AlertCircleIcon, CopyIcon, ShareIcon, Trash2Icon } from 'lucide-react';
+import { AlertCircleIcon, CopyIcon, RotateCcwIcon, ShareIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 
@@ -26,6 +26,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,9 @@ interface ExtraProps extends IMessageCommons {
   message?: ITextMessage;
   image_url?: IImageMessage['image_url'];
   video_url?: IVideoMessage['video_url'];
+  /** Set only on the latest user message whose request failed or was interrupted. */
+  onRetry?: () => void;
+  canRetry?: boolean;
 }
 
 type MessageProps = ExtraProps &
@@ -67,6 +71,8 @@ const MessageContent = ({
   fileAttachments,
   role,
   metadata,
+  onRetry,
+  canRetry = true,
 }: MessageProps) => {
   const { model, usage, finishReason, cancelled, requestState, emptyResponse, reasoningComplete } =
     metadata;
@@ -421,6 +427,18 @@ const MessageContent = ({
                   <span className="inline-flex items-center rounded-full border border-muted-foreground/20 bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     Interrupted
                   </span>
+                )}
+                {onRetry && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 rounded-full px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    disabled={!canRetry}
+                    onClick={onRetry}>
+                    <RotateCcwIcon className="size-3" />
+                    Retry
+                  </Button>
                 )}
               </div>
             </div>
