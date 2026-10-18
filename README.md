@@ -47,9 +47,110 @@ PolyChat is a local-first React application backed by a small authenticated API:
 
 ## Architecture
 
-![PolyChat architecture: chat workspace, local state and keys, generation API, and model runtime](docs/architecture.png)
+```mermaid
+flowchart TD
+  user(("User"))
 
-The diagram covers the chat workspace, local persistence, the generation API, and the model runtime. Compare mode (`/compare`) reuses the same generation requests, but runs its streams independently of the chat queue and threads; only votes, run history, and prompt suites are persisted.
+  subgraph chat["Chat workspace"]
+    route["Conversation route<br/>[home.tsx]"]
+    composer["Rich composer"]
+    response["Response handling"]
+    display["Conversation display<br/>[index.tsx]"]
+    actions["Rich message actions<br/>[index.tsx]"]
+    avail["Model availability"]
+    threads["Threads and settings<br/>[index.tsx]"]
+    submit["Submit and queue"]
+    voice["Voice features<br/>[useSpeech.tsx]"]
+  end
+
+  subgraph compare["Compare mode (/compare)"]
+    cRoute["Compare route<br/>[compare.tsx]"]
+    cRun["Compare run streams<br/>[useCompareRun.ts]"]
+    cData["History, suites, votes<br/>and leaderboard"]
+  end
+
+  subgraph local["Local state and keys"]
+    convState["Conversation state<br/>[index.tsx]"]
+    jobState["Chat job state<br/>[index.tsx]"]
+    vault[("Encrypted BYOK vault<br/>[byok-vault.ts]")]
+    persist[("Browser persistence<br/>[lforage.ts]")]
+  end
+
+  speech{{"Browser speech services"}}
+
+  subgraph api["Generation API"]
+    genReq["Generation requests<br/>[api-calls.ts]"]
+    entry["API entry and auth<br/>[index.ts]"]
+    controllers["Generation controllers<br/>[index.ts]"]
+    text["Text generation<br/>[chat.ts]"]
+    image["Image generation<br/>[image.ts]"]
+    video["Video generation<br/>[video.ts]"]
+  end
+
+  subgraph runtime["Model runtime"]
+    catalog["Model catalog and schemas<br/>[models.ts]"]
+    factory["Model factory<br/>[factory.ts]"]
+    byok["BYOK direct streaming<br/>[byok-providers.ts]"]
+    providers{{"AI providers"}}
+  end
+
+  user -->|opens workspace| route
+  user -->|composes prompt| composer
+  user -->|opens /compare| cRoute
+
+  route -->|renders conversation| display
+  route -->|checks model| avail
+  route -->|shows threads| threads
+  display -->|renders messages| actions
+
+  composer -->|submits message| submit
+  composer -->|checks provider key| vault
+  composer -.->|uses recognition API| speech
+  submit -->|enqueues job| jobState
+  jobState -->|dispatches job| response
+  response -->|updates messages| convState
+  response -->|speaks response| voice
+  response -->|requests generation| genReq
+  voice -.->|uses playback API| speech
+  convState -->|supplies messages| display
+  convState -->|persists threads| persist
+  threads -->|manages threads| convState
+  threads -->|manages local data| persist
+  avail -->|checks keys| vault
+  avail -->|reads catalog| catalog
+  avail -.->|discovers models| providers
+
+  cRoute -->|starts runs| cRun
+  cRoute -->|checks model and keys| avail
+  cRun -->|requests generation, bypassing the chat queue| genReq
+  cRoute -->|saves votes, runs, suites| cData
+  cData -->|persists| persist
+
+  genReq -->|sends request with account token| entry
+  genReq -->|BYOK key present| byok
+  byok -->|streams with the user key| providers
+  entry -->|dispatches request| controllers
+  controllers -->|dispatches chat| text
+  controllers -->|dispatches image| image
+  controllers -->|dispatches video| video
+  text -->|creates model| factory
+  image -->|creates model| factory
+  video -->|creates model| factory
+  factory -->|uses provider| providers
+
+  classDef ui fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef store fill:#fef3c7,stroke:#d97706,color:#78350f
+  classDef server fill:#dcfce7,stroke:#16a34a,color:#14532d
+  classDef model fill:#fee2e2,stroke:#e11d48,color:#881337
+  classDef feature fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+  class route,composer,response,display,actions,avail,threads,submit,voice,speech ui
+  class convState,jobState,vault,persist store
+  class genReq,entry,controllers,text,image,video server
+  class catalog,factory,byok,providers model
+  class cRoute,cRun,cData feature
+```
+
+The diagram covers the chat workspace, compare mode, local persistence, the generation API, and the model runtime. Compare mode (`/compare`) reuses the same generation requests but runs its streams independently of the chat queue and threads; only votes, run history, and prompt suites are persisted. With a BYOK key, requests stream from the browser straight to the provider instead of through the API.
 
 ## BYOK vault and device unlock
 
