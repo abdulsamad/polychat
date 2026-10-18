@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   CircleStopIcon,
   CoinsIcon,
+  RotateCcwIcon,
   TriangleAlertIcon,
   TrophyIcon,
   ZapIcon,
@@ -153,6 +154,8 @@ interface CompareColumnProps {
   /** Passes the column id too, so a model shown in several columns can win in just one. */
   onVote: (model: CompareColumnState['model'], columnId: string) => void;
   onStop: (columnId: string) => void;
+  /** Set when a failed column can be sent again (live runs, before the vote). */
+  onRetry?: (columnId: string) => void;
   onRate: (columnId: string, criterion: CompareRubricCriterion, score?: number) => void;
   /** The prompt this answer responds to; set only for follow-up turns, where it adds context. */
   currentPrompt?: string;
@@ -177,6 +180,7 @@ const CompareColumn = ({
   canRate,
   onVote,
   onStop,
+  onRetry,
   onRate,
   currentPrompt,
   index,
@@ -414,7 +418,21 @@ const CompareColumn = ({
               className="min-w-0 [overflow-wrap:anywhere]">
               <AlertCircleIcon className="size-4" />
               <AlertTitle>{status === 'failed' ? 'Request failed' : 'No answer'}</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                <p>{error}</p>
+                {status === 'failed' && onRetry && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-9 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Retry ${displayLabel}`}
+                    onClick={() => onRetry(id)}>
+                    <RotateCcwIcon />
+                    Retry
+                  </Button>
+                )}
+              </AlertDescription>
             </Alert>
           )}
         </div>

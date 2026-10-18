@@ -147,6 +147,7 @@ const Compare = () => {
     followUp,
     stop,
     stopColumn,
+    retryColumn,
     vote,
     rate,
     open,
@@ -417,6 +418,9 @@ const Compare = () => {
   }));
   const isSettled = Boolean(run) && !isRunning;
   const isIdentityHidden = Boolean(run?.blind && !run.winner);
+  // Saved runs have no live request to repeat, a vote fixes the answers, and a suite has already
+  // moved on to its next prompt.
+  const canRetryColumns = Boolean(run && !run.isFromHistory && !run.winner && !activeSuite);
   const totalCost = run && isSettled ? runCost(run.columns, getColumnCost) : undefined;
   const hasEnoughModels = runnableModels.length >= MIN_COMPARE_MODELS;
 
@@ -574,7 +578,7 @@ const Compare = () => {
                         ? run.winnerColumnId === column.id
                         : run.winner === column.model
                     }
-                    startedAt={run.startedAt}
+                    startedAt={column.startedAt ?? run.startedAt}
                     isBestTtft={bests.ttft === column.id}
                     isBestTotal={bests.total === column.id}
                     isBestSpeed={bests.speed === column.id}
@@ -587,6 +591,7 @@ const Compare = () => {
                     onRate={rate}
                     onVote={handleVote}
                     onStop={stopColumn}
+                    onRetry={canRetryColumns ? retryColumn : undefined}
                     currentPrompt={column.history?.length ? run.prompt : undefined}
                     className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
                   />

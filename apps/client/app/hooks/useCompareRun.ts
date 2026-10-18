@@ -37,6 +37,8 @@ export type CompareColumnStatus = 'waiting' | 'streaming' | 'done' | 'failed' | 
 export interface CompareColumnState extends Omit<ICompareRunColumn, 'status'> {
   status: CompareColumnStatus;
   isThinking: boolean;
+  /** performance.now() when a retried column restarted; live only, never written to history. */
+  startedAt?: number;
 }
 
 export interface CompareRunState {
@@ -107,12 +109,23 @@ const toRunRecord = ({
   ...(parentRunId ? { parentRunId } : {}),
   ...(attachments?.length ? { attachments } : {}),
   ...(suite ? { suite } : {}),
-  columns: columns.filter(isSettledColumn).map(({ isThinking: _isThinking, ...column }) => column),
+  columns: columns
+    .filter(isSettledColumn)
+    .map(({ isThinking: _isThinking, startedAt: _startedAt, ...column }) => column),
 });
 
-/** Everything about a settled run that the history copy must reflect. */
+/** Everything about a settled run that the history copy must reflect, including retried columns. */
 const getHistorySignature = ({ winner, winnerColumnId, columns }: CompareRunState) =>
-  JSON.stringify([winner, winnerColumnId ?? null, columns.map(({ rubric }) => rubric ?? null)]);
+  JSON.stringify([
+    winner,
+    winnerColumnId ?? null,
+    columns.map(({ status, content, error, rubric }) => [
+      status,
+      content.length,
+      error ?? null,
+      rubric ?? null,
+    ]),
+  ]);
 
 const toVoteRecord = (
   run: CompareRunState,
@@ -214,6 +227,8 @@ const useCompareRun = ({
   const runIdRef = useRef<string | null>(null);
   const columnsRef = useRef<CompareColumnState[]>([]);
   const controllersRef = useRef<AbortController[]>([]);
+  /** The live run's images, kept so a retried column sends the same request. */
+  const imagesRef = useRef<{ latest?: ImageAttachment[]; previous?: ImageAttachment[] }>({});
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const onVoteSavedRef = useRef(onVoteSaved);
@@ -255,6 +270,7 @@ const useCompareRun = ({
   const detachRun = useCallback(() => {
     controllersRef.current.forEach((controller) => controller.abort());
     controllersRef.current = [];
+    imagesRef.current = {};
     runIdRef.current = null;
     columnsRef.current = [];
     if (flushTimerRef.current !== null) clearTimeout(flushTimerRef.current);
@@ -506,6 +522,7 @@ const useCompareRun = ({
         ...(suite ? { suite } : {}),
       });
       const images = { latest: imageAttachments, previous: options.parentImageAttachments };
+      imagesRef.current = images;
       columns.forEach((_, index) => {
         void runColumn(runId, index, prompt, controllers[index].signal, images);
       });
@@ -553,6 +570,42 @@ const useCompareRun = ({
     const index = columnsRef.current.findIndex(({ id }) => id === columnId);
     if (index !== -1) controllersRef.current[index]?.abort();
   }, []);
+
+  /**
+   * Sends a failed column's request again, keeping the other answers. Only the live run can be
+   * retried, and only before a vote, so a stored vote never describes a different answer.
+   */
+  const retryColumn = useCallback(
+    (columnId: string) => {
+      const current = runRef.current;
+      const runId = runIdRef.current;
+      if (!current || current.id !== runId || current.winner) return;
+
+      const index = columnsRef.current.findIndex(({ id }) => id === columnId);
+      const column = columnsRef.current[index];
+      if (!column || column.status !== 'failed') return;
+
+      const { id, model, modelLabel, provider, settings, sample, history } = column;
+      columnsRef.current[index] = {
+        id,
+        model,
+        modelLabel,
+        provider,
+        status: 'waiting',
+        content: '',
+        isThinking: false,
+        startedAt: performance.now(),
+        ...(settings ? { settings } : {}),
+        ...(sample ? { sample } : {}),
+        ...(history ? { history } : {}),
+      };
+      const controller = new AbortController();
+      controllersRef.current[index] = controller;
+      flush();
+      void runColumn(runId, index, current.prompt, controller.signal, imagesRef.current);
+    },
+    [flush, runColumn]
+  );
 
   /** A column id identifies the winner when the same model runs in several columns. */
   const vote = useCallback(async (winner: CompareWinner, winnerColumnId?: string) => {
@@ -668,6 +721,7 @@ const useCompareRun = ({
     followUp,
     stop: abortAll,
     stopColumn,
+    retryColumn,
     vote,
     rate,
     open,

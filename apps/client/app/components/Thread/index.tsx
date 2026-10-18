@@ -3,6 +3,7 @@ import { useAtomValue } from 'jotai';
 import { useUser } from '@clerk/react-router';
 import clsx from 'clsx';
 import { useReducedMotion } from 'motion/react';
+import { RotateCcwIcon } from 'lucide-react';
 
 import {
   threadAtom,
@@ -14,6 +15,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSidebar } from '@/components/ui/sidebar';
 import Message from '@/components/Message';
+import { Button } from '@/components/ui/button';
+import useSubmitMessage from '@/hooks/useSubmitMessage';
 import { getName } from '@/utils';
 import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 import { getVaultSnapshot } from '@/utils/byok-vault';
@@ -45,6 +48,7 @@ const Thread = ({ className }: ThreadProps) => {
   const isChatResponseLoading = useAtomValue(threadLoadingAtom);
   const chatError = useAtomValue(threadChatErrorsAtom)[thread?.id || ''];
   const queuedJob = useAtomValue(threadQueuedJobAtom);
+  const { canRetry, retryableMessageId, retryMessage } = useSubmitMessage();
   const { user } = useUser();
   const showHints = Boolean(
     user?.id || getVaultSnapshot(user?.id ?? getAnonymousWorkspaceAccount()).providers.length > 0
@@ -251,12 +255,25 @@ const Thread = ({ className }: ThreadProps) => {
           <>
             {messages.map((chat) => {
               const { role, metadata } = chat;
-              return <Message key={chat.id} {...userInfo(metadata.profile)[role]} {...chat} />;
+              // The error banner offers Retry while the failure is live; after a reload or
+              // thread switch only the failed message itself can. Other messages get no retry
+              // props, so their memo is not invalidated.
+              const isRetryTarget = !chatError && chat.id === retryableMessageId;
+              return (
+                <Message
+                  key={chat.id}
+                  {...userInfo(metadata.profile)[role]}
+                  {...chat}
+                  {...(isRetryTarget ? { onRetry: retryMessage, canRetry } : {})}
+                />
+              );
             })}
             {(isChatResponseLoading || (isImageModel && Boolean(chatError))) &&
               (isImageModel ? (
                 <ImageGenerating
                   error={isChatResponseLoading ? undefined : chatError}
+                  onRetry={retryableMessageId ? retryMessage : undefined}
+                  canRetry={canRetry}
                   size={
                     thread?.settings.modelConfig &&
                     'size' in thread.settings.modelConfig &&
@@ -271,7 +288,21 @@ const Thread = ({ className }: ThreadProps) => {
             {chatError && !isImageModel && (
               <Alert variant="destructive" className="my-4">
                 <AlertTitle>Generation failed</AlertTitle>
-                <AlertDescription>{chatError} Please try again.</AlertDescription>
+                <AlertDescription>
+                  <p>{chatError}</p>
+                  {retryableMessageId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 h-9 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      disabled={!canRetry}
+                      onClick={() => void retryMessage()}>
+                      <RotateCcwIcon />
+                      Retry
+                    </Button>
+                  )}
+                </AlertDescription>
               </Alert>
             )}
             {queuedJob && (

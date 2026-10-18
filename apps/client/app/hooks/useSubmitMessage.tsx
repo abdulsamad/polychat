@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { getTime } from 'date-fns';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useUser } from '@clerk/react-router';
@@ -12,10 +12,12 @@ import {
   enqueuePersistence,
   messagesAtom,
   refreshThreadsAtom,
+  removeThreadMessageAtom,
   threadAtom,
   threadLoadingAtom,
   threadQueuedJobAtom,
 } from '@/store';
+import type { IMessage } from '@/store';
 import type { ImageAttachment } from 'utils';
 import { abortThreadStream } from '@/utils/chat-stream-registry';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
@@ -33,12 +35,14 @@ const useSubmitMessage = () => {
   const cancelQueuedChatJob = useSetAtom(cancelQueuedChatJobAtom);
   const clearThreadChatError = useSetAtom(clearThreadChatErrorAtom);
   const refreshThreads = useSetAtom(refreshThreadsAtom);
+  const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
   const { user } = useUser();
   const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const { findModel } = useByokModelAvailability();
 
-  const submitMessage = useCallback(
-    (rawPrompt: string, imageAttachments: ImageAttachment[] = []) => {
+  /** Validates and queues a prompt; `history` is the conversation the request continues. */
+  const enqueuePrompt = useCallback(
+    (rawPrompt: string, imageAttachments: ImageAttachment[], history: IMessage[]) => {
       const prompt = rawPrompt.trim();
 
       if (!thread) {
@@ -108,7 +112,7 @@ const useSubmitMessage = () => {
         userMessageId: id,
         assistantMessageId,
         thread,
-        messages,
+        messages: history,
         config,
         createdAt,
       });
@@ -120,17 +124,41 @@ const useSubmitMessage = () => {
       }
       return accepted;
     },
-    [
-      accountId,
-      clearThreadChatError,
-      config,
-      enqueueChatJob,
-      findModel,
-      messages,
-      refreshThreads,
-      thread,
-    ]
+    [accountId, clearThreadChatError, config, enqueueChatJob, findModel, refreshThreads, thread]
   );
+
+  const submitMessage = useCallback(
+    (rawPrompt: string, imageAttachments: ImageAttachment[] = []) =>
+      enqueuePrompt(rawPrompt, imageAttachments, messages),
+    [enqueuePrompt, messages]
+  );
+
+  /** The latest user message, when its request failed or was interrupted by a reload. */
+  const retryableMessage = useMemo(() => {
+    const lastUserMessage = messages.filter(({ role }) => role === 'user').at(-1);
+    const state = lastUserMessage?.metadata.requestState;
+    return state === 'failed' || state === 'interrupted' ? lastUserMessage : undefined;
+  }, [messages]);
+
+  /**
+   * Sends the failed prompt again with the thread's current settings. The failed message and any
+   * partial reply are replaced only once the new request is queued, so a rejected retry keeps them.
+   */
+  const retryMessage = useCallback(() => {
+    if (!thread || !retryableMessage) return false;
+
+    const index = messages.indexOf(retryableMessage);
+    const staleMessages = messages.slice(index);
+    const accepted = enqueuePrompt(
+      retryableMessage.content,
+      retryableMessage.imageAttachments ?? [],
+      messages.slice(0, index)
+    );
+    if (accepted) {
+      staleMessages.forEach(({ id }) => removeThreadMessage({ threadId: thread.id, id }));
+    }
+    return accepted;
+  }, [enqueuePrompt, messages, removeThreadMessage, retryableMessage, thread]);
 
   const stopChat = useCallback(() => {
     if (thread) abortThreadStream(thread.id);
@@ -145,6 +173,9 @@ const useSubmitMessage = () => {
     isChatLoading,
     isQueued: Boolean(queuedJob),
     submitMessage,
+    canRetry: Boolean(retryableMessage) && !isChatLoading && !queuedJob,
+    retryableMessageId: retryableMessage?.id,
+    retryMessage,
     stopChat,
     cancelQueuedMessage,
   };
