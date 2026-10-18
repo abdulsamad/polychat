@@ -14,7 +14,14 @@ import type {
 
 import { defaultModel, getDefaultModelConfig } from 'utils';
 
-import { getThreads, getMessages, setConfig, setMessages, setThreads } from '@/utils/lforage';
+import {
+  getActiveWorkspaceAccount,
+  getThreads,
+  getMessages,
+  setConfig,
+  setMessages,
+  setThreads,
+} from '@/utils/lforage';
 
 // Editor
 
@@ -524,7 +531,7 @@ export type IThreads = IThread<enabledModelsType>[];
 // with the result of an older async read.
 let persistenceQueue: Promise<void> = Promise.resolve();
 
-export const enqueuePersistence = <T,>(write: () => Promise<T>) => {
+const queueWrite = <T,>(write: () => Promise<T>) => {
   let result!: T;
   const run = async () => {
     result = await write();
@@ -534,9 +541,103 @@ export const enqueuePersistence = <T,>(write: () => Promise<T>) => {
   return persistenceQueue.then(() => result);
 };
 
-export const waitForPersistence = () => persistenceQueue;
+/** Streams update messages every few ms, so message snapshots are written at most once per window. */
+export const MESSAGE_PERSIST_DELAY_MS = 750;
 
-export const threadSaveEffect = atomEffect((get, set) => {
+interface IPendingMessageSave {
+  messagesByThread: Record<ThreadId, IMessage[]>;
+  accountId: string | null;
+}
+
+/** Newest message snapshot that has not been queued for writing yet. */
+let pendingMessageSave: IPendingMessageSave | null = null;
+let messageSaveTimer: ReturnType<typeof setTimeout> | undefined;
+/** Queued or running message writes. No new timer starts until these finish. */
+let messageWritesInFlight = 0;
+
+const toPersistedMessages = (messagesByThread: Record<ThreadId, IMessage[]>) =>
+  Object.fromEntries(
+    Object.entries(messagesByThread).map(([threadId, messages]) => [
+      threadId,
+      messages
+        .filter(
+          (message) =>
+            !(
+              message.type === 'video_url' &&
+              message.video_url.status === 'generating' &&
+              !message.video_url.jobId
+            )
+        )
+        .map((message) => {
+          if (message.type !== 'video_url') return message;
+          const { sourceUrl, ...video } = message.video_url;
+          return {
+            ...message,
+            video_url: {
+              ...video,
+              ...(sourceUrl ? { url: sourceUrl } : {}),
+            },
+          };
+        }),
+    ])
+  );
+
+/** Queue the newest pending message snapshot now. A no-op when nothing changed. */
+const flushPendingMessageSave = () => {
+  clearTimeout(messageSaveTimer);
+  messageSaveTimer = undefined;
+
+  const pending = pendingMessageSave;
+  if (!pending) return;
+  pendingMessageSave = null;
+
+  // Writes always go to the active workspace, so never send a snapshot to another account.
+  if (pending.accountId !== getActiveWorkspaceAccount()) {
+    console.error('Dropped a message save from a previous workspace');
+    return;
+  }
+
+  messageWritesInFlight += 1;
+  void queueWrite(async () => {
+    try {
+      await setMessages(toPersistedMessages(pending.messagesByThread));
+    } finally {
+      messageWritesInFlight -= 1;
+      if (pendingMessageSave) scheduleMessageSave();
+    }
+  }).catch((err) => console.error('Failed to save messages', err));
+};
+
+const scheduleMessageSave = () => {
+  if (messageSaveTimer !== undefined || messageWritesInFlight > 0) return;
+  messageSaveTimer = setTimeout(flushPendingMessageSave, MESSAGE_PERSIST_DELAY_MS);
+};
+
+export const enqueuePersistence = <T,>(write: () => Promise<T>) => {
+  // Queue the pending message snapshot first, so it is written before any write that
+  // depends on stored messages (for example deleting a thread).
+  flushPendingMessageSave();
+  return queueWrite(write);
+};
+
+/** Resolves once every change so far is on disk. Flushes a pending message save first. */
+export const waitForPersistence = () => {
+  flushPendingMessageSave();
+  return persistenceQueue;
+};
+
+// Best effort: a write started while the page unloads may not finish, but hiding the tab
+// gives the pending snapshot its earliest chance to be written.
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingMessageSave();
+  });
+  window.addEventListener('pagehide', () => flushPendingMessageSave());
+}
+
+// Threads are written immediately. The sidebar re-reads storage on every thread change,
+// so a delayed write would show stale names.
+export const threadSaveEffect = atomEffect((get) => {
   const thread = get(threadAtom);
   const workspaceReady = get(workspaceReadyAtom);
   if (!thread || !workspaceReady) return;
@@ -555,39 +656,14 @@ export const threadSaveEffect = atomEffect((get, set) => {
   }).catch((err) => console.error('Failed to save thread', err));
 });
 
-export const messageSaveEffect = atomEffect((get, set) => {
+export const messageSaveEffect = atomEffect((get) => {
   const messagesByThread = get(threadMessagesAtom);
   const workspaceReady = get(workspaceReadyAtom);
   if (!workspaceReady) return;
 
-  void enqueuePersistence(async () => {
-    const persistedMessages = Object.fromEntries(
-      Object.entries(messagesByThread).map(([threadId, messages]) => [
-        threadId,
-        messages
-          .filter(
-            (message) =>
-              !(
-                message.type === 'video_url' &&
-                message.video_url.status === 'generating' &&
-                !message.video_url.jobId
-              )
-          )
-          .map((message) => {
-            if (message.type !== 'video_url') return message;
-            const { sourceUrl, ...video } = message.video_url;
-            return {
-              ...message,
-              video_url: {
-                ...video,
-                ...(sourceUrl ? { url: sourceUrl } : {}),
-              },
-            };
-          }),
-      ])
-    );
-    await setMessages(persistedMessages);
-  }).catch((err) => console.error('Failed to save messages', err));
+  // Only record the newest snapshot. The write happens on the timer, a flush, or the next queued write.
+  pendingMessageSave = { messagesByThread, accountId: getActiveWorkspaceAccount() };
+  scheduleMessageSave();
 });
 
 // Flags
