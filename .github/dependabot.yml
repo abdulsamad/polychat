@@ -10,6 +10,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    ignore:
+      # Lambda runs nodejs22.x; keep @types/node on the 22 line
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # Security fixes skip cooldown and land in one PR of their own
       security-updates:
