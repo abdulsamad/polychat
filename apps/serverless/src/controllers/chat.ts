@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { streamText, APICallError, type ModelMessage } from 'ai';
 
-import { chatRequestSchema, getAssistantConfig } from 'utils';
+import { chatRequestSchema, getAssistantConfig, isHostedModel } from 'utils';
 
 import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
@@ -108,6 +108,11 @@ const chat = async (c: Context<AppContext>) => {
       imageAttachments = [],
     } = parsed.data;
 
+    if (!isHostedModel(model, 'text')) {
+      console.warn(`[CHAT] Blocked non-hosted model - User: ${user.id}, Model: ${model}`);
+      return c.json({ success: false, err: 'This model requires your own API key (BYOK).' }, 400);
+    }
+
     const totalFileBytes = [
       ...imageAttachments,
       ...(messages || []).flatMap((message) => message.imageAttachments || []),
@@ -120,7 +125,7 @@ const chat = async (c: Context<AppContext>) => {
     }
 
     console.info(
-      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Profile: ${profile}, ${messages ? `Messages length: ${messages?.length}` : `Prompt: ${prompt}`}`
+      `[CHAT] New request - User: ${user.id}, Model: ${model}, Language: ${language}, Profile: ${profile}, ${messages ? `Messages length: ${messages?.length}` : `Prompt length: ${prompt?.length ?? 0}`}`
     );
 
     const modelInstance = modelFactory.createModel(model);

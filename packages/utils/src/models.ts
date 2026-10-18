@@ -180,6 +180,11 @@ export const supportedImageModels: SupportedModel[] = supportedModels.filter(
   ({ type }) => type === 'image'
 );
 
+// Disabled entries are locked hints that unlock only with the user's own key.
+// Hosted routes must check this before spending the server's provider keys.
+export const isHostedModel = (name: string, type: SupportedModel['type']) =>
+  supportedModels.some((model) => model.name === name && model.type === type && !model.disabled);
+
 export const modelsForProvider = (
   models: readonly SupportedModel[],
   provider: SupportedModel['provider']

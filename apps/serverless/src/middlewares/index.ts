@@ -83,7 +83,6 @@ export const authMiddleware = createMiddleware<AppContext>(async (c, next) => {
 
     await next();
   } catch (err) {
-    console.log(err);
     console.error(
       `[AUTH] Token verification failed - ` +
         `Error: ${err instanceof Error ? err.message : 'Unknown error'}`

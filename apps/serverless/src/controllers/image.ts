@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { generateImage, APICallError } from 'ai';
 
-import { imageRequestSchema, supportedImageModels } from 'utils';
+import { imageRequestSchema, isHostedModel } from 'utils';
 import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
 import { readJsonBody } from '../utils/request';
@@ -54,7 +54,7 @@ const image = async (c: Context<AppContext>) => {
       return c.json({ success: false, err: 'Hosted reference images are limited to 2 MB.' }, 413);
     }
 
-    if (!supportedImageModels.some((entry) => entry.name === model)) {
+    if (!isHostedModel(model, 'image')) {
       return c.json({ success: false, err: 'This image model requires BYOK.' }, 400);
     }
 
