@@ -4,6 +4,7 @@ import {
   BrainCircuitIcon,
   CircleCheckIcon,
   CircleSlashIcon,
+  ChevronRightIcon,
   CircleStopIcon,
   CoinsIcon,
   TriangleAlertIcon,
@@ -21,6 +22,7 @@ import {
   tokensPerSecond,
   wordCount,
 } from '@/utils/compare-metrics';
+import { describeSettings } from '@/utils/compare-settings';
 import type { CompareColumnState, CompareColumnStatus } from '@/hooks/useCompareRun';
 import type { CompareRubricCriterion } from '@/utils/lforage';
 import RubricPopover from '@/components/Compare/RubricPopover';
@@ -29,6 +31,7 @@ import CopyButton from '@/components/Message/CopyButton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -147,9 +150,12 @@ interface CompareColumnProps {
   isIdentityHidden: boolean;
   /** Rubric scores can be given once the run has settled. */
   canRate: boolean;
-  onVote: (model: CompareColumnState['model']) => void;
+  /** Passes the column id too, so a model shown in several columns can win in just one. */
+  onVote: (model: CompareColumnState['model'], columnId: string) => void;
   onStop: (columnId: string) => void;
   onRate: (columnId: string, criterion: CompareRubricCriterion, score?: number) => void;
+  /** The prompt this answer responds to; set only for follow-up turns, where it adds context. */
+  currentPrompt?: string;
   /** Position in the run, used to stagger the entrance by 40ms per column. */
   index: number;
   className?: string;
@@ -172,6 +178,7 @@ const CompareColumn = ({
   onVote,
   onStop,
   onRate,
+  currentPrompt,
   index,
   className,
 }: CompareColumnProps) => {
@@ -181,6 +188,46 @@ const CompareColumn = ({
   const displayLabel = isIdentityHidden ? `Model ${blindLetter}` : modelLabel;
   const hasContent = content.trim().length > 0;
   // Status, vote and metric changes must not re-parse (and remount) the Markdown tree.
+  const variant = [
+    describeSettings(column.settings),
+    column.sample !== undefined && `sample ${column.sample}`,
+  ]
+    .filter(Boolean)
+    .join(' - ');
+  const turns = column.history;
+  // Earlier turns stay collapsed so the latest answer, the one being judged, leads.
+  const earlierTurns = useMemo(
+    () =>
+      turns?.length ? (
+        <Collapsible className="mx-1 rounded-xl border border-border/70 bg-muted/40">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="group h-9 w-full justify-start gap-1.5 rounded-xl px-2.5 text-xs text-muted-foreground hover:text-foreground">
+              <ChevronRightIcon className="size-3.5 transition-transform duration-150 group-data-[state=open]:rotate-90 motion-reduce:transition-none" />
+              {turns.length === 1 ? 'Earlier turn' : `${turns.length} earlier turns`}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="flex min-w-0 flex-col gap-2 px-1 pb-2 duration-150 ease-[var(--ease-out)] data-[state=open]:animate-in data-[state=open]:fade-in-0">
+            {turns.map((turn, turnIndex) => (
+              <div key={turnIndex} className="flex min-w-0 flex-col gap-1">
+                <p className="mx-1 self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-xs text-foreground [overflow-wrap:anywhere]">
+                  {turn.prompt}
+                </p>
+                <Text
+                  isUser={false}
+                  message={turn.answer}
+                  messageClassNames="!border-0 !bg-transparent !shadow-none text-sm opacity-90"
+                />
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      ) : null,
+    [turns]
+  );
   const answer = useMemo(
     () =>
       content.trim() ? (
@@ -310,6 +357,8 @@ const CompareColumn = ({
               </>
             )}
           </p>
+          {/* Settings and samples are part of the experiment design, so they show even in blind runs. */}
+          {variant && <p className="truncate text-[0.6875rem] text-primary">{variant}</p>}
         </div>
         {isWinner && (
           <TrophyIcon
@@ -335,6 +384,12 @@ const CompareColumn = ({
 
       <ScrollArea className="min-h-0 flex-1 [&_[data-radix-scroll-area-viewport]]:[overflow-anchor:none] [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:w-full [&_[data-radix-scroll-area-viewport]>div]:min-w-0">
         <div className="flex min-w-0 flex-col gap-3 p-1.5 sm:p-2">
+          {earlierTurns}
+          {currentPrompt && (
+            <p className="mx-2 self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-sm text-foreground [overflow-wrap:anywhere]">
+              {currentPrompt}
+            </p>
+          )}
           {answer}
           {!hasContent && isActive && (
             <div className="flex flex-col gap-2.5 px-2 py-3" aria-hidden="true">
@@ -429,7 +484,7 @@ const CompareColumn = ({
             disabled={!canVote || !hasContent}
             aria-pressed={isWinner}
             aria-label={`Vote ${displayLabel} as the best answer`}
-            onClick={() => onVote(column.model)}>
+            onClick={() => onVote(column.model, id)}>
             <TrophyIcon className={cn('size-3.5', isWinner && 'fill-current')} />
             {isWinner ? 'Best answer' : 'Best'}
           </Button>

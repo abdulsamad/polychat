@@ -63,6 +63,15 @@ export const exportRunsCsv = (
     'score_correctness',
     'score_clarity',
     'score_conciseness',
+    'temperature',
+    'max_tokens',
+    'profile',
+    'sample',
+    'turn',
+    'parent_run_id',
+    'suite_name',
+    'suite_run_id',
+    'suite_prompt_number',
   ];
   const rows = runs.flatMap((run) =>
     run.columns.map((column) => {
@@ -94,6 +103,15 @@ export const exportRunsCsv = (
         column.rubric?.correctness,
         column.rubric?.clarity,
         column.rubric?.conciseness,
+        column.settings?.temperature,
+        column.settings?.maxTokens,
+        column.settings?.profile,
+        column.sample,
+        (column.history?.length ?? 0) + 1,
+        run.parentRunId,
+        run.suite?.suiteName,
+        run.suite?.suiteRunId,
+        run.suite ? run.suite.index + 1 : undefined,
       ]
         .map(csvCell)
         .join(',');

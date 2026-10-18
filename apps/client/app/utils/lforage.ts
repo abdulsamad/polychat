@@ -1,6 +1,11 @@
 import localforage from 'localforage';
 
-import type { ChatResponseMetadata, enabledModelsType, modelProviderType } from 'utils';
+import type {
+  ChatResponseMetadata,
+  enabledModelsType,
+  modelProviderType,
+  profilesType,
+} from 'utils';
 import { getDefaultModelConfig, profiles } from 'utils';
 import type { IConfig, IMessage, IThreadSettings, IThreads } from '@/store';
 
@@ -19,6 +24,9 @@ export const compareRunsKey = 'compare-runs';
 export const MAX_COMPARE_RUNS = 100;
 /** Shared, account-independent cache of public model prices. */
 export const modelPricingKey = 'openrouter-model-pricing';
+export const compareSuitesKey = 'compare-suites';
+export const MAX_COMPARE_SUITES = 50;
+export const MAX_SUITE_PROMPTS = 20;
 const anonymousWorkspaceKey = 'anonymous-workspace-account';
 
 export const lforage = localforage.createInstance({
@@ -213,6 +221,43 @@ export interface ICompareRunColumn {
   servedModelId?: string;
   costUsd?: number;
   rubric?: CompareRubric;
+  /** Per-slot overrides of the model's default settings. */
+  settings?: CompareSlotSettings;
+  /** 1-based sample number when a slot ran the same configuration more than once. */
+  sample?: number;
+  /** Earlier turns of this column's conversation, oldest first (follow-up runs only). */
+  history?: CompareTurn[];
+}
+
+/** Overrides a compare slot can apply on top of the model's default config. */
+export interface CompareSlotSettings {
+  temperature?: number;
+  maxTokens?: number;
+  profile?: profilesType;
+}
+
+export interface CompareTurn {
+  prompt: string;
+  answer: string;
+}
+
+/** Saved prompt list run in sequence against the same models. */
+export interface ICompareSuite {
+  id: string;
+  name: string;
+  prompts: string[];
+  createdAt: number;
+}
+
+/** Ties a run to one execution of a suite. */
+export interface CompareSuiteTag {
+  suiteId: string;
+  suiteName: string;
+  /** One id per suite execution, shared by all of its runs. */
+  suiteRunId: string;
+  /** 0-based position of this prompt within the suite. */
+  index: number;
+  total: number;
 }
 
 export interface ICompareRun {
@@ -221,8 +266,15 @@ export interface ICompareRun {
   prompt: string;
   columns: ICompareRunColumn[];
   winner: CompareWinner | null;
+  /** The voted column, which disambiguates runs with the same model in several columns. */
+  winnerColumnId?: string;
   /** Columns were shuffled and model names hidden until the vote. */
   blind?: boolean;
+  /** The run this one followed up on. */
+  parentRunId?: string;
+  /** Names and types of attached images; the image data is not kept in history. */
+  attachments?: Array<{ name: string; mediaType: string; size: number }>;
+  suite?: CompareSuiteTag;
 }
 
 export interface ICompareVote {
@@ -232,6 +284,7 @@ export interface ICompareVote {
   prompt: string;
   results: ICompareVoteResult[];
   winner: CompareWinner;
+  winnerColumnId?: string;
   blind?: boolean;
 }
 
@@ -290,6 +343,35 @@ export const deleteCompareRun = async (runId: string) => {
   await lforage.setItem(key, runs.filter(({ id }) => id !== runId));
 };
 
+export const getCompareSuites = async (): Promise<ICompareSuite[]> => {
+  const key = scopedKey(compareSuitesKey);
+  if (!key) return [];
+
+  const suites = await lforage.getItem<ICompareSuite[]>(key);
+  return Array.isArray(suites) ? suites : [];
+};
+
+/** Insert or replace a suite by id, newest first. */
+export const saveCompareSuite = async (suite: ICompareSuite) => {
+  const key = scopedKey(compareSuitesKey);
+  if (!key) return false;
+
+  const suites = await getCompareSuites();
+  const nextSuites = [suite, ...suites.filter(({ id }) => id !== suite.id)]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, MAX_COMPARE_SUITES);
+  await lforage.setItem(key, nextSuites);
+  return true;
+};
+
+export const deleteCompareSuite = async (suiteId: string) => {
+  const key = scopedKey(compareSuitesKey);
+  if (!key) return;
+
+  const suites = await getCompareSuites();
+  await lforage.setItem(key, suites.filter(({ id }) => id !== suiteId));
+};
+
 export const clearCompareRuns = async () => {
   const key = scopedKey(compareRunsKey);
   if (key) await lforage.removeItem(key);
@@ -305,6 +387,7 @@ export const clearLocalData = async () => {
     demoThreadsDismissedKey,
     compareVotesKey,
     compareRunsKey,
+    compareSuitesKey,
   ]
     .map(scopedKey)
     .filter((key): key is string => Boolean(key));

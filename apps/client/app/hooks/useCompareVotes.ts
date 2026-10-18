@@ -172,6 +172,8 @@ const useCompareVotes = (
     let none = 0;
     const resultsByModel = new Map<enabledModelsType, ICompareVoteResult[]>();
     const winsByModel = new Map<enabledModelsType, number>();
+    /** Runs where the model answered in at least one column; variants count once per run. */
+    const appearancesByModel = new Map<enabledModelsType, number>();
 
     for (const vote of votes || []) {
       if (vote.winner === 'tie') ties += 1;
@@ -183,6 +185,12 @@ const useCompareVotes = (
         results.push(result);
         resultsByModel.set(result.model, results);
       }
+      const answeredModels = new Set(
+        vote.results.filter(({ failed }) => !failed).map(({ model }) => model)
+      );
+      for (const model of answeredModels) {
+        appearancesByModel.set(model, (appearancesByModel.get(model) ?? 0) + 1);
+      }
     }
 
     const { rating, matches, pairs } = computeRatings(votes || []);
@@ -191,6 +199,7 @@ const useCompareVotes = (
       // Failed or empty results never had a chance to win, so they are not appearances.
       const answered = results.filter(({ failed }) => !failed);
       const wins = winsByModel.get(model) ?? 0;
+      const appearances = appearancesByModel.get(model) ?? 0;
       const costs = answered.flatMap((result) => getResultCost?.(result) ?? []);
       const scores = answered.flatMap((result) => rubricAverage(result) ?? []);
       const modelMatches = matches.get(model) ?? 0;
@@ -200,8 +209,8 @@ const useCompareVotes = (
         matches: modelMatches,
         isProvisional: modelMatches < PROVISIONAL_MATCHES,
         wins,
-        appearances: answered.length,
-        winRate: answered.length ? wins / answered.length : 0,
+        appearances,
+        winRate: appearances ? wins / appearances : 0,
         medianTtftMs: median(answered.flatMap(({ ttftMs }) => (ttftMs === null ? [] : ttftMs))),
         medianSpeed: median(
           answered.flatMap((result) => tokensPerSecond(toTimedResult(result)) ?? [])

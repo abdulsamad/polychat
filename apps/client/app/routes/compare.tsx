@@ -7,21 +7,27 @@ import {
   Columns3Icon,
   EyeIcon,
   EyeOffIcon,
+  CornerDownRightIcon,
   HistoryIcon,
   KeyRoundIcon,
+  ListChecksIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { defaultModel } from 'utils';
+import { defaultModel, type ImageAttachment } from 'utils';
 import { userSettingsOpenAtom, userSettingsScrollTargetAtom } from '@/store';
-import { cn } from '@/utils';
+import { cn, MAX_HOSTED_FILE_BYTES, MAX_IMAGE_ATTACHMENTS, readFileAsDataUrl } from '@/utils';
 import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
 import useCompareRun, {
   isSettledStatus,
+  MAX_COMPARE_MODELS,
   MIN_COMPARE_MODELS,
   type CompareColumnState,
+  type CompareEntry,
   type CompareRunState,
 } from '@/hooks/useCompareRun';
+import { useCompareSuites, useSuiteRunner } from '@/hooks/useCompareSuites';
+import { configurationKey } from '@/utils/compare-settings';
 import useCompareHistory from '@/hooks/useCompareHistory';
 import useCompareVotes from '@/hooks/useCompareVotes';
 import useCompareWorkspace from '@/hooks/useCompareWorkspace';
@@ -33,14 +39,22 @@ import {
   runCost,
   tokensPerSecond,
 } from '@/utils/compare-metrics';
-import type { ICompareRun, ICompareRunColumn, ICompareVoteResult } from '@/utils/lforage';
+import type {
+  ICompareRun,
+  ICompareRunColumn,
+  ICompareSuite,
+  ICompareVoteResult,
+} from '@/utils/lforage';
 import CompareColumn from '@/components/Compare/CompareColumn';
-import CompareComposer from '@/components/Compare/CompareComposer';
+import CompareComposer, { COMPARE_IMAGE_TYPES } from '@/components/Compare/CompareComposer';
 import CompareHistory from '@/components/Compare/CompareHistory';
 import ComparePickers, {
+  countSlotColumns,
   createCompareSlot,
+  findDuplicateSlotIds,
   type CompareSlot,
 } from '@/components/Compare/ComparePickers';
+import CompareSuites from '@/components/Compare/CompareSuites';
 import CompareTally from '@/components/Compare/CompareTally';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -73,6 +87,18 @@ const readBlindPreference = () => {
   } catch {
     return false;
   }
+};
+
+/** Rebuilds picker slots from saved columns: one slot per configuration, samples counted. */
+const slotsFromColumns = (columns: readonly ICompareRunColumn[]) => {
+  const slots = new Map<string, CompareSlot>();
+  for (const { model, settings } of columns) {
+    const key = configurationKey(model, settings);
+    const existing = slots.get(key);
+    if (existing) existing.samples = (existing.samples ?? 1) + 1;
+    else slots.set(key, createCompareSlot(model, { settings }));
+  }
+  return [...slots.values()];
 };
 
 const savedRunDate = new Intl.DateTimeFormat(undefined, {
@@ -112,13 +138,29 @@ const Compare = () => {
   const votes = useCompareVotes(isReady, getVoteResultCost);
   const history = useCompareHistory(isReady);
   const [isBlind, setIsBlind] = useState(readBlindPreference);
-  const { run, isRunning, canVote, start, stop, stopColumn, vote, rate, open, close } =
-    useCompareRun({
-      onVoteSaved: votes.refresh,
-      onRunSaved: history.refresh,
-    });
+  const {
+    run,
+    isRunning,
+    canVote,
+    canFollowUp,
+    start,
+    followUp,
+    stop,
+    stopColumn,
+    vote,
+    rate,
+    open,
+    close,
+  } = useCompareRun({
+    onVoteSaved: votes.refresh,
+    onRunSaved: history.refresh,
+  });
+  const suites = useCompareSuites(isReady);
+  const { activeSuite, startSuite, stopSuite } = useSuiteRunner(run, isRunning);
   const [slots, setSlots] = useState<CompareSlot[]>([]);
   const [prompt, setPrompt] = useState('');
+  const [images, setImages] = useState<ImageAttachment[]>([]);
+  const [isFollowUpMode, setIsFollowUpMode] = useState(false);
 
   // Hosted models need a Clerk session; BYOK models need an unlocked key for their provider.
   const runnableModels = useMemo(
@@ -133,42 +175,77 @@ const Compare = () => {
   // Fill the first slots with valid defaults. Existing picks are kept even while BYOK
   // model discovery refreshes; unavailable picks are flagged instead of silently replaced.
   useEffect(() => {
-    if (slots.length >= MIN_COMPARE_MODELS) return;
+    if (countSlotColumns(slots) >= MIN_COMPARE_MODELS) return;
     const names = runnableModels.map(({ name }) => name);
     const preferred = [defaultModel, ...names].filter(
       (name, index, all) => names.includes(name) && all.indexOf(name) === index
     );
     const next = [...slots];
     for (const name of preferred) {
-      if (next.length >= MIN_COMPARE_MODELS) break;
+      if (countSlotColumns(next) >= MIN_COMPARE_MODELS) break;
       if (!next.some(({ model }) => model === name)) next.push(createCompareSlot(name));
     }
     if (next.length !== slots.length) setSlots(next);
   }, [runnableModels, slots]);
 
-  const selectedModels = useMemo(
-    () => slots.flatMap(({ model }) => runnableModels.filter(({ name }) => name === model)),
+  // Each slot becomes one column per sample; samples are numbered only when there are several.
+  const entries = useMemo(
+    () =>
+      slots.flatMap(({ model, settings, samples = 1 }) => {
+        const option = runnableModels.find(({ name }) => name === model);
+        if (!option) return [];
+        return Array.from({ length: samples }, (_, index): CompareEntry => ({
+          model: option,
+          settings,
+          ...(samples > 1 ? { sample: index + 1 } : {}),
+        }));
+      }),
     [runnableModels, slots]
   );
+  const hasUnavailableSlot = slots.some(
+    ({ model }) => !runnableModels.some(({ name }) => name === model)
+  );
+  const hasDuplicateSlots = findDuplicateSlotIds(slots).size > 0;
   const hasValidSelection =
-    slots.length >= MIN_COMPARE_MODELS &&
-    selectedModels.length === slots.length &&
-    new Set(slots.map(({ model }) => model)).size === slots.length;
+    entries.length >= MIN_COMPARE_MODELS &&
+    entries.length <= MAX_COMPARE_MODELS &&
+    !hasUnavailableSlot &&
+    !hasDuplicateSlots;
+  const selectionReason = hasUnavailableSlot
+    ? 'Replace the unavailable model.'
+    : hasDuplicateSlots
+      ? 'Two slots are identical. Change a setting, or use samples.'
+      : !hasValidSelection
+        ? 'Choose at least two columns to compare.'
+        : undefined;
+  // Follow-up mode applies only while the shown run can still be continued.
+  const isFollowingUp = isFollowUpMode && canFollowUp;
+  const followUpModels = isFollowingUp && run ? run.columns.filter(hasAnswer) : [];
   const trimmedPrompt = prompt.trim();
-  const canSubmit = isReady && hasValidSelection && Boolean(trimmedPrompt) && !isRunning;
+  const canSubmit =
+    isReady && Boolean(trimmedPrompt) && !isRunning && (isFollowingUp || hasValidSelection);
   const disabledReason = !trimmedPrompt
     ? 'Type a prompt to compare.'
-    : !hasValidSelection
-      ? 'Choose at least two different available models.'
-      : undefined;
+    : isFollowingUp
+      ? undefined
+      : selectionReason;
+  // Images go to every model in the run, so all of them must accept images.
+  const imageTargets = isFollowingUp
+    ? followUpModels.map(({ model }) => findModel(model))
+    : slots.map(({ model }) => findModel(model));
+  const canAttachImages =
+    imageTargets.length > 0 && imageTargets.every((model) => model?.supportsVision);
+  const attachImagesHint = canAttachImages
+    ? `Attach up to ${MAX_IMAGE_ATTACHMENTS} images (2 MB total)`
+    : 'Images need models that all accept images';
 
   const getModelLabel = useCallback(
     (model: string) => findModel(model)?.text ?? model,
     [findModel]
   );
   const handleVote = useCallback(
-    (winner: Parameters<typeof vote>[0]) => {
-      void vote(winner);
+    (winner: Parameters<typeof vote>[0], winnerColumnId?: string) => {
+      void vote(winner, winnerColumnId);
     },
     [vote]
   );
@@ -185,28 +262,106 @@ const Compare = () => {
     (stored: ICompareRun) => runCost(stored.columns, getColumnCost),
     [getColumnCost]
   );
-  // Rerun a saved prompt on the same models. Unavailable models are left for the user to replace.
+  // Rerun a saved prompt with the same configurations (and conversation, for follow-ups).
+  // Unavailable models are left in the pickers for the user to replace.
   const rerun = (stored: ICompareRun) => {
-    const models = stored.columns.flatMap(({ model }) =>
-      runnableModels.filter(({ name }) => name === model)
-    );
+    stopSuite();
+    setIsFollowUpMode(false);
+    setImages([]);
+    const rerunEntries = stored.columns.flatMap(({ model, settings, sample, history }) => {
+      const option = runnableModels.find(({ name }) => name === model);
+      return option ? [{ model: option, settings, sample, history }] : [];
+    });
     setPrompt(stored.prompt);
-    setSlots(models.map(({ name }) => createCompareSlot(name)));
-    if (models.length === stored.columns.length && models.length >= MIN_COMPARE_MODELS) {
-      start(stored.prompt, models, { blind: Boolean(stored.blind) });
+    setSlots(slotsFromColumns(stored.columns));
+    if (
+      rerunEntries.length === stored.columns.length &&
+      rerunEntries.length >= MIN_COMPARE_MODELS
+    ) {
+      start(stored.prompt, rerunEntries, { blind: Boolean(stored.blind) });
+      if (stored.attachments?.length) {
+        toast('Images are not kept in history, so this rerun was sent without them.');
+      }
     } else {
       toast.error('Some models from that run are unavailable. Pick replacements, then send.');
     }
   };
+  const openRun = (stored: ICompareRun) => {
+    stopSuite();
+    setIsFollowUpMode(false);
+    open(stored);
+  };
+  const submit = () => {
+    if (!canSubmit) return;
+    stopSuite();
+    const started = isFollowingUp
+      ? followUp(trimmedPrompt, images)
+      : start(trimmedPrompt, entries, { blind: isBlind, imageAttachments: images });
+    if (!started) return;
+    setImages([]);
+    // A follow-up reads like chat, so the box clears; a new comparison keeps its prompt to tweak.
+    if (isFollowingUp) setPrompt('');
+  };
+  const stopAll = () => {
+    // End the suite first, so the stopped run does not advance it.
+    stopSuite();
+    stop();
+  };
+  const runSuite = (suite: ICompareSuite) => {
+    setIsFollowUpMode(false);
+    setImages([]);
+    startSuite(suite, (suitePrompt, tag) =>
+      start(suitePrompt, entries, { blind: isBlind, suite: tag })
+    );
+  };
+  const addImages = async (files: FileList) => {
+    const picked = Array.from(files).filter(({ type }) =>
+      COMPARE_IMAGE_TYPES.split(',').includes(type)
+    );
+    if (picked.length < files.length)
+      toast.error('Only JPEG, PNG, WebP and GIF images can be attached.');
+    const room = MAX_IMAGE_ATTACHMENTS - images.length;
+    if (picked.length > room) toast.error(`You can attach up to ${MAX_IMAGE_ATTACHMENTS} images.`);
+    let totalBytes = images.reduce((total, { size }) => total + size, 0);
+    // The hosted API limit applies to the whole request, so it is enforced for every run.
+    const accepted = picked.slice(0, Math.max(0, room)).filter(({ size }) => {
+      if (totalBytes + size > MAX_HOSTED_FILE_BYTES) return false;
+      totalBytes += size;
+      return true;
+    });
+    if (accepted.length < Math.min(picked.length, Math.max(0, room))) {
+      toast.error('Images are limited to 2 MB per comparison.');
+    }
+    try {
+      const attachments = await Promise.all(
+        accepted.map(async (file) => ({
+          id: crypto.randomUUID(),
+          name: file.name,
+          mediaType: file.type,
+          size: file.size,
+          dataUrl: await readFileAsDataUrl(file),
+        }))
+      );
+      setImages((current) => [...current, ...attachments]);
+    } catch (error) {
+      console.error('Failed to read compare images', error);
+      toast.error('Could not read one of the images.');
+    }
+  };
+  const closeRun = () => {
+    stopSuite();
+    setIsFollowUpMode(false);
+    close();
+  };
   const deleteRun = async (runId: string) => {
     await history.remove(runId);
     // A deleted run that stays open would be saved again by its next vote.
-    if (run?.id === runId && !isRunning) close();
+    if (run?.id === runId && !isRunning) closeRun();
   };
   const clearHistory = async () => {
     try {
       await history.clear();
-      if (run?.isFromHistory) close();
+      if (run?.isFromHistory) closeRun();
       toast.success('History cleared');
     } catch (error) {
       console.error('Failed to clear compare history', error);
@@ -286,7 +441,7 @@ const Compare = () => {
             getModelLabel={getModelLabel}
             getColumnCost={getColumnCost}
             getRunCost={getRunCost}
-            onOpenRun={open}
+            onOpenRun={openRun}
             onRerun={rerun}
             onDelete={deleteRun}
             onRestore={history.restore}
@@ -321,9 +476,36 @@ const Compare = () => {
                       variant="link"
                       size="sm"
                       className="h-auto shrink-0 p-0 text-xs"
-                      onClick={close}>
+                      onClick={closeRun}>
                       New comparison
                     </Button>
+                  </p>
+                )}
+                {(run.suite || run.parentRunId) && (
+                  <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    {run.suite ? (
+                      <>
+                        <ListChecksIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">
+                          {run.suite.suiteName} - prompt {run.suite.index + 1} of {run.suite.total}
+                        </span>
+                        {activeSuite?.suiteRunId === run.suite.suiteRunId && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="h-auto shrink-0 p-0 text-xs"
+                            onClick={stopSuite}>
+                            Stop after this prompt
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <CornerDownRightIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">Follow-up turn</span>
+                      </>
+                    )}
                   </p>
                 )}
                 <p className="truncate text-sm font-medium text-foreground" title={run.prompt}>
@@ -387,7 +569,11 @@ const Compare = () => {
                     index={index}
                     column={column}
                     canVote={canVote}
-                    isWinner={run.winner === column.model}
+                    isWinner={
+                      run.winnerColumnId
+                        ? run.winnerColumnId === column.id
+                        : run.winner === column.model
+                    }
                     startedAt={run.startedAt}
                     isBestTtft={bests.ttft === column.id}
                     isBestTotal={bests.total === column.id}
@@ -401,6 +587,7 @@ const Compare = () => {
                     onRate={rate}
                     onVote={handleVote}
                     onStop={stopColumn}
+                    currentPrompt={column.history?.length ? run.prompt : undefined}
                     className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
                   />
                 );
@@ -491,11 +678,27 @@ const Compare = () => {
             <CompareComposer
               value={prompt}
               onChange={setPrompt}
-              onSubmit={() => start(trimmedPrompt, selectedModels, { blind: isBlind })}
-              onStop={stop}
+              onSubmit={submit}
+              onStop={stopAll}
               isRunning={isRunning}
               canSubmit={canSubmit}
-              disabledReason={disabledReason}>
+              disabledReason={disabledReason}
+              images={images}
+              canAttachImages={canAttachImages}
+              attachImagesHint={attachImagesHint}
+              onAddImages={(files) => void addImages(files)}
+              onRemoveImage={(id) =>
+                setImages((current) => current.filter((image) => image.id !== id))
+              }
+              followUp={
+                run && canFollowUp
+                  ? {
+                      isActive: isFollowingUp,
+                      parentPrompt: run.prompt,
+                      onToggle: () => setIsFollowUpMode((current) => !current),
+                    }
+                  : undefined
+              }>
               <div className="flex min-w-0 items-start gap-1.5">
                 <div className="min-w-0 flex-1">
                   <ComparePickers
@@ -503,9 +706,21 @@ const Compare = () => {
                     slots={slots}
                     findModel={findModel}
                     onChange={setSlots}
-                    disabled={isRunning}
+                    disabled={isRunning || isFollowingUp}
                   />
                 </div>
+                <CompareSuites
+                  suites={suites.suites}
+                  isLoading={suites.isLoading}
+                  canRun={hasValidSelection && !isRunning}
+                  runDisabledReason={
+                    isRunning ? 'Wait for the current run to finish.' : selectionReason
+                  }
+                  disabled={isRunning}
+                  onSave={suites.save}
+                  onDelete={suites.remove}
+                  onRun={runSuite}
+                />
                 <Button
                   type="button"
                   variant="ghost"

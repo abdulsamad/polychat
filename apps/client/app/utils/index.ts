@@ -7,6 +7,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const MAX_IMAGE_ATTACHMENTS = 4;
+// Keep this aligned with the serverless limit. Data URLs are base64 encoded,
+// so the final JSON request is larger than the original files.
+export const MAX_HOSTED_FILE_BYTES = 2 * 1024 * 1024;
+
+export const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error || new Error('File could not be read.'));
+    reader.readAsDataURL(file);
+  });
+
 export const speechLog = (text: string, styles?: React.CSSProperties) => {
   const defaultStyles = {
     fontSize: '12px',

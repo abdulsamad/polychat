@@ -3,8 +3,9 @@ import { useAtomValue } from 'jotai';
 import { useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
-import { getDefaultModelConfig } from 'utils';
-import { configAtom, enqueuePersistence } from '@/store';
+import type { ImageAttachment } from 'utils';
+import { configAtom, enqueuePersistence, type IMessage } from '@/store';
+import { toModelConfig } from '@/utils/compare-settings';
 import { getGeneratedText, type ChatStreamPart } from '@/utils/api-calls';
 import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
@@ -14,6 +15,9 @@ import {
   saveCompareVote,
   type CompareRubric,
   type CompareRubricCriterion,
+  type CompareSlotSettings,
+  type CompareSuiteTag,
+  type CompareTurn,
   type CompareWinner,
   type ICompareRun,
   type ICompareRunColumn,
@@ -47,6 +51,31 @@ export interface CompareRunState {
   isFromHistory?: boolean;
   /** Columns were shuffled and model names stay hidden until a vote is cast. */
   blind?: boolean;
+  winnerColumnId?: string;
+  parentRunId?: string;
+  attachments?: ICompareRun['attachments'];
+  /** Image data for this run's prompt; live only, never written to history. */
+  imageAttachments?: ImageAttachment[];
+  suite?: CompareSuiteTag;
+}
+
+/** One column to run: a model configuration, optionally with earlier turns to continue. */
+export interface CompareEntry {
+  model: Pick<ModelOption, 'name' | 'text' | 'provider'>;
+  settings?: CompareSlotSettings;
+  sample?: number;
+  history?: CompareTurn[];
+}
+
+export interface CompareStartOptions {
+  blind?: boolean;
+  /** Keep the given column order even for a blind run (follow-ups keep their letters). */
+  keepOrder?: boolean;
+  imageAttachments?: ImageAttachment[];
+  parentRunId?: string;
+  /** Images of the parent prompt, re-sent with that turn so a follow-up keeps its context. */
+  parentImageAttachments?: ImageAttachment[];
+  suite?: CompareSuiteTag;
 }
 
 export const isSettledStatus = (status: CompareColumnStatus) =>
@@ -63,25 +92,38 @@ const toRunRecord = ({
   prompt,
   columns,
   winner,
+  winnerColumnId,
   blind,
+  parentRunId,
+  attachments,
+  suite,
 }: CompareRunState): ICompareRun => ({
   id,
   timestamp,
   prompt,
   winner,
+  ...(winnerColumnId ? { winnerColumnId } : {}),
   ...(blind ? { blind } : {}),
+  ...(parentRunId ? { parentRunId } : {}),
+  ...(attachments?.length ? { attachments } : {}),
+  ...(suite ? { suite } : {}),
   columns: columns.filter(isSettledColumn).map(({ isThinking: _isThinking, ...column }) => column),
 });
 
 /** Everything about a settled run that the history copy must reflect. */
-const getHistorySignature = ({ winner, columns }: CompareRunState) =>
-  JSON.stringify([winner, columns.map(({ rubric }) => rubric ?? null)]);
+const getHistorySignature = ({ winner, winnerColumnId, columns }: CompareRunState) =>
+  JSON.stringify([winner, winnerColumnId ?? null, columns.map(({ rubric }) => rubric ?? null)]);
 
-const toVoteRecord = (run: CompareRunState, winner: CompareWinner): ICompareVote => ({
+const toVoteRecord = (
+  run: CompareRunState,
+  winner: CompareWinner,
+  winnerColumnId?: string
+): ICompareVote => ({
   id: run.id,
   timestamp: run.timestamp,
   prompt: run.prompt,
   winner,
+  ...(winnerColumnId ? { winnerColumnId } : {}),
   ...(run.blind ? { blind: true } : {}),
   results: run.columns.map((column) => ({
     model: column.model,
@@ -95,6 +137,37 @@ const toVoteRecord = (run: CompareRunState, winner: CompareWinner): ICompareVote
     failed: column.status === 'failed' || !column.content.trim(),
   })),
 });
+
+const toTurnMessage = (
+  role: IMessage['role'],
+  content: string,
+  model: string,
+  imageAttachments?: ImageAttachment[]
+): IMessage => ({
+  id: crypto.randomUUID(),
+  role,
+  content,
+  type: 'text',
+  metadata: { profile: null, timestamp: Date.now(), model },
+  ...(imageAttachments?.length ? { imageAttachments } : {}),
+});
+
+/**
+ * Earlier turns as alternating user/assistant messages, ending with the new prompt. Only the
+ * newest earlier turn can carry its images (they are live-only); older turns are text.
+ */
+const toTurnMessages = (
+  history: readonly CompareTurn[],
+  prompt: string,
+  model: string,
+  { latest, previous }: { latest?: ImageAttachment[]; previous?: ImageAttachment[] }
+) => [
+  ...history.flatMap(({ prompt: turnPrompt, answer }, index) => [
+    toTurnMessage('user', turnPrompt, model, index === history.length - 1 ? previous : undefined),
+    toTurnMessage('assistant', answer, model),
+  ]),
+  toTurnMessage('user', prompt, model, latest),
+];
 
 /** Fisher-Yates, so every order is equally likely in a blind run. */
 const shuffle = <T>(items: readonly T[]) => {
@@ -150,7 +223,11 @@ const useCompareRun = ({
   /** The history signature last written per run, so each settled state is saved once. */
   const persistedRunsRef = useRef(new Map<string, string>());
   /** The last winner that was actually written for a run, used to roll back a failed change. */
-  const savedVoteRef = useRef<{ runId: string; winner: CompareWinner } | null>(null);
+  const savedVoteRef = useRef<{
+    runId: string;
+    winner: CompareWinner;
+    winnerColumnId?: string;
+  } | null>(null);
 
   const flush = useCallback(() => {
     if (flushTimerRef.current !== null) {
@@ -226,7 +303,13 @@ const useCompareRun = ({
   }, [run]);
 
   const runColumn = useCallback(
-    async (runId: string, index: number, prompt: string, signal: AbortSignal) => {
+    async (
+      runId: string,
+      index: number,
+      prompt: string,
+      signal: AbortSignal,
+      images: { latest?: ImageAttachment[]; previous?: ImageAttachment[] }
+    ) => {
       const startedAt = performance.now();
       const update = (patch: Partial<CompareColumnState>, immediate = false) => {
         if (runIdRef.current !== runId) return;
@@ -236,7 +319,7 @@ const useCompareRun = ({
         else scheduleFlush();
       };
       const elapsed = () => Math.round(performance.now() - startedAt);
-      const { model, provider } = columnsRef.current[index];
+      const { model, provider, settings, history } = columnsRef.current[index];
 
       let reader: ReadableStreamDefaultReader<ChatStreamPart> | undefined;
       let content = '';
@@ -256,19 +339,23 @@ const useCompareRun = ({
 
       try {
         const apiKey = getProviderKey(accountId, provider);
-        const result = await getGeneratedText({
-          prompt,
+        const request = {
           model,
           provider,
-          // The neutral profile keeps every model on the same system prompt. Custom
-          // instructions only apply to the custom profile, matching the chat flow.
-          profile: 'normal',
+          // The neutral profile keeps every model on the same system prompt unless the slot
+          // picks another preset. The custom profile is never offered in compare.
+          profile: settings?.profile ?? 'normal',
           language: config.language,
-          modelConfig: getDefaultModelConfig(model),
+          modelConfig: toModelConfig(model, settings),
           getToken,
           apiKey,
           signal,
-        });
+        };
+        const result = await getGeneratedText(
+          history?.length
+            ? { ...request, messages: toTurnMessages(history, prompt, model, images) }
+            : { ...request, prompt, imageAttachments: images.latest }
+        );
 
         if ('success' in result) {
           throw Object.assign(new Error(result.err), { status: result.status });
@@ -345,13 +432,15 @@ const useCompareRun = ({
 
   /** Returns false when the run could not start, so the caller can keep the prompt. */
   const start = useCallback(
-    (rawPrompt: string, models: readonly ModelOption[], { blind = false } = {}) => {
+    (rawPrompt: string, entries: readonly CompareEntry[], options: CompareStartOptions = {}) => {
+      const { blind = false, keepOrder = false, imageAttachments, parentRunId, suite } = options;
       const prompt = rawPrompt.trim();
-      if (!prompt || models.length < MIN_COMPARE_MODELS) return false;
+      if (!prompt || entries.length < MIN_COMPARE_MODELS) return false;
 
-      const picked = models.slice(0, MAX_COMPARE_MODELS);
+      const picked = entries.slice(0, MAX_COMPARE_MODELS);
       // Blind runs shuffle the picker order, so a column's position says nothing about its model.
-      const columns = (blind ? shuffle(picked) : picked).map((model): CompareColumnState => ({
+      const ordered = blind && !keepOrder ? shuffle(picked) : picked;
+      const columns = ordered.map(({ model, settings, sample, history }): CompareColumnState => ({
         id: crypto.randomUUID(),
         model: model.name,
         modelLabel: model.text,
@@ -359,6 +448,9 @@ const useCompareRun = ({
         status: 'waiting',
         content: '',
         isThinking: false,
+        ...(settings && Object.keys(settings).length ? { settings } : {}),
+        ...(sample ? { sample } : {}),
+        ...(history?.length ? { history } : {}),
       }));
 
       // Mirror the chat composer: a configured but locked vault key must be unlocked first.
@@ -400,13 +492,61 @@ const useCompareRun = ({
         columns: columns.slice(),
         winner: null,
         ...(blind ? { blind } : {}),
+        ...(parentRunId ? { parentRunId } : {}),
+        ...(imageAttachments?.length
+          ? {
+              imageAttachments,
+              attachments: imageAttachments.map(({ name, mediaType, size }) => ({
+                name,
+                mediaType,
+                size,
+              })),
+            }
+          : {}),
+        ...(suite ? { suite } : {}),
       });
+      const images = { latest: imageAttachments, previous: options.parentImageAttachments };
       columns.forEach((_, index) => {
-        void runColumn(runId, index, prompt, controllers[index].signal);
+        void runColumn(runId, index, prompt, controllers[index].signal, images);
       });
       return true;
     },
     [abortAll, accountId, isSignedIn, runColumn]
+  );
+
+  /**
+   * Continues the current run with a new prompt. Every column that answered keeps its own
+   * conversation (and settings), so models are judged on how they follow up on themselves.
+   * The new turn is a separate run with its own vote.
+   */
+  const followUp = useCallback(
+    (rawPrompt: string, imageAttachments?: ImageAttachment[]) => {
+      const parent = runRef.current;
+      if (!parent || !parent.columns.every(({ status }) => isSettledStatus(status))) return false;
+
+      const entries = parent.columns
+        .filter(({ content }) => content.trim())
+        .map((column): CompareEntry => ({
+          model: { name: column.model, text: column.modelLabel, provider: column.provider },
+          settings: column.settings,
+          sample: column.sample,
+          history: [...(column.history ?? []), { prompt: parent.prompt, answer: column.content }],
+        }));
+      if (entries.length < MIN_COMPARE_MODELS) {
+        toast.error('A follow-up needs at least two answers to continue.');
+        return false;
+      }
+
+      return start(rawPrompt, entries, {
+        // A revealed blind run stays revealed; an unvoted one keeps its letters and secrecy.
+        blind: Boolean(parent.blind && !parent.winner),
+        keepOrder: true,
+        imageAttachments,
+        parentRunId: parent.id,
+        parentImageAttachments: parent.imageAttachments,
+      });
+    },
+    [start]
   );
 
   const stopColumn = useCallback((columnId: string) => {
@@ -414,26 +554,34 @@ const useCompareRun = ({
     if (index !== -1) controllersRef.current[index]?.abort();
   }, []);
 
-  const vote = useCallback(async (winner: CompareWinner) => {
+  /** A column id identifies the winner when the same model runs in several columns. */
+  const vote = useCallback(async (winner: CompareWinner, winnerColumnId?: string) => {
     const run = runRef.current;
     if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
 
-    const record = toVoteRecord(run, winner);
-    setRun((current) => (current?.id === run.id ? { ...current, winner } : current));
+    const record = toVoteRecord(run, winner, winnerColumnId);
+    setRun((current) =>
+      current?.id === run.id ? { ...current, winner, winnerColumnId } : current
+    );
     try {
       const saved = await enqueuePersistence(() => saveCompareVote(record));
       if (!saved) throw new Error('No active workspace');
-      savedVoteRef.current = { runId: run.id, winner };
+      savedVoteRef.current = { runId: run.id, winner, winnerColumnId };
       onVoteSavedRef.current?.();
     } catch (error) {
       console.error('Failed to save compare vote', error);
       toast.error('Could not save your vote locally.');
       if (mountedRef.current) {
-        const savedWinner =
-          savedVoteRef.current?.runId === run.id ? savedVoteRef.current.winner : null;
+        const saved = savedVoteRef.current?.runId === run.id ? savedVoteRef.current : null;
         setRun((current) =>
-          current?.id === run.id && current.winner === winner
-            ? { ...current, winner: savedWinner }
+          current?.id === run.id &&
+          current.winner === winner &&
+          current.winnerColumnId === winnerColumnId
+            ? {
+                ...current,
+                winner: saved?.winner ?? null,
+                winnerColumnId: saved?.winnerColumnId,
+              }
             : current
         );
       }
@@ -462,7 +610,9 @@ const useCompareRun = ({
 
       const winner = run.winner;
       if (!winner || savedVoteRef.current?.runId !== run.id) return;
-      enqueuePersistence(() => saveCompareVote(toVoteRecord({ ...run, columns }, winner)))
+      enqueuePersistence(() =>
+        saveCompareVote(toVoteRecord({ ...run, columns }, winner, run.winnerColumnId))
+      )
         .then((saved) => {
           if (saved) onVoteSavedRef.current?.();
         })
@@ -485,7 +635,9 @@ const useCompareRun = ({
         columns: stored.columns.map((column) => ({ ...column, isThinking: false })),
       };
       persistedRunsRef.current.set(stored.id, getHistorySignature(run));
-      savedVoteRef.current = stored.winner ? { runId: stored.id, winner: stored.winner } : null;
+      savedVoteRef.current = stored.winner
+        ? { runId: stored.id, winner: stored.winner, winnerColumnId: stored.winnerColumnId }
+        : null;
       setRun(run);
     },
     [detachRun]
@@ -501,7 +653,26 @@ const useCompareRun = ({
     run && !isRunning && run.columns.some(({ content }) => content.trim().length > 0)
   );
 
-  return { run, isRunning, canVote, start, stop: abortAll, stopColumn, vote, rate, open, close };
+  const canFollowUp = Boolean(
+    run &&
+    !isRunning &&
+    run.columns.filter(({ content }) => content.trim().length > 0).length >= MIN_COMPARE_MODELS
+  );
+
+  return {
+    run,
+    isRunning,
+    canVote,
+    canFollowUp,
+    start,
+    followUp,
+    stop: abortAll,
+    stopColumn,
+    vote,
+    rate,
+    open,
+    close,
+  };
 };
 
 export default useCompareRun;
