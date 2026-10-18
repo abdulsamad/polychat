@@ -14,8 +14,6 @@ PolyChat is a focused workspace for thinking, creating, and working with AI.
 | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | ![Leaderboard of wins, runs and win rate per model above a voted comparison](docs/screenshots/compare-leaderboard-dark.png) | <img src="docs/screenshots/compare-mobile-dark.png" alt="Compare mode on a phone, with answer columns that scroll horizontally" width="260"> |
 
-Screenshots use the built-in demo threads and mocked model responses.
-
 ## Features
 
 - **Compare models side by side** - Send one prompt to two to four text models at once and watch the answers stream in parallel. Each answer shows time to first token, total time, and input/output tokens. Vote for the best answer (or call a tie) to build a local leaderboard of wins, runs, and win rate per model.
