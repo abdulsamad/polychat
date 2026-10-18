@@ -14,6 +14,7 @@ export default defineConfig({
     tsconfigPaths(),
     VitePWA({
       registerType: 'autoUpdate',
+      outDir: 'build/client',
       devOptions: {
         enabled: true,
       },
