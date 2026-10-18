@@ -73,11 +73,11 @@ PolyChat works in current evergreen browsers. Voice input depends on browser spe
 
 ## Local Development
 
-PolyChat uses Node.js 22+, pnpm 11+, a Clerk development instance, and at least one supported AI provider key for server-backed chat. Native local development uses Hono directly so responses stream exactly as they do in the client. Docker and AWS SAM are not required for this workflow.
+PolyChat uses Node.js 22.12+, pnpm 11+, a Clerk development instance, and at least one supported AI provider key for server-backed chat. Native local development uses Hono directly so responses stream exactly as they do in the client. Docker and AWS SAM are not required for this workflow.
 
 ### 1. Install prerequisites
 
-- Node.js 22 or newer
+- Node.js 22.12 or newer
 - pnpm 11 or newer
 - A Clerk development application
 - At least one provider key for Gemini, OpenAI, Anthropic, Mistral, or DeepSeek if you are using the server-backed API. Signed-in users can alternatively configure a supported provider key through the browser-local BYOK settings.

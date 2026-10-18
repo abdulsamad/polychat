@@ -7,7 +7,7 @@ PolyChat is a pnpm/Turborepo monorepo for a local-first AI chat app.
 - `apps/client` is a React 19 + React Router 7 SPA. It uses Jotai for state, TipTap for input, shadcn/Radix UI components, Clerk for auth, and localForage/IndexedDB for thread persistence.
 - `apps/serverless` is a Hono API bundled for AWS Lambda with esbuild. It authenticates Clerk JWTs and exposes `/chat` and `/image` endpoints.
 - `packages/utils` is the shared package for model metadata, AI SDK-derived model types, languages, variations, and assistant configuration.
-- `pnpm-lock.yaml` is the workspace lockfile. Use the globally installed pnpm 11 store and Node.js 22+; do not create or configure a workspace-local pnpm store.
+- `pnpm-lock.yaml` is the workspace lockfile. Use the globally installed pnpm 11 store and Node.js 22.12+; do not create or configure a workspace-local pnpm store.
 
 ## Before changing code
 

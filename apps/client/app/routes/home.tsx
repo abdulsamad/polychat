@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, Suspense } from 'react';
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useAuth, useClerk, useUser } from '@clerk/react-router';
 import { useNavigate } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -90,9 +90,9 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
   );
 
   // Subscribe to thread, message side effects to save changes locally
-  useAtom(threadSaveEffect, { delay: 1000 });
-  useAtom(messageSaveEffect, { delay: 1000 });
-  useAtom(configSaveEffect, { delay: 1000 });
+  useAtomValue(threadSaveEffect);
+  useAtomValue(messageSaveEffect);
+  useAtomValue(configSaveEffect);
 
   const navigate = useNavigate();
 

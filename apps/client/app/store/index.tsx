@@ -1,6 +1,6 @@
 import { atom } from 'jotai';
-import { atomFamily } from 'jotai/utils';
 import { atomEffect } from 'jotai-effect';
+import { atomFamily } from 'jotai-family';
 import { getTime, format } from 'date-fns';
 
 import type {
