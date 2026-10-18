@@ -85,7 +85,7 @@ const CompareComposer = ({
           <Button
             type="button"
             onClick={onStop}
-            className="size-10 shrink-0 rounded-full border border-destructive/30 bg-destructive/15 p-0 text-destructive shadow-sm hover:bg-destructive/25 focus-visible:ring-destructive/30 sm:size-11">
+            className="size-10 shrink-0 rounded-full border border-destructive/30 bg-destructive/15 p-0 text-destructive shadow-sm duration-150 ease-[var(--ease-out)] animate-in fade-in-0 hover:bg-destructive/25 focus-visible:ring-destructive/30 motion-safe:zoom-in-90 sm:size-11">
             <SquareIcon className="size-4 fill-current" />
             <span className="sr-only">Stop all models</span>
           </Button>

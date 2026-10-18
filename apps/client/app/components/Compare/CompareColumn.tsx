@@ -1,20 +1,30 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertCircleIcon,
   BrainCircuitIcon,
-  CheckIcon,
+  CircleCheckIcon,
   CircleSlashIcon,
   CircleStopIcon,
+  CoinsIcon,
+  TriangleAlertIcon,
   TrophyIcon,
+  ZapIcon,
+  type LucideIcon,
 } from 'lucide-react';
 
 import { modelProviderLabels } from 'utils';
 import { cn } from '@/utils';
+import {
+  formatCost,
+  formatSpeed,
+  thinkingMs,
+  tokensPerSecond,
+  wordCount,
+} from '@/utils/compare-metrics';
 import type { CompareColumnState, CompareColumnStatus } from '@/hooks/useCompareRun';
 import Text from '@/components/Message/Text';
 import CopyButton from '@/components/Message/CopyButton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -36,55 +46,99 @@ const statusLabels: Record<CompareColumnStatus, string> = {
   stopped: 'Stopped',
 };
 
-const StatusBadge = ({
+const settledIcons = {
+  done: CircleCheckIcon,
+  failed: AlertCircleIcon,
+  stopped: CircleSlashIcon,
+} as const;
+
+/**
+ * Plain status text, deliberately without a border or fill so it never reads as a control.
+ * The settled icon is keyed by status, so it settles in once when a column finishes.
+ */
+const StatusIndicator = ({
   status,
   isThinking,
 }: {
   status: CompareColumnStatus;
   isThinking: boolean;
-}) => (
-  <Badge
-    variant="outline"
-    className={cn(
-      'shrink-0 gap-1.5 rounded-full px-2 py-0.5 font-medium',
-      status === 'streaming' && 'border-primary/40 bg-primary/10 text-foreground',
-      status === 'waiting' && 'text-muted-foreground',
-      status === 'done' && 'border-border text-foreground',
-      status === 'failed' && 'border-destructive/50 bg-destructive/10 text-destructive',
-      status === 'stopped' && 'bg-muted text-muted-foreground'
-    )}>
-    {status === 'streaming' || status === 'waiting' ? (
-      <span
-        aria-hidden="true"
-        className={cn(
-          'size-1.5 rounded-full',
-          status === 'streaming' ? 'bg-primary' : 'bg-muted-foreground',
-          'motion-safe:animate-pulse'
-        )}
-      />
-    ) : status === 'done' ? (
-      <CheckIcon className="size-3" aria-hidden="true" />
-    ) : status === 'failed' ? (
-      <AlertCircleIcon className="size-3" aria-hidden="true" />
-    ) : (
-      <CircleSlashIcon className="size-3" aria-hidden="true" />
-    )}
-    {status === 'streaming' && isThinking ? 'Thinking' : statusLabels[status]}
-  </Badge>
-);
+}) => {
+  const SettledIcon = status === 'waiting' || status === 'streaming' ? null : settledIcons[status];
+
+  return (
+    <span
+      className={cn(
+        'flex shrink-0 items-center gap-1.5 text-xs font-medium transition-colors duration-200',
+        status === 'streaming' ? 'text-foreground' : 'text-muted-foreground',
+        status === 'failed' && 'text-destructive'
+      )}>
+      {SettledIcon ? (
+        <SettledIcon
+          key={status}
+          aria-hidden="true"
+          className={cn(
+            'size-3.5 duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:zoom-in-90',
+            status === 'done' && 'text-primary'
+          )}
+        />
+      ) : (
+        <span aria-hidden="true" className="relative flex size-3.5 items-center justify-center">
+          {status === 'streaming' && (
+            <span className="absolute size-2 rounded-full bg-primary/40 motion-safe:animate-ping" />
+          )}
+          <span
+            className={cn(
+              'relative size-1.5 rounded-full transition-colors duration-200',
+              status === 'streaming' ? 'bg-primary' : 'bg-muted-foreground/60'
+            )}
+          />
+        </span>
+      )}
+      {status === 'streaming' && isThinking ? 'Thinking' : statusLabels[status]}
+    </span>
+  );
+};
 
 interface Metric {
   label: string;
-  value: string;
-  highlight?: boolean;
+  value: ReactNode;
+  /** Explains how the value is measured. */
+  title?: string;
+  /** Muted while the value is still counting. */
+  isLive?: boolean;
+  /** Set when this column wins the metric; doubles as the accessible explanation. */
+  best?: string;
+  bestIcon?: LucideIcon;
 }
+
+/** Ticks every 100ms while mounted; only rendered for active columns. */
+const LiveDuration = ({ since }: { since: number }) => {
+  const [now, setNow] = useState(() => performance.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(performance.now()), 100);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <>{formatDuration(Math.max(0, Math.round(now - since)))}</>;
+};
+
+const finishNotices: Record<string, string> = {
+  length: 'Cut off at the output token limit.',
+  'content-filter': "Stopped by the provider's content filter.",
+};
 
 interface CompareColumnProps {
   column: CompareColumnState;
   canVote: boolean;
   isWinner: boolean;
-  isFastestTtft: boolean;
-  isFastestTotal: boolean;
+  /** performance.now() when the run started; 0 for saved runs, which never tick. */
+  startedAt: number;
+  isBestTtft: boolean;
+  isBestTotal: boolean;
+  isBestSpeed: boolean;
+  isCheapest: boolean;
+  /** Provider-reported or estimated cost, passed as primitives to keep memo effective. */
+  costUsd?: number;
+  isCostEstimate: boolean;
   onVote: (model: CompareColumnState['model']) => void;
   onStop: (columnId: string) => void;
   /** Position in the run, used to stagger the entrance by 40ms per column. */
@@ -96,8 +150,13 @@ const CompareColumn = ({
   column,
   canVote,
   isWinner,
-  isFastestTtft,
-  isFastestTotal,
+  startedAt,
+  isBestTtft,
+  isBestTotal,
+  isBestSpeed,
+  isCheapest,
+  costUsd,
+  isCostEstimate,
   onVote,
   onStop,
   index,
@@ -119,15 +178,62 @@ const CompareColumn = ({
     [content]
   );
   const isActive = status === 'waiting' || status === 'streaming';
+  const isLive = isActive && startedAt > 0;
+  const thinking = thinkingMs(column);
+  const words = hasContent ? wordCount(content) : 0;
+  const finishNotice = column.finishReason ? finishNotices[column.finishReason] : undefined;
   const metrics: Metric[] = [
-    { label: 'First token', value: formatDuration(column.ttftMs), highlight: isFastestTtft },
-    { label: 'Total', value: formatDuration(column.totalMs), highlight: isFastestTotal },
+    {
+      label: 'First token',
+      value:
+        column.ttftMs === undefined && isLive ? (
+          <LiveDuration since={startedAt} />
+        ) : (
+          formatDuration(column.ttftMs)
+        ),
+      isLive: column.ttftMs === undefined && isLive,
+      best: isBestTtft ? 'Fastest first token in this run' : undefined,
+    },
+    {
+      label: 'Total',
+      value: isLive ? <LiveDuration since={startedAt} /> : formatDuration(column.totalMs),
+      isLive,
+      best: isBestTotal ? 'Fastest total time in this run' : undefined,
+    },
+    {
+      label: 'Speed',
+      value: formatSpeed(tokensPerSecond(column)),
+      title: 'Answer tokens per second while text streamed (reasoning excluded)',
+      best: isBestSpeed ? 'Fastest generation in this run' : undefined,
+    },
     {
       label: 'Tokens in / out',
       value:
         usage?.inputTokens !== undefined || usage?.outputTokens !== undefined
           ? `${formatTokens(usage?.inputTokens)} / ${formatTokens(usage?.outputTokens)}`
           : formatTokens(usage?.totalTokens),
+      title: usage?.reasoningTokens
+        ? `Includes ${formatTokens(usage.reasoningTokens)} reasoning tokens`
+        : undefined,
+    },
+    {
+      label: 'Thinking',
+      value: formatDuration(thinking),
+      title: 'Time spent streaming reasoning before the answer started',
+    },
+    {
+      label: 'Cost',
+      value: formatCost(
+        costUsd === undefined ? undefined : { usd: costUsd, isEstimate: isCostEstimate }
+      ),
+      title:
+        costUsd === undefined
+          ? 'No price is published for this model'
+          : isCostEstimate
+            ? 'Estimated from OpenRouter list prices'
+            : 'Reported by the provider',
+      best: isCheapest ? 'Cheapest in this run' : undefined,
+      bestIcon: CoinsIcon,
     },
   ];
 
@@ -152,16 +258,21 @@ const CompareColumn = ({
             title={modelLabel}>
             {modelLabel}
           </h3>
-          <p className="truncate text-xs text-muted-foreground">{modelProviderLabels[provider]}</p>
+          <p
+            className="truncate text-xs text-muted-foreground"
+            title={column.servedModelId ? `Served by ${column.servedModelId}` : undefined}>
+            {modelProviderLabels[provider]}
+            {column.servedModelId && <> - served by {column.servedModelId}</>}
+          </p>
         </div>
         {isWinner && (
           <TrophyIcon
-            className="size-4 shrink-0 text-primary duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:zoom-in-75"
+            className="size-4 shrink-0 fill-primary/20 text-primary duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:zoom-in-90"
             aria-label="Voted best"
             role="img"
           />
         )}
-        <StatusBadge status={status} isThinking={isThinking} />
+        <StatusIndicator status={status} isThinking={isThinking} />
         {isActive && (
           <Button
             type="button"
@@ -209,26 +320,52 @@ const CompareColumn = ({
       </ScrollArea>
 
       <footer className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5">
-        <dl className="grid min-w-0 grid-cols-3 gap-2">
-          {metrics.map(({ label, value, highlight }) => (
-            <div key={label} className="flex min-w-0 flex-col">
+        {finishNotice && (
+          <p className="flex min-w-0 items-start gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:slide-in-from-bottom-1">
+            <TriangleAlertIcon className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+            <span className="min-w-0">{finishNotice}</span>
+          </p>
+        )}
+        <dl className="grid min-w-0 grid-cols-3 gap-x-2 gap-y-1.5">
+          {metrics.map(({ label, value, title, isLive, best, bestIcon: BestIcon = ZapIcon }) => (
+            <div key={label} className="flex min-w-0 flex-col" title={best ?? title}>
               <dt className="truncate text-[0.6875rem] leading-4 tracking-wide text-muted-foreground">
                 {label}
               </dt>
               <dd
                 className={cn(
-                  'truncate font-mono text-xs leading-5 tabular-nums',
-                  highlight ? 'font-semibold text-primary' : 'text-foreground'
+                  'flex min-w-0 items-center gap-1 font-mono text-xs leading-5 tabular-nums transition-colors duration-200',
+                  best
+                    ? 'font-semibold text-primary'
+                    : isLive
+                      ? 'text-muted-foreground'
+                      : 'text-foreground'
                 )}>
-                {value}
-                {highlight && <span className="sr-only"> (fastest)</span>}
+                <span className="truncate">{value}</span>
+                {best && (
+                  <BestIcon
+                    aria-hidden="true"
+                    className="size-3 shrink-0 fill-current duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:zoom-in-90"
+                  />
+                )}
+                {best && <span className="sr-only"> ({best})</span>}
               </dd>
             </div>
           ))}
         </dl>
         <div className="flex min-w-0 items-center justify-end gap-1">
+          {/* Settled-only details fade in when the column finishes instead of popping in. */}
+          {words > 0 && !isActive && (
+            <p className="mr-auto truncate text-xs text-muted-foreground tabular-nums duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:slide-in-from-bottom-1">
+              {new Intl.NumberFormat().format(words)} {words === 1 ? 'word' : 'words'}
+            </p>
+          )}
           {hasContent && !isActive && (
-            <CopyButton text={content} label={`${modelLabel} answer`} className="size-9" />
+            <CopyButton
+              text={content}
+              label={`${modelLabel} answer`}
+              className="size-9 duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:slide-in-from-bottom-1"
+            />
           )}
           <Button
             type="button"
@@ -239,7 +376,7 @@ const CompareColumn = ({
             aria-pressed={isWinner}
             aria-label={`Vote ${modelLabel} as the best answer`}
             onClick={() => onVote(column.model)}>
-            <TrophyIcon className="size-3.5" />
+            <TrophyIcon className={cn('size-3.5', isWinner && 'fill-current')} />
             {isWinner ? 'Best answer' : 'Best'}
           </Button>
         </div>

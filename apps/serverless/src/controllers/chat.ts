@@ -1,7 +1,7 @@
 import { Context } from 'hono';
 import { streamText, APICallError, type ModelMessage } from 'ai';
 
-import { chatRequestSchema, getAssistantConfig, isHostedModel } from 'utils';
+import { chatRequestSchema, getAssistantConfig, getReportedCostUsd, isHostedModel } from 'utils';
 
 import { modelFactory } from '@models/factory';
 import { AppContext } from '@/index';
@@ -188,6 +188,7 @@ const chat = async (c: Context<AppContext>) => {
         let responseModelId: string | undefined;
         let responseTimestamp: string | undefined;
         let finishReason: string | undefined;
+        let costUsd: number | undefined;
         let isClosed = false;
 
         const getStreamErrorMessage = (error: unknown) => {
@@ -242,6 +243,8 @@ const chat = async (c: Context<AppContext>) => {
               responseModelId = part.response.modelId;
               responseTimestamp = part.response.timestamp.toISOString();
               finishReason = part.finishReason;
+              const stepCost = getReportedCostUsd(part.providerMetadata);
+              if (stepCost !== undefined) costUsd = (costUsd ?? 0) + stepCost;
             } else if (part.type === 'finish') {
               streamController.enqueue(
                 encoder.encode(
@@ -256,6 +259,7 @@ const chat = async (c: Context<AppContext>) => {
                         cachedInputTokens: part.totalUsage.inputTokenDetails.cacheReadTokens,
                       },
                       finishReason: finishReason || part.finishReason,
+                      costUsd,
                       responseId,
                       modelId: responseModelId,
                       timestamp: responseTimestamp,

@@ -3,20 +3,18 @@ import { useAtomValue } from 'jotai';
 import { useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
-import {
-  getDefaultModelConfig,
-  type ChatResponseMetadata,
-  type enabledModelsType,
-  type modelProviderType,
-} from 'utils';
+import { getDefaultModelConfig } from 'utils';
 import { configAtom, enqueuePersistence } from '@/store';
 import { getGeneratedText, type ChatStreamPart } from '@/utils/api-calls';
 import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
 import {
   getAnonymousWorkspaceAccount,
+  saveCompareRun,
   saveCompareVote,
   type CompareWinner,
+  type ICompareRun,
+  type ICompareRunColumn,
   type ICompareVote,
 } from '@/utils/lforage';
 import type { ModelOption } from './useByokModelAvailability';
@@ -29,30 +27,43 @@ export const MAX_COMPARE_MODELS = 4;
 
 export type CompareColumnStatus = 'waiting' | 'streaming' | 'done' | 'failed' | 'stopped';
 
-export interface CompareColumnState {
-  id: string;
-  model: enabledModelsType;
-  modelLabel: string;
-  provider: modelProviderType;
+/** A live column: the stored shape plus in-flight statuses and the thinking flag. */
+export interface CompareColumnState extends Omit<ICompareRunColumn, 'status'> {
   status: CompareColumnStatus;
-  content: string;
   isThinking: boolean;
-  error?: string;
-  ttftMs?: number;
-  totalMs?: number;
-  usage?: ChatResponseMetadata['usage'];
 }
 
 export interface CompareRunState {
   id: string;
   prompt: string;
   timestamp: number;
+  /** performance.now() when the run started, for live elapsed timers. 0 for saved runs. */
+  startedAt: number;
   columns: CompareColumnState[];
   winner: CompareWinner | null;
+  /** True when the run was reopened from history rather than streamed in this session. */
+  isFromHistory?: boolean;
 }
 
 export const isSettledStatus = (status: CompareColumnStatus) =>
   status === 'done' || status === 'failed' || status === 'stopped';
+
+const isSettledColumn = (
+  column: CompareColumnState
+): column is CompareColumnState & { status: ICompareRunColumn['status'] } =>
+  isSettledStatus(column.status);
+
+const toRunRecord = ({ id, timestamp, prompt, columns, winner }: CompareRunState): ICompareRun => ({
+  id,
+  timestamp,
+  prompt,
+  winner,
+  columns: columns.filter(isSettledColumn).map(({ isThinking: _isThinking, ...column }) => column),
+});
+
+/** Hides the served id when it is just a dated or namespaced form of the picked model. */
+const getServedModelId = (picked: string, served?: string) =>
+  served && !served.toLowerCase().includes(picked.toLowerCase()) ? served : undefined;
 
 const toErrorMessage = (error: unknown) => {
   if (!(error instanceof Error)) return 'Something went wrong.';
@@ -70,7 +81,10 @@ const toErrorMessage = (error: unknown) => {
  * AbortController, so one failure or stop never affects the other columns. Runs
  * are ephemeral; only the vote is persisted.
  */
-const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
+const useCompareRun = ({
+  onVoteSaved,
+  onRunSaved,
+}: { onVoteSaved?: () => void; onRunSaved?: () => void } = {}) => {
   const config = useAtomValue(configAtom);
   const { getToken, isSignedIn } = useAuth();
   const { user } = useUser();
@@ -86,6 +100,10 @@ const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
   const mountedRef = useRef(true);
   const onVoteSavedRef = useRef(onVoteSaved);
   onVoteSavedRef.current = onVoteSaved;
+  const onRunSavedRef = useRef(onRunSaved);
+  onRunSavedRef.current = onRunSaved;
+  /** The winner last written to history per run, so each settled state is saved once. */
+  const persistedRunsRef = useRef(new Map<string, CompareWinner | null>());
   /** The last winner that was actually written for a run, used to roll back a failed change. */
   const savedVoteRef = useRef<{ runId: string; winner: CompareWinner } | null>(null);
 
@@ -140,6 +158,26 @@ const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
     detachRun();
     setRun(null);
   }, [accountId, detachRun]);
+
+  // History: save a run once every column has settled, and again whenever its vote changes
+  // (including a rolled-back vote). Writes are queued, so they never overtake each other.
+  useEffect(() => {
+    if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
+    const persisted = persistedRunsRef.current;
+    if (persisted.has(run.id) && persisted.get(run.id) === run.winner) return;
+    persisted.set(run.id, run.winner);
+
+    const record = toRunRecord(run);
+    enqueuePersistence(() => saveCompareRun(record))
+      .then((saved) => {
+        if (saved) onRunSavedRef.current?.();
+      })
+      .catch((error) => {
+        console.error('Failed to save compare run', error);
+        persisted.delete(record.id);
+        toast.error('Could not save this comparison to history.');
+      });
+  }, [run]);
 
   const runColumn = useCallback(
     async (runId: string, index: number, prompt: string, signal: AbortSignal) => {
@@ -213,11 +251,23 @@ const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
               isFirstToken
             );
           } else if (value.type === 'reasoning') {
-            if (!content) update({ isThinking: true });
+            if (!content) {
+              const isFirstReasoning = columnsRef.current[index].reasoningStartMs === undefined;
+              update({
+                isThinking: true,
+                ...(isFirstReasoning ? { reasoningStartMs: elapsed() } : {}),
+              });
+            }
           } else if (value.type === 'reasoning-end') {
             update({ isThinking: false });
           } else if (value.type === 'metadata') {
-            update({ usage: value.metadata.usage });
+            const { usage, finishReason, costUsd, modelId } = value.metadata;
+            update({
+              usage,
+              finishReason,
+              costUsd,
+              servedModelId: getServedModelId(model, modelId),
+            });
           } else if (value.type === 'error') {
             throw new Error(value.error);
           }
@@ -294,7 +344,14 @@ const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
       if (flushTimerRef.current !== null) clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
 
-      setRun({ id: runId, prompt, timestamp: Date.now(), columns: columns.slice(), winner: null });
+      setRun({
+        id: runId,
+        prompt,
+        timestamp: Date.now(),
+        startedAt: performance.now(),
+        columns: columns.slice(),
+        winner: null,
+      });
       columns.forEach((_, index) => {
         void runColumn(runId, index, prompt, controllers[index].signal);
       });
@@ -323,6 +380,8 @@ const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
         ttftMs: column.ttftMs ?? null,
         totalMs: column.totalMs ?? null,
         ...(column.usage ? { usage: column.usage } : {}),
+        ...(column.costUsd !== undefined ? { costUsd: column.costUsd } : {}),
+        ...(column.finishReason ? { finishReason: column.finishReason } : {}),
         failed: column.status === 'failed' || !column.content.trim(),
       })),
     };
@@ -348,12 +407,33 @@ const useCompareRun = ({ onVoteSaved }: { onVoteSaved?: () => void } = {}) => {
     }
   }, []);
 
+  /** Shows a saved run read-only (votes can still change). Any live run is aborted first. */
+  const open = useCallback(
+    (stored: ICompareRun) => {
+      detachRun();
+      persistedRunsRef.current.set(stored.id, stored.winner);
+      savedVoteRef.current = stored.winner ? { runId: stored.id, winner: stored.winner } : null;
+      setRun({
+        ...stored,
+        startedAt: 0,
+        isFromHistory: true,
+        columns: stored.columns.map((column) => ({ ...column, isThinking: false })),
+      });
+    },
+    [detachRun]
+  );
+
+  const close = useCallback(() => {
+    detachRun();
+    setRun(null);
+  }, [detachRun]);
+
   const isRunning = Boolean(run?.columns.some(({ status }) => !isSettledStatus(status)));
   const canVote = Boolean(
     run && !isRunning && run.columns.some(({ content }) => content.trim().length > 0)
   );
 
-  return { run, isRunning, canVote, start, stop: abortAll, stopColumn, vote };
+  return { run, isRunning, canVote, start, stop: abortAll, stopColumn, vote, open, close };
 };
 
 export default useCompareRun;
