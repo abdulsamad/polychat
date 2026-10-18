@@ -13,6 +13,7 @@ import {
   clearThreadMessagesAtom,
   clearSelectedMessagesAtom,
   hydrateThreadMessagesAtom,
+  interruptPendingRequests,
   replaceMessagesAtom,
   messageSaveEffect,
   resetChatQueueAtom,
@@ -177,20 +178,7 @@ const Home = ({ params: { threadId } }: Route.ComponentProps) => {
         if (cancelled) return;
 
         let storedThreads = threads || [];
-        let storedMessages = Object.fromEntries(
-          Object.entries(messages || {}).map(([id, threadMessages]) => [
-            id,
-            threadMessages.map((message) =>
-              message.metadata.requestState === 'queued' ||
-              message.metadata.requestState === 'streaming'
-                ? {
-                    ...message,
-                    metadata: { ...message.metadata, requestState: 'interrupted' as const },
-                  }
-                : message
-            ),
-          ])
-        );
+        let storedMessages = interruptPendingRequests(messages || {});
 
         if (
           !storedThreads.length &&

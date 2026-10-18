@@ -446,6 +446,22 @@ export const dequeueNextChatJobAtom = atom(null, (get, set) => {
   set(activeChatJobAtom, nextJob);
 });
 
+/** Stored queued or streaming requests cannot resume after a reload, so mark them interrupted. */
+export const interruptPendingRequests = (messagesByThread: Record<ThreadId, IMessage[]>) =>
+  Object.fromEntries(
+    Object.entries(messagesByThread).map(([id, threadMessages]) => [
+      id,
+      threadMessages.map((message) =>
+        message.metadata.requestState === 'queued' || message.metadata.requestState === 'streaming'
+          ? {
+              ...message,
+              metadata: { ...message.metadata, requestState: 'interrupted' as const },
+            }
+          : message
+      ),
+    ])
+  ) as Record<ThreadId, IMessage[]>;
+
 export const resetChatQueueAtom = atom(null, (get, set) => {
   const currentMessages = get(threadMessagesAtom);
   let didInterruptMessage = false;

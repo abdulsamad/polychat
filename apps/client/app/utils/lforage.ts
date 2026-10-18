@@ -1,6 +1,6 @@
 import localforage from 'localforage';
 
-import type { enabledModelsType } from 'utils';
+import type { ChatResponseMetadata, enabledModelsType, modelProviderType } from 'utils';
 import { getDefaultModelConfig, profiles } from 'utils';
 import type { IConfig, IMessage, IThreadSettings, IThreads } from '@/store';
 
@@ -11,6 +11,9 @@ export const userSettingsKey = 'user-settings';
 export const messagesKey = 'messages';
 export const startedToastKey = 'has-seen-started-toast';
 export const demoThreadsDismissedKey = 'demo-threads-dismissed';
+export const compareVotesKey = 'compare-votes';
+/** Only the newest compare votes are kept so the store stays small. */
+export const MAX_COMPARE_VOTES = 500;
 const anonymousWorkspaceKey = 'anonymous-workspace-account';
 
 export const lforage = localforage.createInstance({
@@ -166,8 +169,62 @@ export const deleteAllChats = async () => {
   );
 };
 
+export type CompareWinner = enabledModelsType | 'tie' | 'none';
+
+export interface ICompareVoteResult {
+  model: enabledModelsType;
+  provider: modelProviderType;
+  ttftMs: number | null;
+  totalMs: number | null;
+  usage?: ChatResponseMetadata['usage'];
+  failed: boolean;
+}
+
+export interface ICompareVote {
+  /** The compare run id, so changing a vote replaces the earlier record. */
+  id: string;
+  timestamp: number;
+  prompt: string;
+  results: ICompareVoteResult[];
+  winner: CompareWinner;
+}
+
+export const getCompareVotes = async (): Promise<ICompareVote[]> => {
+  const key = scopedKey(compareVotesKey);
+  if (!key) return [];
+
+  const votes = await lforage.getItem<ICompareVote[]>(key);
+  return Array.isArray(votes) ? votes : [];
+};
+
+/** Insert or replace a vote by run id, keeping the newest MAX_COMPARE_VOTES records. */
+export const saveCompareVote = async (vote: ICompareVote) => {
+  const key = scopedKey(compareVotesKey);
+  if (!key) return false;
+
+  const votes = await getCompareVotes();
+  const nextVotes = [vote, ...votes.filter(({ id }) => id !== vote.id)]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, MAX_COMPARE_VOTES);
+  await lforage.setItem(key, nextVotes);
+  return true;
+};
+
+export const clearCompareVotes = async () => {
+  const key = scopedKey(compareVotesKey);
+  if (key) await lforage.removeItem(key);
+};
+
 export const clearLocalData = async () => {
-  const keys = [settingsKey, threadsKey, userSettingsKey, messagesKey, startedToastKey, demoThreadsDismissedKey]
+  const keys = [
+    settingsKey,
+    threadsKey,
+    userSettingsKey,
+    messagesKey,
+    startedToastKey,
+    demoThreadsDismissedKey,
+    compareVotesKey,
+  ]
     .map(scopedKey)
     .filter((key): key is string => Boolean(key));
   await Promise.all(keys.map((key) => lforage.removeItem(key)));

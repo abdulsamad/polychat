@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { useNavigate } from 'react-router';
+import { flushSync } from 'react-dom';
+import { NavLink, useMatch, useNavigate } from 'react-router';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import {
   LogOutIcon,
@@ -7,6 +8,7 @@ import {
   UserRoundPenIcon,
   ArrowUpRightIcon,
   ChevronDown,
+  Columns3Icon,
   SettingsIcon,
 } from 'lucide-react';
 import { useClerk, useAuth, useUser } from '@clerk/react-router';
@@ -56,11 +58,12 @@ const AppSidebar = () => {
   const { user } = useUser();
   const { isSignedIn, signOut } = useAuth();
   const { setOpenMobile, isMobile } = useSidebar();
+  const isCompareRoute = Boolean(useMatch('/compare'));
 
   const addNewChat = useCallback(() => {
     setOpenMobile(false);
 
-    if (!hasMessages) {
+    if (!hasMessages && !isCompareRoute) {
       toast.info('You are already in a new chat. Start typing your message!', {
         dismissible: true,
         closeButton: true,
@@ -69,7 +72,7 @@ const AppSidebar = () => {
     }
 
     navigate('/');
-  }, [hasMessages, navigate, setOpenMobile]);
+  }, [hasMessages, isCompareRoute, navigate, setOpenMobile]);
 
   return (
     <aside>
@@ -87,6 +90,27 @@ const AppSidebar = () => {
                   New Chat
                 </Button>
               </div>
+            </SidebarMenuItem>
+            <SidebarMenuItem className="mt-1">
+              <SidebarMenuButton asChild isActive={isCompareRoute} className="h-9">
+                <NavLink
+                  to="/compare"
+                  onClick={(event) => {
+                    if (isCompareRoute) {
+                      event.preventDefault();
+                      setOpenMobile(false);
+                      return;
+                    }
+                    if (isMobile) {
+                      flushSync(() => setOpenMobile(false));
+                    } else {
+                      setOpenMobile(false);
+                    }
+                  }}>
+                  <Columns3Icon />
+                  <span>Compare models</span>
+                </NavLink>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarHeader>
