@@ -5,6 +5,8 @@ import {
   AlertCircleIcon,
   ArrowRightIcon,
   Columns3Icon,
+  EyeIcon,
+  EyeOffIcon,
   HistoryIcon,
   KeyRoundIcon,
 } from 'lucide-react';
@@ -31,7 +33,7 @@ import {
   runCost,
   tokensPerSecond,
 } from '@/utils/compare-metrics';
-import type { ICompareRun, ICompareRunColumn } from '@/utils/lforage';
+import type { ICompareRun, ICompareRunColumn, ICompareVoteResult } from '@/utils/lforage';
 import CompareColumn from '@/components/Compare/CompareColumn';
 import CompareComposer from '@/components/Compare/CompareComposer';
 import CompareHistory from '@/components/Compare/CompareHistory';
@@ -62,6 +64,17 @@ const suggestions = [
 
 const hasAnswer = ({ content }: CompareColumnState) => content.trim().length > 0;
 
+const blindLetters = ['A', 'B', 'C', 'D'] as const;
+const blindPreferenceKey = 'polychat-compare-blind';
+
+const readBlindPreference = () => {
+  try {
+    return window.localStorage.getItem(blindPreferenceKey) === '1';
+  } catch {
+    return false;
+  }
+};
+
 const savedRunDate = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -78,6 +91,7 @@ const getRunStatus = (run: CompareRunState, getModelLabel: (model: string) => st
   if (run.winner === 'tie') return 'Vote saved: it is a tie.';
   if (run.winner === 'none') return 'Vote saved: no answer was good enough.';
   if (run.winner) return `Vote saved: ${getModelLabel(run.winner)} wins.`;
+  if (run.blind) return 'Blind run: pick the best answer to reveal the models.';
   return 'All answers are in. Pick the best one, or call it a tie.';
 };
 
@@ -89,13 +103,20 @@ const Compare = () => {
   const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
   const { textModels, findModel, isModelAvailable, isProviderAvailable } =
     useByokModelAvailability();
-  const votes = useCompareVotes(isReady);
-  const history = useCompareHistory(isReady);
   const { getPrice } = useModelPricing();
-  const { run, isRunning, canVote, start, stop, stopColumn, vote, open, close } = useCompareRun({
-    onVoteSaved: votes.refresh,
-    onRunSaved: history.refresh,
-  });
+  const getVoteResultCost = useCallback(
+    ({ model, provider, usage, costUsd }: ICompareVoteResult) =>
+      resultCost({ usage, costUsd }, getPrice(model, provider)),
+    [getPrice]
+  );
+  const votes = useCompareVotes(isReady, getVoteResultCost);
+  const history = useCompareHistory(isReady);
+  const [isBlind, setIsBlind] = useState(readBlindPreference);
+  const { run, isRunning, canVote, start, stop, stopColumn, vote, rate, open, close } =
+    useCompareRun({
+      onVoteSaved: votes.refresh,
+      onRunSaved: history.refresh,
+    });
   const [slots, setSlots] = useState<CompareSlot[]>([]);
   const [prompt, setPrompt] = useState('');
 
@@ -172,7 +193,7 @@ const Compare = () => {
     setPrompt(stored.prompt);
     setSlots(models.map(({ name }) => createCompareSlot(name)));
     if (models.length === stored.columns.length && models.length >= MIN_COMPARE_MODELS) {
-      start(stored.prompt, models);
+      start(stored.prompt, models, { blind: Boolean(stored.blind) });
     } else {
       toast.error('Some models from that run are unavailable. Pick replacements, then send.');
     }
@@ -190,6 +211,15 @@ const Compare = () => {
     } catch (error) {
       console.error('Failed to clear compare history', error);
       toast.error('Could not clear history.');
+    }
+  };
+  const toggleBlind = () => {
+    const next = !isBlind;
+    setIsBlind(next);
+    try {
+      window.localStorage.setItem(blindPreferenceKey, next ? '1' : '0');
+    } catch {
+      // A per-viewer convenience; the toggle still works for this visit.
     }
   };
   const clearVotes = async () => {
@@ -231,6 +261,7 @@ const Compare = () => {
     cost: getColumnCost(column)?.usd,
   }));
   const isSettled = Boolean(run) && !isRunning;
+  const isIdentityHidden = Boolean(run?.blind && !run.winner);
   const totalCost = run && isSettled ? runCost(run.columns, getColumnCost) : undefined;
   const hasEnoughModels = runnableModels.length >= MIN_COMPARE_MODELS;
 
@@ -243,6 +274,7 @@ const Compare = () => {
         none={votes.none}
         isLoading={votes.isLoading}
         getModelLabel={getModelLabel}
+        getHeadToHead={votes.getHeadToHead}
         onClear={clearVotes}
         actions={
           <CompareHistory
@@ -301,7 +333,7 @@ const Compare = () => {
                   <span role="status" aria-live="polite" className="truncate">
                     {getRunStatus(run, getModelLabel)}
                   </span>
-                  {totalCost && (
+                  {totalCost && !isIdentityHidden && (
                     <span
                       className="shrink-0 font-mono tabular-nums duration-200 ease-[var(--ease-out)] animate-in fade-in-0"
                       title={
@@ -363,6 +395,10 @@ const Compare = () => {
                     isCheapest={bests.cost === column.id}
                     costUsd={cost?.usd}
                     isCostEstimate={Boolean(cost?.isEstimate)}
+                    blindLetter={run.blind ? blindLetters[index] : undefined}
+                    isIdentityHidden={isIdentityHidden}
+                    canRate={canVote}
+                    onRate={rate}
                     onVote={handleVote}
                     onStop={stopColumn}
                     className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
@@ -455,18 +491,43 @@ const Compare = () => {
             <CompareComposer
               value={prompt}
               onChange={setPrompt}
-              onSubmit={() => start(trimmedPrompt, selectedModels)}
+              onSubmit={() => start(trimmedPrompt, selectedModels, { blind: isBlind })}
               onStop={stop}
               isRunning={isRunning}
               canSubmit={canSubmit}
               disabledReason={disabledReason}>
-              <ComparePickers
-                runnableModels={runnableModels}
-                slots={slots}
-                findModel={findModel}
-                onChange={setSlots}
-                disabled={isRunning}
-              />
+              <div className="flex min-w-0 items-start gap-1.5">
+                <div className="min-w-0 flex-1">
+                  <ComparePickers
+                    runnableModels={runnableModels}
+                    slots={slots}
+                    findModel={findModel}
+                    onChange={setSlots}
+                    disabled={isRunning}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isRunning}
+                  aria-pressed={isBlind}
+                  title={
+                    isBlind
+                      ? 'Blind mode on: columns are shuffled and names stay hidden until you vote'
+                      : 'Blind mode off: model names are shown while you judge'
+                  }
+                  className={cn(
+                    'mt-0.5 h-9 shrink-0 gap-1.5 rounded-full px-3 text-muted-foreground hover:text-foreground',
+                    isBlind &&
+                      'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                  onClick={toggleBlind}>
+                  {isBlind ? <EyeOffIcon /> : <EyeIcon />}
+                  <span className="hidden sm:inline">Blind</span>
+                  <span className="sr-only sm:hidden">Blind mode</span>
+                </Button>
+              </div>
             </CompareComposer>
           </div>
         </section>

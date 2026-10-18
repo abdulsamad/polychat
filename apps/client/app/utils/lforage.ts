@@ -185,8 +185,14 @@ export interface ICompareVoteResult {
   /** Exact provider-reported cost. Estimates are derived at read time from current prices. */
   costUsd?: number;
   finishReason?: string;
+  rubric?: CompareRubric;
   failed: boolean;
 }
+
+export const compareRubricCriteria = ['correctness', 'clarity', 'conciseness'] as const;
+export type CompareRubricCriterion = (typeof compareRubricCriteria)[number];
+/** Optional 1-5 scores per criterion for one answer. */
+export type CompareRubric = Partial<Record<CompareRubricCriterion, number>>;
 
 /** A settled compare column as stored in run history. */
 export interface ICompareRunColumn {
@@ -206,6 +212,7 @@ export interface ICompareRunColumn {
   /** The model that actually served the request, when the provider reports a different id. */
   servedModelId?: string;
   costUsd?: number;
+  rubric?: CompareRubric;
 }
 
 export interface ICompareRun {
@@ -214,6 +221,8 @@ export interface ICompareRun {
   prompt: string;
   columns: ICompareRunColumn[];
   winner: CompareWinner | null;
+  /** Columns were shuffled and model names hidden until the vote. */
+  blind?: boolean;
 }
 
 export interface ICompareVote {
@@ -223,6 +232,7 @@ export interface ICompareVote {
   prompt: string;
   results: ICompareVoteResult[];
   winner: CompareWinner;
+  blind?: boolean;
 }
 
 export const getCompareVotes = async (): Promise<ICompareVote[]> => {

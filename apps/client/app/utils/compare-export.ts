@@ -47,6 +47,7 @@ export const exportRunsCsv = (
     'status',
     'is_winner',
     'run_winner',
+    'blind',
     'first_token_ms',
     'total_ms',
     'thinking_ms',
@@ -59,6 +60,9 @@ export const exportRunsCsv = (
     'cost_is_estimate',
     'finish_reason',
     'words',
+    'score_correctness',
+    'score_clarity',
+    'score_conciseness',
   ];
   const rows = runs.flatMap((run) =>
     run.columns.map((column) => {
@@ -74,6 +78,7 @@ export const exportRunsCsv = (
         column.status,
         run.winner === column.model,
         run.winner ?? undefined,
+        Boolean(run.blind),
         column.ttftMs,
         column.totalMs,
         thinkingMs(column),
@@ -86,6 +91,9 @@ export const exportRunsCsv = (
         cost?.isEstimate,
         column.finishReason,
         wordCount(column.content),
+        column.rubric?.correctness,
+        column.rubric?.clarity,
+        column.rubric?.conciseness,
       ]
         .map(csvCell)
         .join(',');

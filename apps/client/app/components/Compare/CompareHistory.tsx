@@ -64,7 +64,7 @@ const getWinnerLabel = (run: ICompareRun, getModelLabel: (model: string) => stri
   if (run.winner === 'tie') return 'Tie';
   if (run.winner === 'none') return 'No winner';
   if (run.winner) return `${getModelLabel(run.winner)} won`;
-  return 'Not voted';
+  return run.blind ? 'Blind - not voted' : 'Not voted';
 };
 
 const CompareHistory = ({
@@ -265,7 +265,9 @@ const CompareHistory = ({
               <AnimatePresence initial={false} mode="popLayout">
                 {runs.map((run) => {
                   const isActive = run.id === activeRunId;
-                  const cost = getRunCost(run);
+                  // An unvoted blind run keeps its models hidden here as well as on screen.
+                  const isHidden = Boolean(run.blind && !run.winner);
+                  const cost = isHidden ? undefined : getRunCost(run);
                   return (
                     <motion.li
                       key={run.id}
@@ -288,7 +290,7 @@ const CompareHistory = ({
                           {run.prompt}
                         </span>
                         <span className="flex min-w-0 flex-wrap gap-1">
-                          {run.columns.map((column) => {
+                          {run.columns.map((column, columnIndex) => {
                             const isWinner = run.winner === column.model;
                             return (
                               <span
@@ -307,7 +309,11 @@ const CompareHistory = ({
                                     aria-label="Winner"
                                   />
                                 )}
-                                <span className="truncate">{getModelLabel(column.model)}</span>
+                                <span className="truncate">
+                                  {isHidden
+                                    ? `Model ${String.fromCharCode(65 + columnIndex)}`
+                                    : getModelLabel(column.model)}
+                                </span>
                               </span>
                             );
                           })}

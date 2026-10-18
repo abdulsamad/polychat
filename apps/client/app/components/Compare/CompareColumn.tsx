@@ -22,6 +22,8 @@ import {
   wordCount,
 } from '@/utils/compare-metrics';
 import type { CompareColumnState, CompareColumnStatus } from '@/hooks/useCompareRun';
+import type { CompareRubricCriterion } from '@/utils/lforage';
+import RubricPopover from '@/components/Compare/RubricPopover';
 import Text from '@/components/Message/Text';
 import CopyButton from '@/components/Message/CopyButton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -139,8 +141,15 @@ interface CompareColumnProps {
   /** Provider-reported or estimated cost, passed as primitives to keep memo effective. */
   costUsd?: number;
   isCostEstimate: boolean;
+  /** Set in blind runs ("A"-"D"): the column shows this letter and hides its identity. */
+  blindLetter?: string;
+  /** True until a blind run's vote reveals the model. */
+  isIdentityHidden: boolean;
+  /** Rubric scores can be given once the run has settled. */
+  canRate: boolean;
   onVote: (model: CompareColumnState['model']) => void;
   onStop: (columnId: string) => void;
+  onRate: (columnId: string, criterion: CompareRubricCriterion, score?: number) => void;
   /** Position in the run, used to stagger the entrance by 40ms per column. */
   index: number;
   className?: string;
@@ -157,13 +166,19 @@ const CompareColumn = ({
   isCheapest,
   costUsd,
   isCostEstimate,
+  blindLetter,
+  isIdentityHidden,
+  canRate,
   onVote,
   onStop,
+  onRate,
   index,
   className,
 }: CompareColumnProps) => {
   const { id, modelLabel, provider, status, content, error, isThinking, usage } = column;
   const headingId = `compare-column-${id}`;
+  // Every accessible name uses the display label, so screen readers do not leak a blind model.
+  const displayLabel = isIdentityHidden ? `Model ${blindLetter}` : modelLabel;
   const hasContent = content.trim().length > 0;
   // Status, vote and metric changes must not re-parse (and remount) the Markdown tree.
   const answer = useMemo(
@@ -223,16 +238,19 @@ const CompareColumn = ({
     },
     {
       label: 'Cost',
-      value: formatCost(
-        costUsd === undefined ? undefined : { usd: costUsd, isEstimate: isCostEstimate }
-      ),
-      title:
-        costUsd === undefined
+      value: isIdentityHidden
+        ? 'Hidden'
+        : formatCost(
+            costUsd === undefined ? undefined : { usd: costUsd, isEstimate: isCostEstimate }
+          ),
+      title: isIdentityHidden
+        ? 'Cost can reveal the model, so it stays hidden until you vote'
+        : costUsd === undefined
           ? 'No price is published for this model'
           : isCostEstimate
             ? 'Estimated from OpenRouter list prices'
             : 'Reported by the provider',
-      best: isCheapest ? 'Cheapest in this run' : undefined,
+      best: isCheapest && !isIdentityHidden ? 'Cheapest in this run' : undefined,
       bestIcon: CoinsIcon,
     },
   ];
@@ -251,18 +269,46 @@ const CompareColumn = ({
         className
       )}>
       <header className="flex min-w-0 items-center gap-2 border-b border-border/70 px-3 py-2">
-        <div className="min-w-0 flex-1">
+        {blindLetter && (
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+            {blindLetter}
+          </span>
+        )}
+        {/* Keyed by visibility, so the reveal after a blind vote resolves in like a focus pull,
+            staggered with the columns. */}
+        <div
+          key={isIdentityHidden ? 'hidden' : 'revealed'}
+          style={blindLetter ? { animationDelay: `${index * 40}ms` } : undefined}
+          className={cn(
+            'min-w-0 flex-1',
+            // Only the reveal animates; a hidden column already enters with its card.
+            blindLetter &&
+              !isIdentityHidden &&
+              'duration-250 ease-[var(--ease-out)] fill-mode-backwards animate-in fade-in-0 motion-safe:blur-in-xs'
+          )}>
           <h3
             id={headingId}
             className="truncate text-sm font-semibold tracking-tight text-foreground"
-            title={modelLabel}>
-            {modelLabel}
+            title={displayLabel}>
+            {displayLabel}
           </h3>
           <p
             className="truncate text-xs text-muted-foreground"
-            title={column.servedModelId ? `Served by ${column.servedModelId}` : undefined}>
-            {modelProviderLabels[provider]}
-            {column.servedModelId && <> - served by {column.servedModelId}</>}
+            title={
+              !isIdentityHidden && column.servedModelId
+                ? `Served by ${column.servedModelId}`
+                : undefined
+            }>
+            {isIdentityHidden ? (
+              'Revealed after you vote'
+            ) : (
+              <>
+                {modelProviderLabels[provider]}
+                {column.servedModelId && <> - served by {column.servedModelId}</>}
+              </>
+            )}
           </p>
         </div>
         {isWinner && (
@@ -280,7 +326,7 @@ const CompareColumn = ({
             size="icon"
             className="size-9 shrink-0 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             title="Stop this model"
-            aria-label={`Stop ${modelLabel}`}
+            aria-label={`Stop ${displayLabel}`}
             onClick={() => onStop(id)}>
             <CircleStopIcon />
           </Button>
@@ -363,8 +409,16 @@ const CompareColumn = ({
           {hasContent && !isActive && (
             <CopyButton
               text={content}
-              label={`${modelLabel} answer`}
+              label={`${displayLabel} answer`}
               className="size-9 duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:slide-in-from-bottom-1"
+            />
+          )}
+          {hasContent && !isActive && (
+            <RubricPopover
+              label={displayLabel}
+              rubric={column.rubric}
+              disabled={!canRate}
+              onRate={(criterion, score) => onRate(id, criterion, score)}
             />
           )}
           <Button
@@ -374,7 +428,7 @@ const CompareColumn = ({
             className="h-9 rounded-full px-3.5"
             disabled={!canVote || !hasContent}
             aria-pressed={isWinner}
-            aria-label={`Vote ${modelLabel} as the best answer`}
+            aria-label={`Vote ${displayLabel} as the best answer`}
             onClick={() => onVote(column.model)}>
             <TrophyIcon className={cn('size-3.5', isWinner && 'fill-current')} />
             {isWinner ? 'Best answer' : 'Best'}

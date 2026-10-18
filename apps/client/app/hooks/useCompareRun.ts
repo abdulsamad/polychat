@@ -12,6 +12,8 @@ import {
   getAnonymousWorkspaceAccount,
   saveCompareRun,
   saveCompareVote,
+  type CompareRubric,
+  type CompareRubricCriterion,
   type CompareWinner,
   type ICompareRun,
   type ICompareRunColumn,
@@ -43,6 +45,8 @@ export interface CompareRunState {
   winner: CompareWinner | null;
   /** True when the run was reopened from history rather than streamed in this session. */
   isFromHistory?: boolean;
+  /** Columns were shuffled and model names stay hidden until a vote is cast. */
+  blind?: boolean;
 }
 
 export const isSettledStatus = (status: CompareColumnStatus) =>
@@ -53,13 +57,54 @@ const isSettledColumn = (
 ): column is CompareColumnState & { status: ICompareRunColumn['status'] } =>
   isSettledStatus(column.status);
 
-const toRunRecord = ({ id, timestamp, prompt, columns, winner }: CompareRunState): ICompareRun => ({
+const toRunRecord = ({
+  id,
+  timestamp,
+  prompt,
+  columns,
+  winner,
+  blind,
+}: CompareRunState): ICompareRun => ({
   id,
   timestamp,
   prompt,
   winner,
+  ...(blind ? { blind } : {}),
   columns: columns.filter(isSettledColumn).map(({ isThinking: _isThinking, ...column }) => column),
 });
+
+/** Everything about a settled run that the history copy must reflect. */
+const getHistorySignature = ({ winner, columns }: CompareRunState) =>
+  JSON.stringify([winner, columns.map(({ rubric }) => rubric ?? null)]);
+
+const toVoteRecord = (run: CompareRunState, winner: CompareWinner): ICompareVote => ({
+  id: run.id,
+  timestamp: run.timestamp,
+  prompt: run.prompt,
+  winner,
+  ...(run.blind ? { blind: true } : {}),
+  results: run.columns.map((column) => ({
+    model: column.model,
+    provider: column.provider,
+    ttftMs: column.ttftMs ?? null,
+    totalMs: column.totalMs ?? null,
+    ...(column.usage ? { usage: column.usage } : {}),
+    ...(column.costUsd !== undefined ? { costUsd: column.costUsd } : {}),
+    ...(column.finishReason ? { finishReason: column.finishReason } : {}),
+    ...(column.rubric && Object.keys(column.rubric).length ? { rubric: column.rubric } : {}),
+    failed: column.status === 'failed' || !column.content.trim(),
+  })),
+});
+
+/** Fisher-Yates, so every order is equally likely in a blind run. */
+const shuffle = <T>(items: readonly T[]) => {
+  const result = items.slice();
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swap]] = [result[swap], result[index]];
+  }
+  return result;
+};
 
 /** Hides the served id when it is just a dated or namespaced form of the picked model. */
 const getServedModelId = (picked: string, served?: string) =>
@@ -102,8 +147,8 @@ const useCompareRun = ({
   onVoteSavedRef.current = onVoteSaved;
   const onRunSavedRef = useRef(onRunSaved);
   onRunSavedRef.current = onRunSaved;
-  /** The winner last written to history per run, so each settled state is saved once. */
-  const persistedRunsRef = useRef(new Map<string, CompareWinner | null>());
+  /** The history signature last written per run, so each settled state is saved once. */
+  const persistedRunsRef = useRef(new Map<string, string>());
   /** The last winner that was actually written for a run, used to roll back a failed change. */
   const savedVoteRef = useRef<{ runId: string; winner: CompareWinner } | null>(null);
 
@@ -159,13 +204,14 @@ const useCompareRun = ({
     setRun(null);
   }, [accountId, detachRun]);
 
-  // History: save a run once every column has settled, and again whenever its vote changes
-  // (including a rolled-back vote). Writes are queued, so they never overtake each other.
+  // History: save a run once every column has settled, and again whenever its vote or rubric
+  // scores change (including a rolled-back vote). Writes are queued, so they never overtake.
   useEffect(() => {
     if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
     const persisted = persistedRunsRef.current;
-    if (persisted.has(run.id) && persisted.get(run.id) === run.winner) return;
-    persisted.set(run.id, run.winner);
+    const signature = getHistorySignature(run);
+    if (persisted.get(run.id) === signature) return;
+    persisted.set(run.id, signature);
 
     const record = toRunRecord(run);
     enqueuePersistence(() => saveCompareRun(record))
@@ -299,11 +345,13 @@ const useCompareRun = ({
 
   /** Returns false when the run could not start, so the caller can keep the prompt. */
   const start = useCallback(
-    (rawPrompt: string, models: readonly ModelOption[]) => {
+    (rawPrompt: string, models: readonly ModelOption[], { blind = false } = {}) => {
       const prompt = rawPrompt.trim();
       if (!prompt || models.length < MIN_COMPARE_MODELS) return false;
 
-      const columns = models.slice(0, MAX_COMPARE_MODELS).map((model): CompareColumnState => ({
+      const picked = models.slice(0, MAX_COMPARE_MODELS);
+      // Blind runs shuffle the picker order, so a column's position says nothing about its model.
+      const columns = (blind ? shuffle(picked) : picked).map((model): CompareColumnState => ({
         id: crypto.randomUUID(),
         model: model.name,
         modelLabel: model.text,
@@ -351,6 +399,7 @@ const useCompareRun = ({
         startedAt: performance.now(),
         columns: columns.slice(),
         winner: null,
+        ...(blind ? { blind } : {}),
       });
       columns.forEach((_, index) => {
         void runColumn(runId, index, prompt, controllers[index].signal);
@@ -369,23 +418,7 @@ const useCompareRun = ({
     const run = runRef.current;
     if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
 
-    const record: ICompareVote = {
-      id: run.id,
-      timestamp: run.timestamp,
-      prompt: run.prompt,
-      winner,
-      results: run.columns.map((column) => ({
-        model: column.model,
-        provider: column.provider,
-        ttftMs: column.ttftMs ?? null,
-        totalMs: column.totalMs ?? null,
-        ...(column.usage ? { usage: column.usage } : {}),
-        ...(column.costUsd !== undefined ? { costUsd: column.costUsd } : {}),
-        ...(column.finishReason ? { finishReason: column.finishReason } : {}),
-        failed: column.status === 'failed' || !column.content.trim(),
-      })),
-    };
-
+    const record = toVoteRecord(run, winner);
     setRun((current) => (current?.id === run.id ? { ...current, winner } : current));
     try {
       const saved = await enqueuePersistence(() => saveCompareVote(record));
@@ -407,18 +440,53 @@ const useCompareRun = ({
     }
   }, []);
 
+  /**
+   * Sets or clears (score undefined, or the same score again) one rubric score. A run that was
+   * already voted on also updates its vote, so the leaderboard sees the new scores.
+   */
+  const rate = useCallback(
+    (columnId: string, criterion: CompareRubricCriterion, score?: number) => {
+      const run = runRef.current;
+      if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
+
+      const columns = run.columns.map((column) => {
+        if (column.id !== columnId) return column;
+        const rubric: CompareRubric = { ...column.rubric };
+        if (score === undefined || rubric[criterion] === score) delete rubric[criterion];
+        else rubric[criterion] = score;
+        return { ...column, rubric };
+      });
+      // Keep the ref current, so a second tap before the next render builds on this one.
+      runRef.current = { ...run, columns };
+      setRun((current) => (current?.id === run.id ? { ...current, columns } : current));
+
+      const winner = run.winner;
+      if (!winner || savedVoteRef.current?.runId !== run.id) return;
+      enqueuePersistence(() => saveCompareVote(toVoteRecord({ ...run, columns }, winner)))
+        .then((saved) => {
+          if (saved) onVoteSavedRef.current?.();
+        })
+        .catch((error) => {
+          console.error('Failed to save compare rubric', error);
+          toast.error('Could not save your rating locally.');
+        });
+    },
+    []
+  );
+
   /** Shows a saved run read-only (votes can still change). Any live run is aborted first. */
   const open = useCallback(
     (stored: ICompareRun) => {
       detachRun();
-      persistedRunsRef.current.set(stored.id, stored.winner);
-      savedVoteRef.current = stored.winner ? { runId: stored.id, winner: stored.winner } : null;
-      setRun({
+      const run: CompareRunState = {
         ...stored,
         startedAt: 0,
         isFromHistory: true,
         columns: stored.columns.map((column) => ({ ...column, isThinking: false })),
-      });
+      };
+      persistedRunsRef.current.set(stored.id, getHistorySignature(run));
+      savedVoteRef.current = stored.winner ? { runId: stored.id, winner: stored.winner } : null;
+      setRun(run);
     },
     [detachRun]
   );
@@ -433,7 +501,7 @@ const useCompareRun = ({
     run && !isRunning && run.columns.some(({ content }) => content.trim().length > 0)
   );
 
-  return { run, isRunning, canVote, start, stop: abortAll, stopColumn, vote, open, close };
+  return { run, isRunning, canVote, start, stop: abortAll, stopColumn, vote, rate, open, close };
 };
 
 export default useCompareRun;
