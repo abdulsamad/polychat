@@ -15,7 +15,7 @@
     "@ai-sdk/mistral": "catalog:",
     "@ai-sdk/openai": "catalog:",
     "@openrouter/ai-sdk-provider": "catalog:",
-    "@hono/node-server": "^1.19.17",
+    "@hono/node-server": "^2.1.4",
     "ai": "catalog:",
     "hono": "^4.13.5",
     "jose": "^5.10.0",
