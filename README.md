@@ -16,7 +16,9 @@ PolyChat is a focused workspace for thinking, creating, and working with AI.
 
 ## Features
 
-- **Compare models side by side** - Send one prompt to two to four text models at once and watch the answers stream in parallel. Each answer shows time to first token, total time, and input/output tokens. Vote for the best answer (or call a tie) to build a local leaderboard of wins, runs, and win rate per model.
+- **Compare models side by side** - Send one prompt to two to four text models at once and watch the answers stream in parallel. Each answer shows time to first token, total time, input/output tokens, and cost. Vote for the best answer (or call a tie) to build a local leaderboard of wins, runs, and win rate per model.
+- **Run compare experiments** - Override temperature, max output tokens, and profile per slot, take 1-3 samples per slot, attach up to four images, and continue with follow-up turns. Judge blind, rate answers with a correctness, clarity, and conciseness rubric, and retry a failed column without rerunning the others.
+- **Save prompt suites** - Store up to 20 prompts as a suite and run them in sequence against the selected models. Browse run history, filter by suite run, view a per-model summary, and export runs as JSON or CSV.
 - **Choose the right model** - Switch between supported language, image, and video models from a single conversation workspace.
 - **Tune each thread** - Choose a supported model, assistant profile, response language, and whether to send previous messages as multi-turn context.
 - **Use focused profiles** - Switch between Normal, Developer, Snarky Bot, Grammar Corrector, Doctor, Teacher, Historian, Chef, Data Scientist, Legal Advisor, and Custom profiles.
@@ -41,13 +43,13 @@ PolyChat is a local-first React application backed by a small authenticated API:
 - Clerk for authentication
 - Vercel AI SDK 7 with Google, OpenAI, Anthropic, Mistral, DeepSeek, and OpenRouter provider integrations
 - Hono, Node.js 22, and AWS Lambda for authenticated chat, image, and video requests
-- IndexedDB via localForage for local threads, images, compare votes, and the encrypted BYOK vault
+- IndexedDB via localForage for local threads, images, compare votes, run history, suites, and the encrypted BYOK vault
 
 ## Architecture
 
 ![PolyChat architecture: chat workspace, local state and keys, generation API, and model runtime](docs/architecture.png)
 
-The diagram covers the chat workspace, local persistence, the generation API, and the model runtime. Compare mode (`/compare`) reuses the same generation requests, but runs its streams independently of the chat queue and threads; only votes are persisted.
+The diagram covers the chat workspace, local persistence, the generation API, and the model runtime. Compare mode (`/compare`) reuses the same generation requests, but runs its streams independently of the chat queue and threads; only votes, run history, and prompt suites are persisted.
 
 ## BYOK vault and device unlock
 
