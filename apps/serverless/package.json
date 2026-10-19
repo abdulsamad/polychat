@@ -18,7 +18,7 @@
     "@hono/node-server": "^2.1.4",
     "ai": "catalog:",
     "hono": "^4.13.13",
-    "jose": "^5.10.0",
+    "jose": "^6.2.12",
     "utils": "workspace:*",
     "zod": "^4.6.6"
   },
