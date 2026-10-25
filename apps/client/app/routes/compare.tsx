@@ -19,6 +19,7 @@ import { userSettingsOpenAtom, userSettingsScrollTargetAtom } from '@/store';
 import { cn, MAX_HOSTED_FILE_BYTES, MAX_IMAGE_ATTACHMENTS, readFileAsDataUrl } from '@/utils';
 import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
 import useCompareRun, {
+  hasOutput,
   isSettledStatus,
   MAX_COMPARE_MODELS,
   MIN_COMPARE_MODELS,
@@ -52,6 +53,8 @@ import ComparePickers, {
   countSlotColumns,
   createCompareSlot,
   findDuplicateSlotIds,
+  findMismatchedSlotIds,
+  getSlotsOutputType,
   type CompareSlot,
 } from '@/components/Compare/ComparePickers';
 import CompareSuites from '@/components/Compare/CompareSuites';
@@ -75,8 +78,6 @@ const suggestions = [
   'Write a regex that validates an ISO 8601 date and explain it.',
   'What are the tradeoffs between REST and GraphQL for a mobile app?',
 ];
-
-const hasAnswer = ({ content }: CompareColumnState) => content.trim().length > 0;
 
 const blindLetters = ['A', 'B', 'C', 'D'] as const;
 const blindPreferenceKey = 'polychat-compare-blind';
@@ -116,7 +117,8 @@ const getRunStatus = (run: CompareRunState, getModelLabel: (model: string) => st
       ? `Vote saved: ${getModelLabel(run.winner)} wins. ${progress}`
       : `Comparing ${total} models: ${progress}`;
   }
-  if (!run.columns.some(hasAnswer)) {
+  // A pruned run answered once; only its media is gone.
+  if (!run.isMediaPruned && !run.columns.some(hasOutput)) {
     return 'No model returned an answer. Check the errors and try again.';
   }
   if (run.winner === 'tie') return 'Vote saved: it is a tie.';
@@ -132,8 +134,7 @@ const Compare = () => {
   const clerk = useClerk();
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
-  const { textModels, findModel, isModelAvailable, isProviderAvailable } =
-    useByokModelAvailability();
+  const { models, findModel, isModelAvailable, isProviderAvailable } = useByokModelAvailability();
   const { getPrice } = useModelPricing();
   const getVoteResultCost = useCallback(
     ({ model, provider, usage, costUsd }: ICompareVoteResult) =>
@@ -156,9 +157,11 @@ const Compare = () => {
     vote,
     rate,
     setBlind,
+    updateColumnVideo,
     open,
     close,
   } = useCompareRun({
+    findModel,
     onVoteSaved: votes.refresh,
     onRunSaved: history.refresh,
   });
@@ -172,18 +175,26 @@ const Compare = () => {
   // Hosted models need a Clerk session; BYOK models need an unlocked key for their provider.
   const runnableModels = useMemo(
     () =>
-      textModels.filter(
+      models.filter(
         (model) =>
           isModelAvailable(model) && (Boolean(isSignedIn) || isProviderAvailable(model.provider))
       ),
-    [isModelAvailable, isProviderAvailable, isSignedIn, textModels]
+    [isModelAvailable, isProviderAvailable, isSignedIn, models]
   );
+  const outputType = getSlotsOutputType(slots, findModel);
+  // A new comparison starts with chat models, or with the first type that can fill a run.
+  const fillType = slots.length
+    ? outputType
+    : ((['text', 'image', 'video'] as const).find(
+        (type) => runnableModels.filter((model) => model.type === type).length >= MIN_COMPARE_MODELS
+      ) ?? 'text');
 
-  // Fill the first slots with valid defaults. Existing picks are kept even while BYOK
-  // model discovery refreshes; unavailable picks are flagged instead of silently replaced.
+  // Fill the first slots with valid defaults of the run's type. Existing picks are kept even
+  // while BYOK model discovery refreshes; unavailable picks are flagged instead of silently
+  // replaced.
   useEffect(() => {
     if (countSlotColumns(slots) >= MIN_COMPARE_MODELS) return;
-    const names = runnableModels.map(({ name }) => name);
+    const names = runnableModels.filter(({ type }) => type === fillType).map(({ name }) => name);
     const preferred = [defaultModel, ...names].filter(
       (name, index, all) => names.includes(name) && all.indexOf(name) === index
     );
@@ -193,7 +204,7 @@ const Compare = () => {
       if (!next.some(({ model }) => model === name)) next.push(createCompareSlot(name));
     }
     if (next.length !== slots.length) setSlots(next);
-  }, [runnableModels, slots]);
+  }, [fillType, runnableModels, slots]);
 
   // Each slot becomes one column per sample; samples are numbered only when there are several.
   const entries = useMemo(
@@ -212,22 +223,26 @@ const Compare = () => {
   const hasUnavailableSlot = slots.some(
     ({ model }) => !runnableModels.some(({ name }) => name === model)
   );
+  const hasMismatchedSlots = findMismatchedSlotIds(slots, findModel).size > 0;
   const hasDuplicateSlots = findDuplicateSlotIds(slots).size > 0;
   const hasValidSelection =
     entries.length >= MIN_COMPARE_MODELS &&
     entries.length <= MAX_COMPARE_MODELS &&
     !hasUnavailableSlot &&
+    !hasMismatchedSlots &&
     !hasDuplicateSlots;
   const selectionReason = hasUnavailableSlot
     ? 'Replace the unavailable model.'
-    : hasDuplicateSlots
-      ? 'Two slots are identical. Change a setting, or use samples.'
-      : !hasValidSelection
-        ? 'Choose at least two columns to compare.'
-        : undefined;
+    : hasMismatchedSlots
+      ? 'All models in a run must be the same type.'
+      : hasDuplicateSlots
+        ? 'Two slots are identical. Change a setting, or use samples.'
+        : !hasValidSelection
+          ? 'Choose at least two columns to compare.'
+          : undefined;
   // Follow-up mode applies only while the shown run can still be continued.
   const isFollowingUp = isFollowUpMode && canFollowUp;
-  const followUpModels = isFollowingUp && run ? run.columns.filter(hasAnswer) : [];
+  const followUpModels = isFollowingUp && run ? run.columns.filter(hasOutput) : [];
   const trimmedPrompt = prompt.trim();
   const canSubmit =
     isReady && Boolean(trimmedPrompt) && !isRunning && (isFollowingUp || hasValidSelection);
@@ -236,12 +251,16 @@ const Compare = () => {
     : isFollowingUp
       ? undefined
       : selectionReason;
-  // Images go to every model in the run, so all of them must accept images.
+  // Images go to every model in the run, so all of them must accept images: as input for chat
+  // models, as references for image and video models (the same rule as the chat composer).
   const imageTargets = isFollowingUp
     ? followUpModels.map(({ model }) => findModel(model))
     : slots.map(({ model }) => findModel(model));
   const canAttachImages =
-    imageTargets.length > 0 && imageTargets.every((model) => model?.supportsVision);
+    imageTargets.length > 0 &&
+    imageTargets.every((model) =>
+      model?.type === 'text' ? model.supportsVision : model?.supportsImageReferences
+    );
   const attachImagesHint = canAttachImages
     ? `Attach up to ${MAX_IMAGE_ATTACHMENTS} images (2 MB total)`
     : 'Images need models that all accept images';
@@ -416,7 +435,7 @@ const Compare = () => {
   if (!isReady) return <Loading />;
 
   const answeredColumns = run
-    ? run.columns.filter((column) => column.status === 'done' && hasAnswer(column))
+    ? run.columns.filter((column) => column.status === 'done' && hasOutput(column))
     : [];
   const bests = getBests(answeredColumns, (column) => ({
     ttft: column.ttftMs,
@@ -429,7 +448,10 @@ const Compare = () => {
   // Saved runs have no live request to repeat, and a suite has already moved on to its next prompt.
   const canRetryColumns = Boolean(run && !run.isFromHistory && !activeSuite);
   const totalCost = run && isSettled ? runCost(run.columns, getColumnCost) : undefined;
-  const hasEnoughModels = runnableModels.length >= MIN_COMPARE_MODELS;
+  // A run compares one output type, so one type needs at least two runnable models.
+  const hasEnoughModels = (['text', 'image', 'video'] as const).some(
+    (type) => runnableModels.filter((model) => model.type === type).length >= MIN_COMPARE_MODELS
+  );
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -600,6 +622,9 @@ const Compare = () => {
                     onVote={handleVote}
                     onStop={stopColumn}
                     onRetry={canRetryColumns ? retryColumn : undefined}
+                    onVideoChange={updateColumnVideo}
+                    outputType={run.outputType ?? 'text'}
+                    isMediaPruned={Boolean(run.isMediaPruned)}
                     currentPrompt={column.history?.length ? run.prompt : undefined}
                     className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
                   />
@@ -623,9 +648,9 @@ const Compare = () => {
                     Ask once, compare every answer
                   </h3>
                   <p className="text-sm text-pretty text-muted-foreground">
-                    Pick two to four models below and send one prompt. Answers stream side by side
-                    with time to first token, total time and token usage. Then vote for the best one
-                    to build your own leaderboard.
+                    Pick two to four chat, image or video models below and send one prompt. Answers
+                    appear side by side with timing, token usage and cost. Then vote for the best
+                    one to build your own leaderboard.
                   </p>
                   <ul className="mt-1 flex flex-col items-stretch gap-2 sm:items-center">
                     {suggestions.map((suggestion, index) => (
@@ -655,7 +680,7 @@ const Compare = () => {
                   <p className="text-sm text-pretty text-muted-foreground">
                     {!isSignedIn
                       ? 'The shared models need an account. You can also add your own provider key (BYOK) in Settings to compare the models it unlocks.'
-                      : 'Add or unlock a provider key (BYOK) in Settings to unlock more text models.'}
+                      : 'Add or unlock a provider key (BYOK) in Settings to unlock more models.'}
                   </p>
                   <div className="mt-1 flex flex-wrap justify-center gap-2">
                     {!isSignedIn && (
@@ -715,10 +740,12 @@ const Compare = () => {
               <div className="flex min-w-0 items-start gap-1.5">
                 <div className="min-w-0 flex-1">
                   <ComparePickers
+                    models={models}
                     runnableModels={runnableModels}
                     slots={slots}
                     findModel={findModel}
                     onChange={setSlots}
+                    onAddProviderKey={openByokSettings}
                     disabled={isFollowingUp}
                   />
                 </div>

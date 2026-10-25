@@ -8,9 +8,12 @@ import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_PROFILE,
   DEFAULT_TEMPERATURE,
+  getMediaDefaults,
+  getMediaSettingOptions,
   hasCustomSettings,
   maxTokenOptions,
   normalizeSettings,
+  type SlotModel,
 } from '@/utils/compare-settings';
 import type { CompareSlotSettings } from '@/utils/lforage';
 import { Button } from '@/components/ui/button';
@@ -28,6 +31,8 @@ export const MAX_SAMPLES = 3;
 
 interface SlotSettingsPopoverProps {
   label: string;
+  /** The slot's model, which decides the settings shown; text settings when unknown. */
+  model?: SlotModel;
   settings?: CompareSlotSettings;
   samples: number;
   /** Highest sample count that still fits in the column budget. */
@@ -43,9 +48,83 @@ const segmentClass = (isSelected: boolean) =>
       'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
   );
 
-/** Per-slot overrides: temperature, output limit, profile, and how many samples to run. */
+/** A labeled pill group for a setting with a few fixed choices. */
+const SegmentedSetting = <T extends string | boolean>({
+  label,
+  value,
+  options,
+  onSelect,
+}: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; text: string }>;
+  onSelect: (value: T) => void;
+}) => (
+  <div className="flex flex-col gap-1 px-1">
+    <p className="text-xs font-medium text-foreground">{label}</p>
+    <div
+      role="group"
+      aria-label={label}
+      className="grid auto-cols-fr grid-flow-col gap-0.5 rounded-full bg-muted p-0.5">
+      {options.map((option) => (
+        <Button
+          key={String(option.value)}
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-pressed={value === option.value}
+          className={segmentClass(value === option.value)}
+          onClick={() => onSelect(option.value)}>
+          {option.text}
+        </Button>
+      ))}
+    </div>
+  </div>
+);
+
+/** A labeled select for a setting whose choices depend on the model. */
+const SelectSetting = ({
+  label,
+  value,
+  options,
+  format = (option) => option,
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  format?: (option: string) => string;
+  onSelect: (value: string) => void;
+}) => {
+  const id = useId();
+  return (
+    <div className="flex min-w-0 flex-col gap-1 px-1">
+      <label htmlFor={id} className="text-xs font-medium text-foreground">
+        {label}
+      </label>
+      <Select value={value} onValueChange={onSelect}>
+        <SelectTrigger id={id} className="h-9 rounded-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {format(option)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+};
+
+/**
+ * Per-slot overrides and how many samples to run. Text models tune temperature, output limit
+ * and profile; image and video models choose their output, matching the chat thread settings.
+ */
 const SlotSettingsPopover = ({
   label,
+  model,
   settings,
   samples,
   maxSamples,
@@ -54,12 +133,19 @@ const SlotSettingsPopover = ({
 }: SlotSettingsPopoverProps) => {
   const temperatureId = useId();
   const profileId = useId();
+  const type = model?.type ?? 'text';
   const temperature = settings?.temperature ?? DEFAULT_TEMPERATURE;
   const maxTokens = settings?.maxTokens ?? DEFAULT_MAX_TOKENS;
   const profile = settings?.profile ?? DEFAULT_PROFILE;
+  const mediaDefaults = model ? getMediaDefaults(model) : {};
+  const mediaOptions = model && type !== 'text' ? getMediaSettingOptions(model) : undefined;
+  const media = { ...mediaDefaults, ...settings };
   const isCustomized = hasCustomSettings(settings) || samples > 1;
   const update = (patch: Partial<CompareSlotSettings>, nextSamples = samples) =>
-    onChange({ settings: normalizeSettings({ ...settings, ...patch }), samples: nextSamples });
+    onChange({
+      settings: normalizeSettings({ ...settings, ...patch }, model),
+      samples: nextSamples,
+    });
 
   return (
     <Popover>
@@ -90,70 +176,146 @@ const SlotSettingsPopover = ({
           <p className="text-xs text-muted-foreground">Applies to this slot only.</p>
         </div>
 
-        <div className="flex flex-col gap-2 px-1">
-          <div className="flex items-center justify-between">
-            <label htmlFor={temperatureId} className="text-xs font-medium text-foreground">
-              Temperature
-            </label>
-            <span className="font-mono text-xs text-muted-foreground tabular-nums">
-              {temperature.toFixed(1)}
-            </span>
-          </div>
-          <Slider
-            id={temperatureId}
-            min={0}
-            max={2}
-            step={0.1}
-            value={[temperature]}
-            aria-label="Temperature"
-            onValueChange={([value]) => update({ temperature: value })}
-          />
-          <p className="flex justify-between text-[0.6875rem] text-muted-foreground">
-            <span>Focused</span>
-            <span>Creative</span>
-          </p>
-        </div>
+        {type === 'text' && (
+          <>
+            <div className="flex flex-col gap-2 px-1">
+              <div className="flex items-center justify-between">
+                <label htmlFor={temperatureId} className="text-xs font-medium text-foreground">
+                  Temperature
+                </label>
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                  {temperature.toFixed(1)}
+                </span>
+              </div>
+              <Slider
+                id={temperatureId}
+                min={0}
+                max={2}
+                step={0.1}
+                value={[temperature]}
+                aria-label="Temperature"
+                onValueChange={([value]) => update({ temperature: value })}
+              />
+              <p className="flex justify-between text-[0.6875rem] text-muted-foreground">
+                <span>Focused</span>
+                <span>Creative</span>
+              </p>
+            </div>
 
-        <div className="flex flex-col gap-1 px-1">
-          <p className="text-xs font-medium text-foreground">Max output tokens</p>
-          <div
-            role="group"
-            aria-label="Max output tokens"
-            className="grid grid-cols-4 gap-0.5 rounded-full bg-muted p-0.5">
-            {maxTokenOptions.map((option) => (
-              <Button
-                key={option}
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-pressed={maxTokens === option}
-                className={segmentClass(maxTokens === option)}
-                onClick={() => update({ maxTokens: option })}>
-                {option / 1000}k
-              </Button>
-            ))}
-          </div>
-        </div>
+            <div className="flex flex-col gap-1 px-1">
+              <p className="text-xs font-medium text-foreground">Max output tokens</p>
+              <div
+                role="group"
+                aria-label="Max output tokens"
+                className="grid grid-cols-4 gap-0.5 rounded-full bg-muted p-0.5">
+                {maxTokenOptions.map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={maxTokens === option}
+                    className={segmentClass(maxTokens === option)}
+                    onClick={() => update({ maxTokens: option })}>
+                    {option / 1000}k
+                  </Button>
+                ))}
+              </div>
+            </div>
 
-        <div className="flex flex-col gap-1 px-1">
-          <label htmlFor={profileId} className="text-xs font-medium text-foreground">
-            Profile
-          </label>
-          <Select
-            value={profile}
-            onValueChange={(value) => update({ profile: value as profilesType })}>
-            <SelectTrigger id={profileId} className="h-9 rounded-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {compareProfiles.map(({ code, text }) => (
-                <SelectItem key={code} value={code}>
-                  {text}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="flex flex-col gap-1 px-1">
+              <label htmlFor={profileId} className="text-xs font-medium text-foreground">
+                Profile
+              </label>
+              <Select
+                value={profile}
+                onValueChange={(value) => update({ profile: value as profilesType })}>
+                <SelectTrigger id={profileId} className="h-9 rounded-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {compareProfiles.map(({ code, text }) => (
+                    <SelectItem key={code} value={code}>
+                      {text}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        {type === 'image' && mediaOptions && (
+          <>
+            {mediaOptions.sizes.length > 0 && (
+              <SelectSetting
+                label="Image size"
+                value={media.size ?? mediaOptions.sizes[0]}
+                options={mediaOptions.sizes}
+                onSelect={(size) => update({ size })}
+              />
+            )}
+            {mediaOptions.hasQualityAndStyle && (
+              <>
+                <SegmentedSetting
+                  label="Quality"
+                  value={media.quality ?? 'standard'}
+                  options={[
+                    { value: 'standard', text: 'Standard' },
+                    { value: 'hd', text: 'HD' },
+                  ]}
+                  onSelect={(quality) => update({ quality })}
+                />
+                <SegmentedSetting
+                  label="Style"
+                  value={media.style ?? 'vivid'}
+                  options={[
+                    { value: 'vivid', text: 'Vivid' },
+                    { value: 'natural', text: 'Natural' },
+                  ]}
+                  onSelect={(style) => update({ style })}
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {type === 'video' && mediaOptions && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <SelectSetting
+                label="Duration"
+                value={String(media.duration ?? mediaOptions.durations[0])}
+                options={mediaOptions.durations.map(String)}
+                format={(value) => `${value}s`}
+                onSelect={(value) => update({ duration: Number(value) })}
+              />
+              <SelectSetting
+                label="Resolution"
+                value={media.resolution ?? mediaOptions.resolutions[0]}
+                options={mediaOptions.resolutions}
+                onSelect={(resolution) => update({ resolution })}
+              />
+            </div>
+            <SelectSetting
+              label="Aspect ratio"
+              value={media.aspectRatio ?? mediaOptions.aspectRatios[0]}
+              options={mediaOptions.aspectRatios}
+              onSelect={(aspectRatio) => update({ aspectRatio })}
+            />
+            {mediaOptions.canGenerateAudio && (
+              <SegmentedSetting
+                label="Audio"
+                value={media.generateAudio ?? false}
+                options={[
+                  { value: false, text: 'Off' },
+                  { value: true, text: 'On' },
+                ]}
+                onSelect={(generateAudio) => update({ generateAudio })}
+              />
+            )}
+          </>
+        )}
 
         <div className="flex flex-col gap-1 px-1">
           <p className="text-xs font-medium text-foreground">Samples</p>

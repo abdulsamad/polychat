@@ -4,12 +4,8 @@ import { useUser } from '@clerk/react-router';
 import { useSetAtom } from 'jotai';
 import { fetchVideoApi, VideoApiError } from 'utils';
 
-import type { IMessageCommons, IVideoMessage, ThreadId } from '@/store';
-import {
-  upsertThreadMessageAtom,
-  userSettingsOpenAtom,
-  userSettingsScrollTargetAtom,
-} from '@/store';
+import type { IVideoMessage } from '@/store';
+import { userSettingsOpenAtom, userSettingsScrollTargetAtom } from '@/store';
 import { getAnonymousWorkspaceAccount } from '@/utils/lforage';
 import { getProviderKey, subscribeVault } from '@/utils/byok-vault';
 import { finishVideoJob, isVideoJobActive } from '@/utils/video-jobs';
@@ -17,14 +13,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface VideoProps {
-  id: IMessageCommons['id'];
+  /** The message or compare column the video belongs to. */
+  id: string;
   video: IVideoMessage['video_url'];
   model: string;
-  threadId: ThreadId;
-  metadata: IMessageCommons['metadata'];
+  /** Persists a status change (resumed, expired, failed) wherever the video is stored. */
+  onChange: (next: IVideoMessage['video_url']) => void;
 }
 
-const Video = ({ id, video, threadId, metadata }: VideoProps) => {
+const Video = ({ id, video, onChange: save }: VideoProps) => {
   const { user } = useUser();
   const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const apiKey = useSyncExternalStore(
@@ -32,7 +29,6 @@ const Video = ({ id, video, threadId, metadata }: VideoProps) => {
     () => getProviderKey(accountId, 'openrouter') || '',
     () => ''
   );
-  const upsert = useSetAtom(upsertThreadMessageAtom);
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setSettingsTarget = useSetAtom(userSettingsScrollTargetAtom);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
@@ -41,24 +37,12 @@ const Video = ({ id, video, threadId, metadata }: VideoProps) => {
   const [reload, setReload] = useState(0);
   const resumeController = useRef<AbortController | null>(null);
 
-  const save = (next: IVideoMessage['video_url']) =>
-    upsert({
-      threadId,
-      message: {
-        id,
-        content: '',
-        role: 'assistant',
-        type: 'video_url',
-        video_url: next,
-        metadata: { ...metadata, requestState: undefined },
-      },
-    });
   const openSettings = () => {
     setSettingsTarget('byok');
     setSettingsOpen(true);
   };
 
-  useEffect(() => () => resumeController.current?.abort(), [accountId, threadId, id]);
+  useEffect(() => () => resumeController.current?.abort(), [accountId, id]);
 
   useEffect(() => {
     setPlaybackUrl(null);
@@ -102,7 +86,7 @@ const Video = ({ id, video, threadId, metadata }: VideoProps) => {
       controller.abort();
       if (localUrl) URL.revokeObjectURL(localUrl);
     };
-  }, [video.url, video.sourceUrl, video.status, apiKey, reload, accountId, threadId, id]);
+  }, [video.url, video.sourceUrl, video.status, apiKey, reload, accountId, id]);
 
   const resume = async () => {
     if (!video.jobId || checking || isVideoJobActive(video.jobId)) return;

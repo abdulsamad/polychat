@@ -14,6 +14,7 @@ import {
   type UserSettingsScrollTarget,
 } from '@/store';
 import { IS_SPEECH_SYNTHESIS_SUPPORTED } from '@/utils';
+import { getVideoSettingOptions } from '@/utils/video-settings';
 import { useByokModelAvailability } from '@/hooks/useByokModelAvailability';
 import { Button } from '@/components/ui/button';
 import {
@@ -139,15 +140,11 @@ const SettingsDropdown = () => {
     ? imageSize
     : imageSizeConfig.default;
   const videoCapabilities = selectedModel?.videoCapabilities;
-  const durationOptions = videoCapabilities?.durations?.length
-    ? videoCapabilities.durations
-    : [4, 5, 6, 8, 10, 15];
-  const resolutionOptions = videoCapabilities?.resolutions?.length
-    ? videoCapabilities.resolutions
-    : ['480p', '720p', '1080p'];
-  const aspectRatioOptions = videoCapabilities?.aspectRatios?.length
-    ? videoCapabilities.aspectRatios
-    : ['16:9', '9:16', '1:1'];
+  const {
+    durations: durationOptions,
+    resolutions: resolutionOptions,
+    aspectRatios: aspectRatioOptions,
+  } = getVideoSettingOptions(videoCapabilities);
   const updateModelConfig = (update: Record<string, unknown>) =>
     updateThreadSettings({ modelConfig: { ...modelConfig, ...update } } as Parameters<
       typeof updateThreadSettings

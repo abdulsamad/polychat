@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { PlusIcon, XIcon } from 'lucide-react';
 import { useReducedMotion } from 'motion/react';
 
 import { cn } from '@/utils';
-import { configurationKey, describeSettings } from '@/utils/compare-settings';
+import { configurationKey, describeSettings, normalizeSettings } from '@/utils/compare-settings';
 import type { CompareSlotSettings } from '@/utils/lforage';
 import type { ModelOption } from '@/hooks/useByokModelAvailability';
 import { MAX_COMPARE_MODELS, MIN_COMPARE_MODELS } from '@/hooks/useCompareRun';
@@ -50,20 +50,48 @@ export const findDuplicateSlotIds = (slots: readonly CompareSlot[]) => {
   return duplicates;
 };
 
+/** The output type of a run: its first slot's model type, text until a slot is picked. */
+export const getSlotsOutputType = (
+  slots: readonly CompareSlot[],
+  findModel: (name: string) => ModelOption | undefined
+): ModelOption['type'] => (slots[0] && findModel(slots[0].model)?.type) || 'text';
+
+/** Slots whose model type differs from the run's; votes only compare like with like. */
+export const findMismatchedSlotIds = (
+  slots: readonly CompareSlot[],
+  findModel: (name: string) => ModelOption | undefined
+) => {
+  const outputType = getSlotsOutputType(slots, findModel);
+  return new Set(
+    slots
+      .filter(({ model }) => {
+        const type = findModel(model)?.type;
+        return type !== undefined && type !== outputType;
+      })
+      .map(({ id }) => id)
+  );
+};
+
 interface ComparePickersProps {
+  /** Every model, as chat lists them; the ones that cannot run now are shown disabled. */
+  models: readonly ModelOption[];
   /** Models the user can run right now. */
   runnableModels: readonly ModelOption[];
   slots: readonly CompareSlot[];
   findModel: (name: string) => ModelOption | undefined;
   onChange: (slots: CompareSlot[]) => void;
+  /** Opens the BYOK key settings from the picker's unlock hints. */
+  onAddProviderKey?: () => void;
   disabled?: boolean;
 }
 
 const ComparePickers = ({
+  models,
   runnableModels,
   slots,
   findModel,
   onChange,
+  onAddProviderKey,
   disabled,
 }: ComparePickersProps) => {
   // The default slots appear with the page; only slots the user adds later animate in.
@@ -86,14 +114,24 @@ const ComparePickers = ({
     // Cleared once used, so a later remount of that picker does not open it again.
     setAddedSlotId(null);
   }, [addedSlotId, shouldReduceMotion]);
+  // The same list as the chat picker; models that cannot run here stay visible but locked.
+  const options = useMemo(() => {
+    const runnable = new Set(runnableModels.map(({ name }) => name));
+    return models.map((model) =>
+      runnable.has(model.name) || model.disabled ? model : { ...model, disabled: true }
+    );
+  }, [models, runnableModels]);
   const totalColumns = countSlotColumns(slots);
   const selectedModels = slots.map(({ model }) => model);
-  // Prefer a model that is not in use yet; the same model may still be added again to compare
-  // it under different settings.
+  const outputType = getSlotsOutputType(slots, findModel);
+  // Prefer a model of the run's type that is not in use yet; the same model may still be
+  // added again to compare it under different settings.
+  const sameTypeModels = runnableModels.filter(({ type }) => type === outputType);
   const nextModel =
-    runnableModels.find(({ name }) => !selectedModels.includes(name)) ?? runnableModels[0];
+    sameTypeModels.find(({ name }) => !selectedModels.includes(name)) ?? sameTypeModels[0];
   const canAdd = totalColumns < MAX_COMPARE_MODELS && Boolean(nextModel);
   const duplicateIds = findDuplicateSlotIds(slots);
+  const mismatchedIds = findMismatchedSlotIds(slots, findModel);
   const updateSlot = (slotId: string, patch: Partial<CompareSlot>) =>
     onChange(slots.map((item) => (item.id === slotId ? { ...item, ...patch } : item)));
 
@@ -105,11 +143,8 @@ const ComparePickers = ({
           const current = findModel(slot.model);
           const samples = slot.samples ?? 1;
           const isUnavailable = !runnableModels.some(({ name }) => name === slot.model);
+          const isMismatched = mismatchedIds.has(slot.id);
           const isDuplicate = duplicateIds.has(slot.id);
-          const options = [
-            ...(isUnavailable && current ? [{ ...current, disabled: true }] : []),
-            ...runnableModels,
-          ];
           const variant = [describeSettings(slot.settings), samples > 1 && `x${samples}`]
             .filter(Boolean)
             .join(' - ');
@@ -136,15 +171,25 @@ const ComparePickers = ({
                   placeholder="Choose a model"
                   className={cn(
                     'h-9 w-full rounded-full text-left text-sm',
-                    (isUnavailable || isDuplicate) && 'border-destructive/60'
+                    (isUnavailable || isMismatched || isDuplicate) && 'border-destructive/60'
                   )}
+                  onAddProviderKey={onAddProviderKey}
                   onValueChange={(nextModelName) => {
-                    if (nextModelName) updateSlot(slot.id, { model: nextModelName });
+                    if (!nextModelName) return;
+                    // Settings the new model does not offer (or of another type) are dropped.
+                    updateSlot(slot.id, {
+                      model: nextModelName,
+                      settings: normalizeSettings(slot.settings, findModel(nextModelName)),
+                    });
                   }}
                 />
                 {isUnavailable ? (
                   <p className="mt-1 px-2 text-xs text-destructive">
                     Unavailable. Pick another model.
+                  </p>
+                ) : isMismatched ? (
+                  <p className="mt-1 px-2 text-xs text-destructive">
+                    All models in a run must be the same type.
                   </p>
                 ) : isDuplicate ? (
                   <p className="mt-1 px-2 text-xs text-destructive">
@@ -160,6 +205,7 @@ const ComparePickers = ({
               </div>
               <SlotSettingsPopover
                 label={label}
+                model={current}
                 settings={slot.settings}
                 samples={samples}
                 maxSamples={Math.min(MAX_SAMPLES, MAX_COMPARE_MODELS - (totalColumns - samples))}

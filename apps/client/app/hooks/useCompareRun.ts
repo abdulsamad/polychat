@@ -3,10 +3,15 @@ import { useAtomValue } from 'jotai';
 import { useAuth, useUser } from '@clerk/react-router';
 import { toast } from 'sonner';
 
-import type { ImageAttachment } from 'utils';
-import { configAtom, enqueuePersistence, type IMessage } from '@/store';
+import { VideoApiError, type ImageAttachment } from 'utils';
+import { configAtom, enqueuePersistence, type IMessage, type IVideoMessage } from '@/store';
 import { toModelConfig } from '@/utils/compare-settings';
-import { getGeneratedText, type ChatStreamPart } from '@/utils/api-calls';
+import {
+  getGeneratedImage,
+  getGeneratedText,
+  getGeneratedVideo,
+  type ChatStreamPart,
+} from '@/utils/api-calls';
 import { providerForModel } from '@/utils/byok-providers';
 import { getProviderKey, isProviderConfiguredSync } from '@/utils/byok-vault';
 import {
@@ -14,6 +19,7 @@ import {
   saveCompareRun,
   saveCompareVote,
   type CompareRubric,
+  type CompareOutputType,
   type CompareRubricCriterion,
   type CompareSlotSettings,
   type CompareSuiteTag,
@@ -30,6 +36,9 @@ const STREAM_UPDATE_INTERVAL_MS = 60;
 
 export const MIN_COMPARE_MODELS = 2;
 export const MAX_COMPARE_MODELS = 4;
+/** The image request schema accepts at most four reference images. */
+const MAX_REFERENCE_IMAGES = 4;
+const STOPPED_VIDEO_MESSAGE = 'Stopped checking. The provider may still be generating your video.';
 
 export type CompareColumnStatus = 'waiting' | 'streaming' | 'done' | 'failed' | 'stopped';
 
@@ -59,14 +68,18 @@ export interface CompareRunState {
   /** Image data for this run's prompt; live only, never written to history. */
   imageAttachments?: ImageAttachment[];
   suite?: CompareSuiteTag;
+  outputType?: ICompareRun['outputType'];
+  isMediaPruned?: boolean;
 }
 
 /** One column to run: a model configuration, optionally with earlier turns to continue. */
 export interface CompareEntry {
-  model: Pick<ModelOption, 'name' | 'text' | 'provider'>;
+  model: Pick<ModelOption, 'name' | 'text' | 'provider' | 'type'>;
   settings?: CompareSlotSettings;
   sample?: number;
   history?: CompareTurn[];
+  /** The column's own previous image, sent back so an image follow-up refines it. Live only. */
+  referenceImage?: ImageAttachment;
 }
 
 export interface CompareStartOptions {
@@ -83,10 +96,46 @@ export interface CompareStartOptions {
 export const isSettledStatus = (status: CompareColumnStatus) =>
   status === 'done' || status === 'failed' || status === 'stopped';
 
+/** A column produced something to judge: text, an image, or a video that finished. */
+export const hasOutput = ({
+  content,
+  image,
+  video,
+}: Pick<ICompareRunColumn, 'content' | 'image' | 'video'>) =>
+  content.trim().length > 0 || Boolean(image?.url) || video?.status === 'ready';
+
 const isSettledColumn = (
   column: CompareColumnState
 ): column is CompareColumnState & { status: ICompareRunColumn['status'] } =>
   isSettledStatus(column.status);
+
+/**
+ * A settled column as stored. A column still running only reaches history in the snapshot taken
+ * once a video job is accepted; it is saved as stopped, so a reload offers to check the job.
+ */
+const toColumnRecord = (column: CompareColumnState): ICompareRunColumn => {
+  const { isThinking: _isThinking, startedAt: _startedAt, ...stored } = column;
+  return isSettledColumn(column)
+    ? { ...stored, status: column.status }
+    : { ...stored, status: 'stopped' };
+};
+
+/** A generated image as a reference attachment for the next turn. */
+const toReferenceImage = ({
+  id,
+  image,
+}: Pick<ICompareRunColumn, 'id' | 'image'>): ImageAttachment | undefined => {
+  const encoded = image?.url.match(/^data:image\/[a-z]+;base64,(.+)$/)?.[1];
+  if (!image || !encoded) return undefined;
+  const padding = encoded.endsWith('==') ? 2 : encoded.endsWith('=') ? 1 : 0;
+  return {
+    id: `previous-${id}`,
+    name: 'previous-image.png',
+    mediaType: image.url.slice(5, image.url.indexOf(';')),
+    size: Math.max(1, Math.floor((encoded.length * 3) / 4) - padding),
+    dataUrl: image.url,
+  };
+};
 
 const toRunRecord = ({
   id,
@@ -99,6 +148,8 @@ const toRunRecord = ({
   parentRunId,
   attachments,
   suite,
+  outputType,
+  isMediaPruned,
 }: CompareRunState): ICompareRun => ({
   id,
   timestamp,
@@ -109,9 +160,9 @@ const toRunRecord = ({
   ...(parentRunId ? { parentRunId } : {}),
   ...(attachments?.length ? { attachments } : {}),
   ...(suite ? { suite } : {}),
-  columns: columns
-    .filter(isSettledColumn)
-    .map(({ isThinking: _isThinking, startedAt: _startedAt, ...column }) => column),
+  ...(outputType ? { outputType } : {}),
+  ...(isMediaPruned ? { isMediaPruned } : {}),
+  columns: columns.map(toColumnRecord),
 });
 
 /** Everything about a settled run that the history copy must reflect, including retried columns. */
@@ -120,13 +171,21 @@ const getHistorySignature = ({ winner, winnerColumnId, blind, columns }: Compare
     winner,
     winnerColumnId ?? null,
     Boolean(blind),
-    columns.map(({ status, content, error, rubric }) => [
+    columns.map(({ status, content, error, rubric, image, video }) => [
       status,
       content.length,
       error ?? null,
       rubric ?? null,
+      image?.url.length ?? null,
+      video?.status ?? null,
+      video?.jobId ?? null,
     ]),
   ]);
+
+/** A video run with a job the provider accepted is saved before it settles, to survive a reload. */
+const hasPendingVideoJob = ({ outputType, columns }: CompareRunState) =>
+  outputType === 'video' &&
+  columns.some(({ status, video }) => !isSettledStatus(status) && Boolean(video?.jobId));
 
 const toVoteRecord = (
   run: CompareRunState,
@@ -139,6 +198,7 @@ const toVoteRecord = (
   winner,
   ...(winnerColumnId ? { winnerColumnId } : {}),
   ...(run.blind ? { blind: true } : {}),
+  ...(run.outputType ? { outputType: run.outputType } : {}),
   results: run.columns.map((column) => ({
     model: column.model,
     provider: column.provider,
@@ -148,7 +208,7 @@ const toVoteRecord = (
     ...(column.costUsd !== undefined ? { costUsd: column.costUsd } : {}),
     ...(column.finishReason ? { finishReason: column.finishReason } : {}),
     ...(column.rubric && Object.keys(column.rubric).length ? { rubric: column.rubric } : {}),
-    failed: column.status === 'failed' || !column.content.trim(),
+    failed: column.status === 'failed' || !hasOutput(column),
   })),
 });
 
@@ -209,14 +269,20 @@ const toErrorMessage = (error: unknown) => {
 };
 
 /**
- * Runs one prompt against several text models in parallel. Each column owns its
- * AbortController, so one failure or stop never affects the other columns. Runs
- * are ephemeral; only the vote is persisted.
+ * Runs one prompt against several models of one output type (text, image or video) in
+ * parallel. Each column owns its AbortController, so one failure or stop never affects the
+ * other columns. Settled runs and votes are saved to history.
  */
 const useCompareRun = ({
+  findModel,
   onVoteSaved,
   onRunSaved,
-}: { onVoteSaved?: () => void; onRunSaved?: () => void } = {}) => {
+}: {
+  /** Resolves a column's model, for its capabilities and media settings at request time. */
+  findModel?: (name: string) => ModelOption | undefined;
+  onVoteSaved?: () => void;
+  onRunSaved?: () => void;
+} = {}) => {
   const config = useAtomValue(configAtom);
   const { getToken, isSignedIn } = useAuth();
   const { user } = useUser();
@@ -230,6 +296,11 @@ const useCompareRun = ({
   const controllersRef = useRef<AbortController[]>([]);
   /** The live run's images, kept so a retried column sends the same request. */
   const imagesRef = useRef<{ latest?: ImageAttachment[]; previous?: ImageAttachment[] }>({});
+  /** Each live column's own previous image (image follow-ups), by column id. */
+  const referencesRef = useRef(new Map<string, ImageAttachment>());
+  const outputTypeRef = useRef<CompareOutputType>('text');
+  const findModelRef = useRef(findModel);
+  findModelRef.current = findModel;
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const onVoteSavedRef = useRef(onVoteSaved);
@@ -277,6 +348,7 @@ const useCompareRun = ({
     controllersRef.current.forEach((controller) => controller.abort());
     controllersRef.current = [];
     imagesRef.current = {};
+    referencesRef.current = new Map();
     runIdRef.current = null;
     columnsRef.current = [];
     if (flushTimerRef.current !== null) clearTimeout(flushTimerRef.current);
@@ -304,15 +376,19 @@ const useCompareRun = ({
   }, [accountId, detachRun]);
 
   // History: save a run once every column has settled, and again whenever its vote or rubric
-  // scores change (including a rolled-back vote). Writes are queued, so they never overtake.
+  // scores change (including a rolled-back vote). A video run is also saved once a job is
+  // accepted, so a reload can resume it. Writes are queued, so they never overtake.
   useEffect(() => {
-    if (!run || !run.columns.every(({ status }) => isSettledStatus(status))) return;
+    if (!run) return;
+    const isSettled = run.columns.every(({ status }) => isSettledStatus(status));
+    if (!isSettled && !hasPendingVideoJob(run)) return;
     const persisted = persistedRunsRef.current;
     const signature = getHistorySignature(run);
     if (persisted.get(run.id) === signature) return;
     persisted.set(run.id, signature);
 
     if (
+      isSettled &&
       run.winner &&
       staleVoteRunRef.current === run.id &&
       savedVoteRef.current?.runId === run.id
@@ -358,7 +434,17 @@ const useCompareRun = ({
         else scheduleFlush();
       };
       const elapsed = () => Math.round(performance.now() - startedAt);
-      const { model, provider, settings, history } = columnsRef.current[index];
+      const { id: columnId, model, provider, settings, history } = columnsRef.current[index];
+      const outputType = outputTypeRef.current;
+      const option = findModelRef.current?.(model);
+      const slotModel = {
+        name: model,
+        type: outputType,
+        imageCapabilities: option?.imageCapabilities,
+        videoCapabilities: option?.videoCapabilities,
+      };
+      /** The accepted video job, kept so a stop or failure can still offer to check it. */
+      let videoJob: IVideoMessage['video_url'] | undefined;
 
       let reader: ReadableStreamDefaultReader<ChatStreamPart> | undefined;
       let content = '';
@@ -370,14 +456,113 @@ const useCompareRun = ({
         update({ ...patch, isThinking: false, totalMs: elapsed() }, true);
       };
       // Settle immediately on Stop, even if a provider stream is slow to reject after abort.
+      // A stopped video keeps its job, since the provider may still finish it.
       const onAbort = () => {
         void reader?.cancel().catch(() => undefined);
-        settle({ status: 'stopped' });
+        settle({
+          status: 'stopped',
+          ...(videoJob
+            ? { video: { ...videoJob, status: 'failed', error: STOPPED_VIDEO_MESSAGE } }
+            : {}),
+        });
       };
       signal.addEventListener('abort', onAbort, { once: true });
 
       try {
         const apiKey = getProviderKey(accountId, provider);
+
+        if (outputType === 'image') {
+          const imageConfig = toModelConfig(slotModel, settings);
+          const reference = referencesRef.current.get(columnId);
+          // The column's own image leads, so a full set of attachments never crowds it out.
+          const referenceImages = option?.supportsImageReferences
+            ? [...(reference ? [reference] : []), ...(images.latest ?? [])].slice(
+                0,
+                MAX_REFERENCE_IMAGES
+              )
+            : undefined;
+          update({ status: 'streaming' }, true);
+          const result = await getGeneratedImage({
+            prompt,
+            model,
+            provider,
+            size: imageConfig.size,
+            quality: imageConfig.quality ?? 'standard',
+            style: imageConfig.style ?? 'vivid',
+            referenceImages,
+            getToken,
+            apiKey,
+            signal,
+          });
+          if (!('b64_json' in result)) {
+            throw Object.assign(new Error(result.err), { status: result.status });
+          }
+          if (signal.aborted) {
+            onAbort();
+            return;
+          }
+          const { usage } = result;
+          const hasUsage = Boolean(
+            usage &&
+            [usage.inputTokens, usage.outputTokens, usage.totalTokens].some(
+              (value) => typeof value === 'number'
+            )
+          );
+          settle({
+            status: 'done',
+            image: {
+              url: `data:image/png;base64,${result.b64_json}`,
+              alt: result.revisedPrompt ?? '',
+              size: imageConfig.size ?? '',
+            },
+            ...(hasUsage ? { usage } : {}),
+          });
+          return;
+        }
+
+        if (outputType === 'video') {
+          const videoStartedAt = Date.now();
+          update({ status: 'streaming' }, true);
+          const result = await getGeneratedVideo({
+            prompt,
+            model,
+            provider,
+            apiKey,
+            modelConfig: toModelConfig(slotModel, settings),
+            inputReferences: images.latest,
+            signal,
+            onJob: (job, downloading) => {
+              videoJob = {
+                url: '',
+                mediaType: 'video/mp4',
+                size: 0,
+                status: 'generating',
+                jobId: job.id,
+                startedAt: videoStartedAt,
+                jobStatus: downloading
+                  ? 'completed'
+                  : job.status === 'pending'
+                    ? 'pending'
+                    : 'in_progress',
+              };
+              if (!settled) update({ video: videoJob }, true);
+            },
+          });
+          if (!('url' in result)) {
+            throw Object.assign(new Error(result.err), { status: result.status });
+          }
+          if (signal.aborted) {
+            onAbort();
+            return;
+          }
+          settle({
+            status: 'done',
+            video: { ...result, startedAt: videoStartedAt },
+            ...(typeof result.cost === 'number' ? { costUsd: result.cost } : {}),
+          });
+          return;
+        }
+
         const request = {
           model,
           provider,
@@ -385,7 +570,7 @@ const useCompareRun = ({
           // picks another preset. The custom profile is never offered in compare.
           profile: settings?.profile ?? 'normal',
           language: config.language,
-          modelConfig: toModelConfig(model, settings),
+          modelConfig: toModelConfig(slotModel, settings),
           getToken,
           apiKey,
           // Compare measures each answer, so a hidden retry would hide the failure and add its
@@ -464,7 +649,22 @@ const useCompareRun = ({
         }
         void reader?.cancel().catch(() => undefined);
         console.error(error);
-        settle({ status: 'failed', error: toErrorMessage(error) });
+        const message = toErrorMessage(error);
+        settle({
+          status: 'failed',
+          error: message,
+          // A failed job can often still be checked without paying for another generation.
+          ...(videoJob
+            ? {
+                video: {
+                  ...videoJob,
+                  status: 'failed',
+                  error: message,
+                  terminal: error instanceof VideoApiError && error.terminal,
+                },
+              }
+            : {}),
+        });
       } finally {
         signal.removeEventListener('abort', onAbort);
       }
@@ -480,6 +680,10 @@ const useCompareRun = ({
       if (!prompt || entries.length < MIN_COMPARE_MODELS) return false;
 
       const picked = entries.slice(0, MAX_COMPARE_MODELS);
+      // Votes and metrics only compare like with like, so a run has one output type.
+      const outputTypes = new Set(picked.map(({ model }) => model.type));
+      if (outputTypes.size !== 1) return false;
+      const [outputType] = outputTypes;
       // Blind runs shuffle the picker order, so a column's position says nothing about its model.
       const ordered = blind && !keepOrder ? shuffle(picked) : picked;
       const columns = ordered.map(({ model, settings, sample, history }): CompareColumnState => ({
@@ -523,6 +727,12 @@ const useCompareRun = ({
       runIdRef.current = runId;
       columnsRef.current = columns;
       controllersRef.current = controllers;
+      outputTypeRef.current = outputType;
+      referencesRef.current = new Map(
+        ordered.flatMap(({ referenceImage }, index) =>
+          referenceImage ? [[columns[index].id, referenceImage] as const] : []
+        )
+      );
       if (flushTimerRef.current !== null) clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
 
@@ -546,6 +756,7 @@ const useCompareRun = ({
             }
           : {}),
         ...(suite ? { suite } : {}),
+        ...(outputType !== 'text' ? { outputType } : {}),
       });
       const images = { latest: imageAttachments, previous: options.parentImageAttachments };
       imagesRef.current = images;
@@ -560,21 +771,33 @@ const useCompareRun = ({
   /**
    * Continues the current run with a new prompt. Every column that answered keeps its own
    * conversation (and settings), so models are judged on how they follow up on themselves.
-   * The new turn is a separate run with its own vote.
+   * Image columns get their previous image back as a reference to refine; media requests take
+   * no earlier turns, so those keep only their prompts. The new turn is a separate run with its
+   * own vote.
    */
   const followUp = useCallback(
     (rawPrompt: string, imageAttachments?: ImageAttachment[]) => {
       const parent = runRef.current;
       if (!parent || !parent.columns.every(({ status }) => isSettledStatus(status))) return false;
 
-      const entries = parent.columns
-        .filter(({ content }) => content.trim())
-        .map((column): CompareEntry => ({
-          model: { name: column.model, text: column.modelLabel, provider: column.provider },
+      const entries = parent.columns.filter(hasOutput).map((column): CompareEntry => {
+        const referenceImage = toReferenceImage(column);
+        return {
+          model: {
+            name: column.model,
+            text: column.modelLabel,
+            provider: column.provider,
+            type: parent.outputType ?? 'text',
+          },
           settings: column.settings,
           sample: column.sample,
-          history: [...(column.history ?? []), { prompt: parent.prompt, answer: column.content }],
-        }));
+          history: [
+            ...(column.history ?? []),
+            { prompt: parent.prompt, answer: parent.outputType ? '' : column.content },
+          ],
+          ...(referenceImage ? { referenceImage } : {}),
+        };
+      });
       if (entries.length < MIN_COMPARE_MODELS) {
         toast.error('A follow-up needs at least two answers to continue.');
         return false;
@@ -648,7 +871,7 @@ const useCompareRun = ({
       if (!isRunSettled) return;
     } else {
       const column = run.columns.find(({ id }) => id === winnerColumnId);
-      if (!column || !isSettledStatus(column.status) || !column.content.trim()) return;
+      if (!column || !isSettledStatus(column.status) || !hasOutput(column)) return;
     }
 
     const record = toVoteRecord(run, winner, winnerColumnId);
@@ -759,16 +982,36 @@ const useCompareRun = ({
     setRun(null);
   }, [detachRun]);
 
+  /**
+   * Applies a video card's own update (a resumed, expired or failed check) to a settled
+   * column. The history effect then saves it like any other change to a settled run.
+   */
+  const updateColumnVideo = useCallback((columnId: string, video: IVideoMessage['video_url']) => {
+    const patch = (column: CompareColumnState): CompareColumnState =>
+      column.id === columnId
+        ? {
+            ...column,
+            video,
+            // A stopped or failed job that finished on a later check is now a real answer.
+            ...(video.status === 'ready' ? { status: 'done', error: undefined } : {}),
+            ...(typeof video.cost === 'number' ? { costUsd: video.cost } : {}),
+          }
+        : column;
+    // The live run is also tracked in the ref, so a later stream flush keeps the change.
+    if (runIdRef.current && runIdRef.current === runRef.current?.id) {
+      columnsRef.current = columnsRef.current.map(patch);
+    }
+    setRun((current) => (current ? { ...current, columns: current.columns.map(patch) } : current));
+  }, []);
+
   const isRunning = Boolean(run?.columns.some(({ status }) => !isSettledStatus(status)));
   /** True once any answer has finished; tie and none additionally wait for `isRunning`. */
   const canVote = Boolean(
-    run?.columns.some(({ status, content }) => isSettledStatus(status) && content.trim().length > 0)
+    run?.columns.some((column) => isSettledStatus(column.status) && hasOutput(column))
   );
 
   const canFollowUp = Boolean(
-    run &&
-    !isRunning &&
-    run.columns.filter(({ content }) => content.trim().length > 0).length >= MIN_COMPARE_MODELS
+    run && !isRunning && run.columns.filter(hasOutput).length >= MIN_COMPARE_MODELS
   );
 
   return {
@@ -784,6 +1027,7 @@ const useCompareRun = ({
     vote,
     rate,
     setBlind,
+    updateColumnVideo,
     open,
     close,
   };

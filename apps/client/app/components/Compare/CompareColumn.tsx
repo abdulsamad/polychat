@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   CircleStopIcon,
   CoinsIcon,
+  ImageOffIcon,
   RotateCcwIcon,
   TriangleAlertIcon,
   TrophyIcon,
@@ -24,10 +25,17 @@ import {
   wordCount,
 } from '@/utils/compare-metrics';
 import { describeSettings } from '@/utils/compare-settings';
-import type { CompareColumnState, CompareColumnStatus } from '@/hooks/useCompareRun';
-import type { CompareRubricCriterion } from '@/utils/lforage';
+import {
+  hasOutput,
+  type CompareColumnState,
+  type CompareColumnStatus,
+} from '@/hooks/useCompareRun';
+import type { IVideoMessage } from '@/store';
+import type { CompareOutputType, CompareRubricCriterion } from '@/utils/lforage';
 import RubricPopover from '@/components/Compare/RubricPopover';
+import Image from '@/components/Message/Image';
 import Text from '@/components/Message/Text';
+import Video from '@/components/Message/Video';
 import CopyButton from '@/components/Message/CopyButton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -65,9 +73,12 @@ const settledIcons = {
 const StatusIndicator = ({
   status,
   isThinking,
+  isMedia,
 }: {
   status: CompareColumnStatus;
   isThinking: boolean;
+  /** Image and video columns generate rather than stream. */
+  isMedia: boolean;
 }) => {
   const SettledIcon = status === 'waiting' || status === 'streaming' ? null : settledIcons[status];
 
@@ -100,7 +111,11 @@ const StatusIndicator = ({
           />
         </span>
       )}
-      {status === 'streaming' && isThinking ? 'Thinking' : statusLabels[status]}
+      {status === 'streaming' && isThinking
+        ? 'Thinking'
+        : status === 'streaming' && isMedia
+          ? 'Generating'
+          : statusLabels[status]}
     </span>
   );
 };
@@ -157,6 +172,11 @@ interface CompareColumnProps {
   /** Set when a failed column can be sent again (live runs, before the vote). */
   onRetry?: (columnId: string) => void;
   onRate: (columnId: string, criterion: CompareRubricCriterion, score?: number) => void;
+  /** Saves a video card's own update (a resumed, expired or failed check) to the column. */
+  onVideoChange: (columnId: string, video: IVideoMessage['video_url']) => void;
+  outputType: CompareOutputType;
+  /** The saved run is older than the newest media runs, so its media was not kept. */
+  isMediaPruned: boolean;
   /** The prompt this answer responds to; set only for follow-up turns, where it adds context. */
   currentPrompt?: string;
   /** Position in the run, used to stagger the entrance by 40ms per column. */
@@ -182,15 +202,21 @@ const CompareColumn = ({
   onStop,
   onRetry,
   onRate,
+  onVideoChange,
+  outputType,
+  isMediaPruned,
   currentPrompt,
   index,
   className,
 }: CompareColumnProps) => {
-  const { id, modelLabel, provider, status, content, error, isThinking, usage } = column;
+  const { id, model, modelLabel, provider, status, content, error, isThinking, usage } = column;
+  const { image, video } = column;
   const headingId = `compare-column-${id}`;
   // Every accessible name uses the display label, so screen readers do not leak a blind model.
   const displayLabel = isIdentityHidden ? `Model ${blindLetter}` : modelLabel;
+  const isMedia = outputType !== 'text';
   const hasContent = content.trim().length > 0;
+  const hasAnswer = hasOutput(column);
   // Status, vote and metric changes must not re-parse (and remount) the Markdown tree.
   const variant = [
     describeSettings(column.settings),
@@ -215,16 +241,19 @@ const CompareColumn = ({
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="flex min-w-0 flex-col gap-2 px-1 pb-2 duration-150 ease-[var(--ease-out)] data-[state=open]:animate-in data-[state=open]:fade-in-0">
+            {/* Media turns keep only their prompts; the latest image is refined in place. */}
             {turns.map((turn, turnIndex) => (
               <div key={turnIndex} className="flex min-w-0 flex-col gap-1">
                 <p className="mx-1 self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-xs text-foreground [overflow-wrap:anywhere]">
                   {turn.prompt}
                 </p>
-                <Text
-                  isUser={false}
-                  message={turn.answer}
-                  messageClassNames="!border-0 !bg-transparent !shadow-none text-sm opacity-90"
-                />
+                {turn.answer && (
+                  <Text
+                    isUser={false}
+                    message={turn.answer}
+                    messageClassNames="!border-0 !bg-transparent !shadow-none text-sm opacity-90"
+                  />
+                )}
               </div>
             ))}
           </CollapsibleContent>
@@ -243,68 +272,82 @@ const CompareColumn = ({
       ) : null,
     [content]
   );
+  // The image editor keeps its own transform state, so it is keyed by the image it shows. A
+  // pruned run has no media left to load, only the note below.
+  const media = isMediaPruned ? null : image?.url ? (
+    <Image key={image.url} image={image} model={displayLabel} />
+  ) : video ? (
+    <Video id={id} video={video} model={model} onChange={(next) => onVideoChange(id, next)} />
+  ) : null;
+  const isPrunedOutput = isMediaPruned && Boolean(image || video);
   const isActive = status === 'waiting' || status === 'streaming';
   const isLive = isActive && startedAt > 0;
   const thinking = thinkingMs(column);
   const words = hasContent ? wordCount(content) : 0;
   const finishNotice = column.finishReason ? finishNotices[column.finishReason] : undefined;
-  const metrics: Metric[] = [
-    {
-      label: 'First token',
-      value:
-        column.ttftMs === undefined && isLive ? (
-          <LiveDuration since={startedAt} />
-        ) : (
-          formatDuration(column.ttftMs)
+  const totalMetric: Metric = {
+    label: 'Total',
+    value: isLive ? <LiveDuration since={startedAt} /> : formatDuration(column.totalMs),
+    isLive,
+    best: isBestTotal ? 'Fastest total time in this run' : undefined,
+  };
+  const tokensMetric: Metric = {
+    label: 'Tokens in / out',
+    value:
+      usage?.inputTokens !== undefined || usage?.outputTokens !== undefined
+        ? `${formatTokens(usage?.inputTokens)} / ${formatTokens(usage?.outputTokens)}`
+        : formatTokens(usage?.totalTokens),
+    title: usage?.reasoningTokens
+      ? `Includes ${formatTokens(usage.reasoningTokens)} reasoning tokens`
+      : undefined,
+  };
+  const costMetric: Metric = {
+    label: 'Cost',
+    value: isIdentityHidden
+      ? 'Hidden'
+      : formatCost(
+          costUsd === undefined ? undefined : { usd: costUsd, isEstimate: isCostEstimate }
         ),
-      isLive: column.ttftMs === undefined && isLive,
-      best: isBestTtft ? 'Fastest first token in this run' : undefined,
-    },
-    {
-      label: 'Total',
-      value: isLive ? <LiveDuration since={startedAt} /> : formatDuration(column.totalMs),
-      isLive,
-      best: isBestTotal ? 'Fastest total time in this run' : undefined,
-    },
-    {
-      label: 'Speed',
-      value: formatSpeed(tokensPerSecond(column)),
-      title: 'Answer tokens per second while text streamed (reasoning excluded)',
-      best: isBestSpeed ? 'Fastest generation in this run' : undefined,
-    },
-    {
-      label: 'Tokens in / out',
-      value:
-        usage?.inputTokens !== undefined || usage?.outputTokens !== undefined
-          ? `${formatTokens(usage?.inputTokens)} / ${formatTokens(usage?.outputTokens)}`
-          : formatTokens(usage?.totalTokens),
-      title: usage?.reasoningTokens
-        ? `Includes ${formatTokens(usage.reasoningTokens)} reasoning tokens`
-        : undefined,
-    },
-    {
-      label: 'Thinking',
-      value: formatDuration(thinking),
-      title: 'Time spent streaming reasoning before the answer started',
-    },
-    {
-      label: 'Cost',
-      value: isIdentityHidden
-        ? 'Hidden'
-        : formatCost(
-            costUsd === undefined ? undefined : { usd: costUsd, isEstimate: isCostEstimate }
-          ),
-      title: isIdentityHidden
-        ? 'Cost can reveal the model, so it stays hidden until you vote'
-        : costUsd === undefined
-          ? 'No price is published for this model'
-          : isCostEstimate
-            ? 'Estimated from OpenRouter list prices'
-            : 'Reported by the provider',
-      best: isCheapest && !isIdentityHidden ? 'Cheapest in this run' : undefined,
-      bestIcon: CoinsIcon,
-    },
-  ];
+    title: isIdentityHidden
+      ? 'Cost can reveal the model, so it stays hidden until you vote'
+      : costUsd === undefined
+        ? 'No price is published for this model'
+        : isCostEstimate
+          ? 'Estimated from OpenRouter list prices'
+          : 'Reported by the provider',
+    best: isCheapest && !isIdentityHidden ? 'Cheapest in this run' : undefined,
+    bestIcon: CoinsIcon,
+  };
+  // Image and video columns have no first token, streaming speed or reasoning to measure.
+  const metrics: Metric[] = isMedia
+    ? [totalMetric, ...(outputType === 'image' ? [tokensMetric] : []), costMetric]
+    : [
+        {
+          label: 'First token',
+          value:
+            column.ttftMs === undefined && isLive ? (
+              <LiveDuration since={startedAt} />
+            ) : (
+              formatDuration(column.ttftMs)
+            ),
+          isLive: column.ttftMs === undefined && isLive,
+          best: isBestTtft ? 'Fastest first token in this run' : undefined,
+        },
+        totalMetric,
+        {
+          label: 'Speed',
+          value: formatSpeed(tokensPerSecond(column)),
+          title: 'Answer tokens per second while text streamed (reasoning excluded)',
+          best: isBestSpeed ? 'Fastest generation in this run' : undefined,
+        },
+        tokensMetric,
+        {
+          label: 'Thinking',
+          value: formatDuration(thinking),
+          title: 'Time spent streaming reasoning before the answer started',
+        },
+        costMetric,
+      ];
 
   return (
     <Card
@@ -371,7 +414,7 @@ const CompareColumn = ({
             role="img"
           />
         )}
-        <StatusIndicator status={status} isThinking={isThinking} />
+        <StatusIndicator status={status} isThinking={isThinking} isMedia={isMedia} />
         {isActive && (
           <Button
             type="button"
@@ -395,7 +438,25 @@ const CompareColumn = ({
             </p>
           )}
           {answer}
-          {!hasContent && isActive && (
+          {media}
+          {isPrunedOutput && (
+            <p className="flex items-center gap-2 px-2 py-3 text-sm text-muted-foreground">
+              <ImageOffIcon className="size-4 shrink-0" aria-hidden="true" />
+              Media not kept in history. Only the newest media runs keep it.
+            </p>
+          )}
+          {/* Until a video job is accepted (its card then shows progress), media gets a frame
+              shaped like the output. */}
+          {isMedia && isActive && !media && (
+            <Skeleton
+              aria-hidden="true"
+              className={cn(
+                'mx-1 rounded-xl',
+                outputType === 'video' ? 'aspect-video' : 'aspect-square'
+              )}
+            />
+          )}
+          {!isMedia && !hasContent && isActive && (
             <div className="flex flex-col gap-2.5 px-2 py-3" aria-hidden="true">
               {isThinking && (
                 <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
@@ -408,10 +469,12 @@ const CompareColumn = ({
               <Skeleton className="h-3.5 w-2/3" />
             </div>
           )}
-          {status === 'stopped' && !hasContent && (
+          {status === 'stopped' && !hasContent && !media && !isPrunedOutput && (
             <p className="px-2 py-3 text-sm text-muted-foreground">Stopped before any output.</p>
           )}
-          {error && (status === 'failed' || status === 'done') && (
+          {/* A video job that failed after it was accepted is handled by its card, which can
+              check it again instead of paying for a new generation. */}
+          {error && (status === 'failed' || status === 'done') && !video && (
             <Alert
               role={undefined}
               variant={status === 'failed' ? 'destructive' : 'default'}
@@ -499,7 +562,7 @@ const CompareColumn = ({
             size="sm"
             variant={isWinner ? 'default' : 'outline'}
             className="h-9 rounded-full px-3.5"
-            disabled={!canVote || !hasContent || isActive}
+            disabled={!canVote || !hasAnswer || isActive}
             aria-pressed={isWinner}
             aria-label={`Vote ${displayLabel} as the best answer`}
             onClick={() => onVote(column.model, id)}>

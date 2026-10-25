@@ -17,6 +17,7 @@ import {
   selectionModeAtom,
   toggleSelectedMessageAtom,
   threadAtom,
+  upsertThreadMessageAtom,
 } from '@/store';
 import { UserInfo } from '@/components/Thread';
 import {
@@ -79,6 +80,7 @@ const MessageContent = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const thread = useAtomValue(threadAtom);
   const removeThreadMessage = useSetAtom(removeThreadMessageAtom);
+  const upsertThreadMessage = useSetAtom(upsertThreadMessageAtom);
   const selectMessage = useSetAtom(selectMessageAtom);
   const toggleSelectedMessage = useSetAtom(toggleSelectedMessageAtom);
   const isSelectionMode = useAtomValue(selectionModeAtom);
@@ -294,8 +296,19 @@ const MessageContent = ({
                     id={id}
                     video={video}
                     model={model}
-                    threadId={thread?.id || ''}
-                    metadata={metadata}
+                    onChange={(next) =>
+                      upsertThreadMessage({
+                        threadId: thread?.id || '',
+                        message: {
+                          id,
+                          content: '',
+                          role: 'assistant',
+                          type: 'video_url',
+                          video_url: next,
+                          metadata: { ...metadata, requestState: undefined },
+                        },
+                      })
+                    }
                   />
                 ) : (
                   <div

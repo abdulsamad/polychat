@@ -72,6 +72,8 @@ export const exportRunsCsv = (
     'suite_name',
     'suite_run_id',
     'suite_prompt_number',
+    // Appended last, so files read by column position keep their layout.
+    'output_type',
   ];
   const rows = runs.flatMap((run) =>
     run.columns.map((column) => {
@@ -112,6 +114,7 @@ export const exportRunsCsv = (
         run.suite?.suiteName,
         run.suite?.suiteRunId,
         run.suite ? run.suite.index + 1 : undefined,
+        run.outputType ?? 'text',
       ]
         .map(csvCell)
         .join(',');

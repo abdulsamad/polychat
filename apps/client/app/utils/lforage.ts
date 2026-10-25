@@ -7,7 +7,14 @@ import type {
   profilesType,
 } from 'utils';
 import { getDefaultModelConfig, profiles } from 'utils';
-import type { IConfig, IMessage, IThreadSettings, IThreads } from '@/store';
+import type {
+  IConfig,
+  IImageMessage,
+  IMessage,
+  IThreadSettings,
+  IThreads,
+  IVideoMessage,
+} from '@/store';
 
 export const settingsKey = 'config';
 export const threadsKey = 'threads';
@@ -22,6 +29,8 @@ export const MAX_COMPARE_VOTES = 500;
 export const compareRunsKey = 'compare-runs';
 /** Runs include full answers, so history keeps fewer records than votes. */
 export const MAX_COMPARE_RUNS = 100;
+/** Generated images are large, so only the newest media runs keep their media in history. */
+export const MAX_COMPARE_MEDIA_RUNS = 20;
 /** Shared, account-independent cache of public model prices. */
 export const modelPricingKey = 'openrouter-model-pricing';
 export const compareSuitesKey = 'compare-suites';
@@ -197,6 +206,9 @@ export interface ICompareVoteResult {
   failed: boolean;
 }
 
+/** What a compare run generates; text runs leave it unset in stored records. */
+export type CompareOutputType = 'text' | 'image' | 'video';
+
 export const compareRubricCriteria = ['correctness', 'clarity', 'conciseness'] as const;
 export type CompareRubricCriterion = (typeof compareRubricCriteria)[number];
 /** Optional 1-5 scores per criterion for one answer. */
@@ -210,6 +222,9 @@ export interface ICompareRunColumn {
   provider: modelProviderType;
   status: 'done' | 'failed' | 'stopped';
   content: string;
+  /** Generated output of image and video runs; text runs only use `content`. */
+  image?: IImageMessage['image_url'];
+  video?: IVideoMessage['video_url'];
   error?: string;
   /** Milliseconds from request start; reasoning start is set only when reasoning was streamed. */
   ttftMs?: number;
@@ -234,6 +249,15 @@ export interface CompareSlotSettings {
   temperature?: number;
   maxTokens?: number;
   profile?: profilesType;
+  /** Image models. */
+  size?: string;
+  quality?: 'standard' | 'hd';
+  style?: 'vivid' | 'natural';
+  /** Video models. */
+  duration?: number;
+  resolution?: string;
+  aspectRatio?: string;
+  generateAudio?: boolean;
 }
 
 export interface CompareTurn {
@@ -275,6 +299,10 @@ export interface ICompareRun {
   /** Names and types of attached images; the image data is not kept in history. */
   attachments?: Array<{ name: string; mediaType: string; size: number }>;
   suite?: CompareSuiteTag;
+  /** Unset for text runs, so records saved before media support stay valid. */
+  outputType?: Exclude<CompareOutputType, 'text'>;
+  /** Set once the run fell out of the newest media runs and its media was dropped. */
+  isMediaPruned?: boolean;
 }
 
 export interface ICompareVote {
@@ -286,6 +314,7 @@ export interface ICompareVote {
   winner: CompareWinner;
   winnerColumnId?: string;
   blind?: boolean;
+  outputType?: ICompareRun['outputType'];
 }
 
 export const getCompareVotes = async (): Promise<ICompareVote[]> => {
@@ -322,15 +351,35 @@ export const getCompareRuns = async (): Promise<ICompareRun[]> => {
   return Array.isArray(runs) ? runs : [];
 };
 
-/** Insert or replace a run by id, keeping the newest MAX_COMPARE_RUNS records. */
+/** Drops the generated media of a run, keeping its prompt, metrics and votes. */
+const pruneRunMedia = (run: ICompareRun): ICompareRun => ({
+  ...run,
+  isMediaPruned: true,
+  columns: run.columns.map(({ image, video, ...column }) => ({
+    ...column,
+    ...(image ? { image: { ...image, url: '' } } : {}),
+    ...(video ? { video: { ...video, url: '', sourceUrl: undefined, thumbnail: undefined } } : {}),
+  })),
+});
+
+/**
+ * Insert or replace a run by id, keeping the newest MAX_COMPARE_RUNS records. Only the newest
+ * MAX_COMPARE_MEDIA_RUNS image and video runs keep their media.
+ */
 export const saveCompareRun = async (run: ICompareRun) => {
   const key = scopedKey(compareRunsKey);
   if (!key) return false;
 
   const runs = await getCompareRuns();
+  let mediaRuns = 0;
   const nextRuns = [run, ...runs.filter(({ id }) => id !== run.id)]
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, MAX_COMPARE_RUNS);
+    .slice(0, MAX_COMPARE_RUNS)
+    .map((stored) => {
+      if (!stored.outputType || stored.isMediaPruned) return stored;
+      mediaRuns += 1;
+      return mediaRuns > MAX_COMPARE_MEDIA_RUNS ? pruneRunMedia(stored) : stored;
+    });
   await lforage.setItem(key, nextRuns);
   return true;
 };
@@ -340,7 +389,10 @@ export const deleteCompareRun = async (runId: string) => {
   if (!key) return;
 
   const runs = await getCompareRuns();
-  await lforage.setItem(key, runs.filter(({ id }) => id !== runId));
+  await lforage.setItem(
+    key,
+    runs.filter(({ id }) => id !== runId)
+  );
 };
 
 export const getCompareSuites = async (): Promise<ICompareSuite[]> => {
@@ -369,7 +421,10 @@ export const deleteCompareSuite = async (suiteId: string) => {
   if (!key) return;
 
   const suites = await getCompareSuites();
-  await lforage.setItem(key, suites.filter(({ id }) => id !== suiteId));
+  await lforage.setItem(
+    key,
+    suites.filter(({ id }) => id !== suiteId)
+  );
 };
 
 export const clearCompareRuns = async () => {
