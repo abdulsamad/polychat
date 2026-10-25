@@ -116,9 +116,8 @@ const ComparePickers = ({
                   value={slot.model}
                   disabled={disabled}
                   placeholder="Choose a model"
-                  // The trigger shows the model name only; the option list keeps the Thinking hint.
                   className={cn(
-                    'h-9 w-full rounded-full text-left text-sm [&>span>span>span]:line-clamp-1 [&>span>span>span:has(>svg)]:hidden',
+                    'h-9 w-full rounded-full text-left text-sm',
                     (isUnavailable || isDuplicate) && 'border-destructive/60'
                   )}
                   onValueChange={(nextModelName) => {

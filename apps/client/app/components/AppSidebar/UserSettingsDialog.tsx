@@ -123,6 +123,7 @@ const UserSettingsDialog = ({ open, onOpenChange }: UserSettingsDialogProps) => 
           models={availability.models}
           findModel={availability.findModel}
           customInstructions={customInstructionsDraft}
+          onAddProviderKey={() => setScrollTarget('byok')}
         />
         <DangerZoneSection isPending={isDangerActionPending} onRequestAction={setDangerAction} />
         <ConfirmActionDialog confirm={confirm} onConfirm={handleConfirmAction} />

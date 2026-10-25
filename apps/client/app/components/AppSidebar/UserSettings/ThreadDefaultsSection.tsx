@@ -29,6 +29,7 @@ interface ThreadDefaultsSectionProps {
   models: ModelAvailability['models'];
   findModel: ModelAvailability['findModel'];
   customInstructions: string;
+  onAddProviderKey: () => void;
 }
 
 const ThreadDefaultsSection = ({
@@ -38,6 +39,7 @@ const ThreadDefaultsSection = ({
   models,
   findModel,
   customInstructions,
+  onAddProviderKey,
 }: ThreadDefaultsSectionProps) => {
   const updateThreadSetting = async <K extends keyof IThreadSettings<enabledModelsType>>(
     key: K,
@@ -118,6 +120,7 @@ const ThreadDefaultsSection = ({
             value={threadSettings.model}
             disabled={isLoading}
             className="bg-background/70"
+            onAddProviderKey={onAddProviderKey}
             onValueChange={(model) =>
               void updateThreadSetting(
                 'model',

@@ -191,6 +191,7 @@ const SettingsDropdown = () => {
                 models={models}
                 value={model}
                 onValueChange={(value) => updateSetting('model', value)}
+                onAddProviderKey={() => openUserSettings('byok')}
                 placeholder="Model"
               />
             </div>
