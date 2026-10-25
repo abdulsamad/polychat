@@ -1,6 +1,6 @@
 # PolyChat
 
-PolyChat is a focused workspace for thinking, creating, and working with AI.
+PolyChat is a model evaluation app for focused conversations and creative work.
 
 ![Compare mode: one prompt streamed to three models side by side, with per-model latency and token metrics](docs/screenshots/compare-light.png)
 
