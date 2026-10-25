@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import {
   BrainCircuit,
   Check,
@@ -57,6 +57,8 @@ interface ModelComboboxProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  // Opens the picker on mount, for a slot the user just added.
+  defaultOpen?: boolean;
   // Opens the BYOK key settings; enables the unlock hints for locked and empty categories.
   onAddProviderKey?: () => void;
 }
@@ -397,19 +399,30 @@ export const ModelCombobox = ({
   placeholder = 'Model',
   disabled,
   className,
+  defaultOpen = false,
   onAddProviderKey,
 }: ModelComboboxProps) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [isNestedSheet, setIsNestedSheet] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const isMobile = useIsMobile();
+
+  // On top of another vaul drawer (Settings on phones), closing this sheet must leave the
+  // parent's iOS body lock in place. Checked on every open, including one on mount.
+  useLayoutEffect(() => {
+    if (open) setIsNestedSheet(Boolean(triggerRef.current?.closest('[data-vaul-drawer]')));
+  }, [open]);
   // Tabs only help when the list mixes chat, image, and video models.
   const showTabs = new Set(models.map(({ type }) => type)).size > 1;
   const selectedModel = models.find((model) => model.name === value);
 
   if (!showTabs && models.length <= 10) {
     return (
-      <Select value={value} onValueChange={onValueChange} disabled={disabled}>
+      <Select
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+        defaultOpen={defaultOpen}>
         <SelectTrigger className={cn('min-w-0', className)}>
           {/* The trigger shows the model name only; the options keep the capability hints. */}
           <SelectValue placeholder={placeholder}>
@@ -449,14 +462,7 @@ export const ModelCombobox = ({
     return (
       <Drawer
         open={open}
-        onOpenChange={(nextOpen) => {
-          // On top of another vaul drawer (Settings on phones), closing this sheet must leave
-          // the parent's iOS body lock in place.
-          if (nextOpen) {
-            setIsNestedSheet(Boolean(triggerRef.current?.closest('[data-vaul-drawer]')));
-          }
-          setOpen(nextOpen);
-        }}
+        onOpenChange={setOpen}
         nested={isNestedSheet}
         shouldScaleBackground={false}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>

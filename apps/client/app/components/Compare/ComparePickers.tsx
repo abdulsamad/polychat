@@ -1,5 +1,6 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PlusIcon, XIcon } from 'lucide-react';
+import { useReducedMotion } from 'motion/react';
 
 import { cn } from '@/utils';
 import { configurationKey, describeSettings } from '@/utils/compare-settings';
@@ -70,6 +71,21 @@ const ComparePickers = ({
   if (initialSlotIds.current === null && slots.length > 0) {
     initialSlotIds.current = new Set(slots.map(({ id }) => id));
   }
+  // A slot added with the Add button opens its picker and scrolls into view.
+  const [addedSlotId, setAddedSlotId] = useState<string | null>(null);
+  const addedSlotRef = useRef<HTMLLIElement>(null);
+  const shouldReduceMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!addedSlotId) return;
+    addedSlotRef.current?.scrollIntoView({
+      behavior: shouldReduceMotion ? 'auto' : 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    });
+    // Cleared once used, so a later remount of that picker does not open it again.
+    setAddedSlotId(null);
+  }, [addedSlotId, shouldReduceMotion]);
   const totalColumns = countSlotColumns(slots);
   const selectedModels = slots.map(({ model }) => model);
   // Prefer a model that is not in use yet; the same model may still be added again to compare
@@ -104,6 +120,7 @@ const ComparePickers = ({
           return (
             <li
               key={slot.id}
+              ref={slot.id === addedSlotId ? addedSlotRef : undefined}
               className={cn(
                 'flex w-56 min-w-0 shrink-0 items-start gap-0.5 sm:w-64',
                 initialSlotIds.current &&
@@ -115,6 +132,7 @@ const ComparePickers = ({
                   models={options}
                   value={slot.model}
                   disabled={disabled}
+                  defaultOpen={slot.id === addedSlotId}
                   placeholder="Choose a model"
                   className={cn(
                     'h-9 w-full rounded-full text-left text-sm',
@@ -173,7 +191,12 @@ const ComparePickers = ({
               className="h-9 rounded-full border-dashed px-3 text-muted-foreground"
               disabled={!canAdd}
               title={canAdd ? undefined : 'No available models'}
-              onClick={() => nextModel && onChange([...slots, createCompareSlot(nextModel.name)])}>
+              onClick={() => {
+                if (!nextModel) return;
+                const slot = createCompareSlot(nextModel.name);
+                setAddedSlotId(slot.id);
+                onChange([...slots, slot]);
+              }}>
               <PlusIcon />
               Add model
             </Button>
