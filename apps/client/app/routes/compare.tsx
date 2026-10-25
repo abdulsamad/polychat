@@ -5,13 +5,17 @@ import {
   AlertCircleIcon,
   ArrowRightIcon,
   Columns3Icon,
+  CopyIcon,
   EyeIcon,
   EyeOffIcon,
   CornerDownRightIcon,
   HistoryIcon,
   KeyRoundIcon,
   ListChecksIcon,
+  ShapesIcon,
+  type LucideIcon,
 } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { toast } from 'sonner';
 
 import { defaultModel, type ImageAttachment } from 'utils';
@@ -52,9 +56,9 @@ import CompareHistory from '@/components/Compare/CompareHistory';
 import ComparePickers, {
   countSlotColumns,
   createCompareSlot,
-  findDuplicateSlotIds,
-  findMismatchedSlotIds,
+  findSlotProblem,
   getSlotsOutputType,
+  type SlotProblem,
   type CompareSlot,
 } from '@/components/Compare/ComparePickers';
 import CompareSuites from '@/components/Compare/CompareSuites';
@@ -102,6 +106,12 @@ const slotsFromColumns = (columns: readonly ICompareRunColumn[]) => {
   return [...slots.values()];
 };
 
+const slotProblemIcons: Record<SlotProblem['kind'], LucideIcon> = {
+  unavailable: AlertCircleIcon,
+  mismatch: ShapesIcon,
+  duplicate: CopyIcon,
+};
+
 const savedRunDate = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -134,6 +144,7 @@ const Compare = () => {
   const clerk = useClerk();
   const setSettingsOpen = useSetAtom(userSettingsOpenAtom);
   const setSettingsScrollTarget = useSetAtom(userSettingsScrollTargetAtom);
+  const shouldReduceMotion = useReducedMotion();
   const { models, findModel, isModelAvailable, isProviderAvailable } = useByokModelAvailability();
   const { getPrice } = useModelPricing();
   const getVoteResultCost = useCallback(
@@ -220,26 +231,15 @@ const Compare = () => {
       }),
     [runnableModels, slots]
   );
-  const hasUnavailableSlot = slots.some(
-    ({ model }) => !runnableModels.some(({ name }) => name === model)
-  );
-  const hasMismatchedSlots = findMismatchedSlotIds(slots, findModel).size > 0;
-  const hasDuplicateSlots = findDuplicateSlotIds(slots).size > 0;
+  const slotProblem = findSlotProblem(slots, runnableModels, findModel);
   const hasValidSelection =
-    entries.length >= MIN_COMPARE_MODELS &&
-    entries.length <= MAX_COMPARE_MODELS &&
-    !hasUnavailableSlot &&
-    !hasMismatchedSlots &&
-    !hasDuplicateSlots;
-  const selectionReason = hasUnavailableSlot
-    ? 'Replace the unavailable model.'
-    : hasMismatchedSlots
-      ? 'All models in a run must be the same type.'
-      : hasDuplicateSlots
-        ? 'Two slots are identical. Change a setting, or use samples.'
-        : !hasValidSelection
-          ? 'Choose at least two columns to compare.'
-          : undefined;
+    entries.length >= MIN_COMPARE_MODELS && entries.length <= MAX_COMPARE_MODELS && !slotProblem;
+  const selectionReason = slotProblem
+    ? `${slotProblem.title} ${slotProblem.hint}`
+    : !hasValidSelection
+      ? 'Choose at least two columns to compare.'
+      : undefined;
+  const SlotProblemIcon = slotProblem ? slotProblemIcons[slotProblem.kind] : AlertCircleIcon;
   // Follow-up mode applies only while the shown run can still be continued.
   const isFollowingUp = isFollowUpMode && canFollowUp;
   const followUpModels = isFollowingUp && run ? run.columns.filter(hasOutput) : [];
@@ -713,6 +713,39 @@ const Compare = () => {
                 compare again.
               </p>
             )}
+            {/* The one place slot problems are explained (the slots only get a red border). It
+                sits above the composer, so it stays in view however far the slot row scrolls,
+                grows out of the composer and leaves the same way; reduced motion only fades it. */}
+            <AnimatePresence initial={false}>
+              {slotProblem && !isFollowingUp && (
+                <motion.div
+                  key="slot-problem"
+                  className="flex origin-bottom justify-center overflow-hidden"
+                  initial={
+                    shouldReduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, height: 0, marginBottom: 0, y: 6, scale: 0.96 }
+                  }
+                  animate={{ opacity: 1, height: 'auto', marginBottom: 8, y: 0, scale: 1 }}
+                  exit={
+                    shouldReduceMotion
+                      ? { opacity: 0 }
+                      : { opacity: 0, height: 0, marginBottom: 0, y: 6, scale: 0.96 }
+                  }
+                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}>
+                  <Alert
+                    role="status"
+                    variant="destructive"
+                    className="flex w-auto max-w-full items-center gap-2 rounded-[1.25rem] border-destructive/25 bg-destructive/10 px-3 py-1.5 text-xs text-foreground dark:border-destructive/50 [&>svg]:static [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg+div]:translate-y-0 [&>svg~*]:pl-0">
+                    <SlotProblemIcon aria-hidden="true" />
+                    <AlertDescription className="text-xs text-pretty">
+                      <span className="font-medium">{slotProblem.title}</span>{' '}
+                      <span className="text-muted-foreground">{slotProblem.hint}</span>
+                    </AlertDescription>
+                  </Alert>
+                </motion.div>
+              )}
+            </AnimatePresence>
             <CompareComposer
               value={prompt}
               onChange={setPrompt}

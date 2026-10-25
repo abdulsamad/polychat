@@ -34,7 +34,7 @@ export const countSlotColumns = (slots: readonly CompareSlot[]) =>
   slots.reduce((total, { samples }) => total + (samples ?? 1), 0);
 
 /** Slots that would produce identical columns; sampling is the way to repeat a configuration. */
-export const findDuplicateSlotIds = (slots: readonly CompareSlot[]) => {
+const findDuplicateSlotIds = (slots: readonly CompareSlot[]) => {
   const seen = new Map<string, string>();
   const duplicates = new Set<string>();
   for (const { id, model, settings } of slots) {
@@ -57,7 +57,7 @@ export const getSlotsOutputType = (
 ): ModelOption['type'] => (slots[0] && findModel(slots[0].model)?.type) || 'text';
 
 /** Slots whose model type differs from the run's; votes only compare like with like. */
-export const findMismatchedSlotIds = (
+const findMismatchedSlotIds = (
   slots: readonly CompareSlot[],
   findModel: (name: string) => ModelOption | undefined
 ) => {
@@ -70,6 +70,68 @@ export const findMismatchedSlotIds = (
       })
       .map(({ id }) => id)
   );
+};
+
+const outputTypeNouns: Record<ModelOption['type'], string> = {
+  text: 'chat',
+  image: 'image',
+  video: 'video',
+};
+
+/** What blocks the slots from running, and how to fix it. */
+export interface SlotProblem {
+  kind: 'unavailable' | 'mismatch' | 'duplicate';
+  title: string;
+  hint: string;
+}
+
+/**
+ * The first problem that blocks a run, in the order to fix them. The pickers only flag the
+ * affected slots with a border, so this is the one place that explains what is wrong.
+ */
+export const findSlotProblem = (
+  slots: readonly CompareSlot[],
+  runnableModels: readonly ModelOption[],
+  findModel: (name: string) => ModelOption | undefined
+): SlotProblem | undefined => {
+  const unavailable = slots.filter(
+    ({ model }) => !runnableModels.some(({ name }) => name === model)
+  );
+  if (unavailable.length > 0) {
+    const [{ model }] = unavailable;
+    return unavailable.length === 1
+      ? {
+          kind: 'unavailable',
+          title: `${findModel(model)?.text ?? model} isn't available.`,
+          hint: 'Pick another model.',
+        }
+      : {
+          kind: 'unavailable',
+          title: `${unavailable.length} models aren't available.`,
+          hint: 'Pick other models.',
+        };
+  }
+  // Every slot now holds a known model, so a run mixes types exactly when it names several.
+  const types = new Set(slots.map(({ model }) => findModel(model)?.type));
+  const nouns = (['text', 'image', 'video'] as const)
+    .filter((type) => types.has(type))
+    .map((type) => outputTypeNouns[type]);
+  if (nouns.length > 1) {
+    return {
+      kind: 'mismatch',
+      title: `Can't mix ${nouns.slice(0, -1).join(', ')} and ${nouns.at(-1)} models.`,
+      hint: 'Pick one type.',
+    };
+  }
+  const duplicates = findDuplicateSlotIds(slots);
+  if (duplicates.size > 0) {
+    return {
+      kind: 'duplicate',
+      title: duplicates.size === 2 ? 'Two slots are identical.' : 'Some slots are identical.',
+      hint: 'Change a setting, or use samples.',
+    };
+  }
+  return undefined;
 };
 
 interface ComparePickersProps {
@@ -142,9 +204,11 @@ const ComparePickers = ({
         {slots.map((slot) => {
           const current = findModel(slot.model);
           const samples = slot.samples ?? 1;
-          const isUnavailable = !runnableModels.some(({ name }) => name === slot.model);
-          const isMismatched = mismatchedIds.has(slot.id);
-          const isDuplicate = duplicateIds.has(slot.id);
+          // Flagged by its border only; the banner above the composer says what to fix.
+          const isFlagged =
+            !runnableModels.some(({ name }) => name === slot.model) ||
+            mismatchedIds.has(slot.id) ||
+            duplicateIds.has(slot.id);
           const variant = [describeSettings(slot.settings), samples > 1 && `x${samples}`]
             .filter(Boolean)
             .join(' - ');
@@ -171,7 +235,7 @@ const ComparePickers = ({
                   placeholder="Choose a model"
                   className={cn(
                     'h-9 w-full rounded-full text-left text-sm',
-                    (isUnavailable || isMismatched || isDuplicate) && 'border-destructive/60'
+                    isFlagged && 'border-destructive/60'
                   )}
                   onAddProviderKey={onAddProviderKey}
                   onValueChange={(nextModelName) => {
@@ -183,24 +247,10 @@ const ComparePickers = ({
                     });
                   }}
                 />
-                {isUnavailable ? (
-                  <p className="mt-1 px-2 text-xs text-destructive">
-                    Unavailable. Pick another model.
+                {variant && (
+                  <p className="mt-1 truncate px-2 text-[0.6875rem] text-primary duration-150 ease-[var(--ease-out)] animate-in fade-in-0">
+                    {variant}
                   </p>
-                ) : isMismatched ? (
-                  <p className="mt-1 px-2 text-xs text-destructive">
-                    All models in a run must be the same type.
-                  </p>
-                ) : isDuplicate ? (
-                  <p className="mt-1 px-2 text-xs text-destructive">
-                    Same as another slot. Change a setting, or use samples.
-                  </p>
-                ) : (
-                  variant && (
-                    <p className="mt-1 truncate px-2 text-[0.6875rem] text-primary duration-150 ease-[var(--ease-out)] animate-in fade-in-0">
-                      {variant}
-                    </p>
-                  )
                 )}
               </div>
               <SlotSettingsPopover
