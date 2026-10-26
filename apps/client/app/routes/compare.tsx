@@ -66,6 +66,7 @@ import ComparePickers, {
 } from '@/components/Compare/ComparePickers';
 import CompareSuites from '@/components/Compare/CompareSuites';
 import SuiteReport from '@/components/Compare/SuiteReport';
+import SuiteReportPanel from '@/components/Compare/SuiteReport/SuiteReportPanel';
 import CompareTally from '@/components/Compare/CompareTally';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -181,7 +182,7 @@ const Compare = () => {
     onRunSaved: history.refresh,
   });
   const suites = useCompareSuites(isReady);
-  /** The suite execution whose results replace the answer columns, by suiteRunId. */
+  /** The suite execution whose results sheet is open, by suiteRunId. */
   const [suiteView, setSuiteView] = useState<string | null>(null);
   const { activeSuite, startSuite, stopSuite } = useSuiteRunner(run, isRunning, setSuiteView);
   const [slots, setSlots] = useState<CompareSlot[]>([]);
@@ -246,9 +247,8 @@ const Compare = () => {
       ? 'Choose at least two columns to compare.'
       : undefined;
   const SlotProblemIcon = slotProblem ? slotProblemIcons[slotProblem.kind] : AlertCircleIcon;
-  // Follow-up mode applies only while the shown run can still be continued (and is on screen).
-  const canFollowUpShown = canFollowUp && !suiteView;
-  const isFollowingUp = isFollowUpMode && canFollowUpShown;
+  // Follow-up mode applies only while the shown run can still be continued.
+  const isFollowingUp = isFollowUpMode && canFollowUp;
   const followUpModels = isFollowingUp && run ? run.columns.filter(hasOutput) : [];
   const trimmedPrompt = prompt.trim();
   const canSubmit =
@@ -335,7 +335,6 @@ const Compare = () => {
   // Unavailable models are left in the pickers for the user to replace.
   const rerun = (stored: ICompareRun) => {
     stopSuite();
-    setSuiteView(null);
     setIsFollowUpMode(false);
     setImages([]);
     const rerunEntries = stored.columns.flatMap(({ model, settings, sample, history }) => {
@@ -369,7 +368,6 @@ const Compare = () => {
   const submit = () => {
     if (!canSubmit) return;
     stopSuite();
-    setSuiteView(null);
     const started = isFollowingUp
       ? followUp(trimmedPrompt, images)
       : start(trimmedPrompt, entries, { blind: isBlind, imageAttachments: images });
@@ -427,7 +425,6 @@ const Compare = () => {
   };
   const closeRun = () => {
     stopSuite();
-    setSuiteView(null);
     setIsFollowUpMode(false);
     close();
   };
@@ -439,7 +436,6 @@ const Compare = () => {
   const clearHistory = async () => {
     try {
       await history.clear();
-      setSuiteView(null);
       if (run?.isFromHistory) closeRun();
       toast.success('History cleared');
     } catch (error) {
@@ -507,427 +503,433 @@ const Compare = () => {
   );
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <CompareTally
-        tally={votes.tally}
-        total={votes.total}
-        ties={votes.ties}
-        none={votes.none}
-        isLoading={votes.isLoading}
-        getModelLabel={getModelLabel}
-        getHeadToHead={votes.getHeadToHead}
-        onClear={clearVotes}
-        actions={
-          <CompareHistory
-            runs={history.runs}
-            isLoading={history.isLoading}
-            error={history.error}
-            activeRunId={run?.id}
-            isRunning={isRunning}
-            getModelLabel={getModelLabel}
-            getColumnCost={getColumnCost}
-            getRunCost={getRunCost}
-            onOpenRun={openRun}
-            onOpenSuite={openSuite}
-            onRerun={rerun}
-            onDelete={deleteRuns}
-            onRestore={history.restore}
-            onRetry={() => void history.refresh()}
-            onClear={clearHistory}
-          />
-        }>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
-            Compare models
-          </h2>
-          <p className="hidden truncate text-xs text-muted-foreground sm:block">
-            One prompt, up to four models, answers side by side.
-          </p>
-        </div>
-      </CompareTally>
+    // Relative so the suite results sheet covers the page below the navbar, and nothing above it.
+    <div className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      {/* The page stays mounted under the sheet but out of reach for focus and pointers. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col" inert={Boolean(suiteView)}>
+        <CompareTally
+          tally={votes.tally}
+          total={votes.total}
+          ties={votes.ties}
+          none={votes.none}
+          isLoading={votes.isLoading}
+          getModelLabel={getModelLabel}
+          getHeadToHead={votes.getHeadToHead}
+          onClear={clearVotes}
+          actions={
+            <CompareHistory
+              runs={history.runs}
+              isLoading={history.isLoading}
+              error={history.error}
+              activeRunId={run?.id}
+              isRunning={isRunning}
+              getModelLabel={getModelLabel}
+              getColumnCost={getColumnCost}
+              getRunCost={getRunCost}
+              onOpenRun={openRun}
+              onOpenSuite={openSuite}
+              onRerun={rerun}
+              onDelete={deleteRuns}
+              onRestore={history.restore}
+              onRetry={() => void history.refresh()}
+              onClear={clearHistory}
+            />
+          }>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
+              Compare models
+            </h2>
+            <p className="hidden truncate text-xs text-muted-foreground sm:block">
+              One prompt, up to four models, answers side by side.
+            </p>
+          </div>
+        </CompareTally>
 
-      <section aria-label="Answers" className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {suiteView ? (
-          <SuiteReport
-            key={suiteView}
-            report={suiteReport}
-            isLoading={history.isLoading}
-            isRunning={isRunning}
-            getModelLabel={getModelLabel}
-            getColumnCost={getColumnCost}
-            runAgainBlocker={runAgainBlocker}
-            onRunAgain={runSuiteAgain}
-            onOpenRun={openRun}
-            onClose={() => setSuiteView(null)}
-          />
-        ) : run ? (
-          <>
-            <div className="flex min-w-0 shrink-0 items-center gap-3 px-3 pt-3 sm:px-5">
-              {/* Keyed by run so a new prompt settles in instead of swapping text in place. */}
-              <div key={run.id} className="chat-message-entry min-w-0 flex-1">
-                {run.isFromHistory && (
-                  <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                    <HistoryIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="truncate">
-                      Saved run - {savedRunDate.format(run.timestamp)}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="link"
-                      size="sm"
-                      className="h-auto shrink-0 p-0 text-xs"
-                      onClick={closeRun}>
-                      New comparison
-                    </Button>
+        <section aria-label="Answers" className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {run ? (
+            <>
+              <div className="flex min-w-0 shrink-0 items-center gap-3 px-3 pt-3 sm:px-5">
+                {/* Keyed by run so a new prompt settles in instead of swapping text in place. */}
+                <div key={run.id} className="chat-message-entry min-w-0 flex-1">
+                  {run.isFromHistory && (
+                    <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <HistoryIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">
+                        Saved run - {savedRunDate.format(run.timestamp)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="h-auto shrink-0 p-0 text-xs"
+                        onClick={closeRun}>
+                        New comparison
+                      </Button>
+                    </p>
+                  )}
+                  {(run.suite || run.parentRunId) && (
+                    <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      {run.suite ? (
+                        <>
+                          <ListChecksIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">
+                            {run.suite.suiteName} - prompt {run.suite.index + 1} of{' '}
+                            {run.suite.total}
+                          </span>
+                          {activeSuite?.suiteRunId === run.suite.suiteRunId ? (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              className="h-auto shrink-0 p-0 text-xs"
+                              onClick={stopSuite}>
+                              Stop after this prompt
+                            </Button>
+                          ) : (
+                            runExecution && (
+                              <span className="flex shrink-0 items-center gap-0.5">
+                                {runPosition >= 0 && runExecution.runs.length > 1 && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="-my-2 size-9 rounded-full"
+                                      aria-label="Previous prompt in suite"
+                                      title="Previous prompt"
+                                      disabled={isRunning || runPosition === 0}
+                                      onClick={() => openRun(runExecution.runs[runPosition - 1])}>
+                                      <ChevronLeftIcon />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="-my-2 size-9 rounded-full"
+                                      aria-label="Next prompt in suite"
+                                      title="Next prompt"
+                                      disabled={
+                                        isRunning || runPosition === runExecution.runs.length - 1
+                                      }
+                                      onClick={() => openRun(runExecution.runs[runPosition + 1])}>
+                                      <ChevronRightIcon />
+                                    </Button>
+                                  </>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="link"
+                                  size="sm"
+                                  className="h-auto shrink-0 p-0 pl-1 text-xs"
+                                  disabled={isRunning}
+                                  onClick={() => openSuite(runExecution.suiteRunId)}>
+                                  Suite results
+                                </Button>
+                              </span>
+                            )
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <CornerDownRightIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                          <span className="truncate">Follow-up turn</span>
+                        </>
+                      )}
+                    </p>
+                  )}
+                  <p className="truncate text-sm font-medium text-foreground" title={run.prompt}>
+                    {run.prompt}
                   </p>
-                )}
-                {(run.suite || run.parentRunId) && (
-                  <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                    {run.suite ? (
-                      <>
-                        <ListChecksIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                        <span className="truncate">
-                          {run.suite.suiteName} - prompt {run.suite.index + 1} of {run.suite.total}
-                        </span>
-                        {activeSuite?.suiteRunId === run.suite.suiteRunId ? (
-                          <Button
-                            type="button"
-                            variant="link"
-                            size="sm"
-                            className="h-auto shrink-0 p-0 text-xs"
-                            onClick={stopSuite}>
-                            Stop after this prompt
-                          </Button>
-                        ) : (
-                          runExecution && (
-                            <span className="flex shrink-0 items-center gap-0.5">
-                              {runPosition >= 0 && runExecution.runs.length > 1 && (
-                                <>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="-my-2 size-9 rounded-full"
-                                    aria-label="Previous prompt in suite"
-                                    title="Previous prompt"
-                                    disabled={isRunning || runPosition === 0}
-                                    onClick={() => openRun(runExecution.runs[runPosition - 1])}>
-                                    <ChevronLeftIcon />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="-my-2 size-9 rounded-full"
-                                    aria-label="Next prompt in suite"
-                                    title="Next prompt"
-                                    disabled={
-                                      isRunning || runPosition === runExecution.runs.length - 1
-                                    }
-                                    onClick={() => openRun(runExecution.runs[runPosition + 1])}>
-                                    <ChevronRightIcon />
-                                  </Button>
-                                </>
-                              )}
-                              <Button
-                                type="button"
-                                variant="link"
-                                size="sm"
-                                className="h-auto shrink-0 p-0 pl-1 text-xs"
-                                disabled={isRunning}
-                                onClick={() => openSuite(runExecution.suiteRunId)}>
-                                Suite results
-                              </Button>
-                            </span>
-                          )
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <CornerDownRightIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                        <span className="truncate">Follow-up turn</span>
-                      </>
+                  <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                    <span role="status" aria-live="polite" className="truncate">
+                      {getRunStatus(run, getModelLabel)}
+                    </span>
+                    {totalCost && !isIdentityHidden && (
+                      <span
+                        className="shrink-0 font-mono tabular-nums duration-200 ease-[var(--ease-out)] animate-in fade-in-0"
+                        title={
+                          totalCost.isEstimate
+                            ? 'Includes estimates from OpenRouter list prices'
+                            : 'Reported by the providers'
+                        }>
+                        Run cost {formatCost(totalCost)}
+                      </span>
                     )}
                   </p>
-                )}
-                <p className="truncate text-sm font-medium text-foreground" title={run.prompt}>
-                  {run.prompt}
-                </p>
-                <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                  <span role="status" aria-live="polite" className="truncate">
-                    {getRunStatus(run, getModelLabel)}
-                  </span>
-                  {totalCost && !isIdentityHidden && (
-                    <span
-                      className="shrink-0 font-mono tabular-nums duration-200 ease-[var(--ease-out)] animate-in fade-in-0"
-                      title={
-                        totalCost.isEstimate
-                          ? 'Includes estimates from OpenRouter list prices'
-                          : 'Reported by the providers'
-                      }>
-                      Run cost {formatCost(totalCost)}
-                    </span>
-                  )}
-                </p>
-              </div>
-              {/* A segmented group keeps the run-level verdicts visually apart from the per-answer
+                </div>
+                {/* A segmented group keeps the run-level verdicts visually apart from the per-answer
                   Best buttons; the pressed segment lifts onto the background like a thumb. */}
-              <div
-                role="group"
-                aria-label="Other votes"
-                className={cn(
-                  'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
-                  (!canVote || isRunning) && 'opacity-60'
-                )}>
-                {(['tie', 'none'] as const).map((choice) => {
-                  const isPressed = run.winner === choice;
+                <div
+                  role="group"
+                  aria-label="Other votes"
+                  className={cn(
+                    'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
+                    (!canVote || isRunning) && 'opacity-60'
+                  )}>
+                  {(['tie', 'none'] as const).map((choice) => {
+                    const isPressed = run.winner === choice;
+                    return (
+                      <Button
+                        key={choice}
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className={cn(
+                          'h-8 rounded-full px-3.5 text-muted-foreground hover:bg-background/60 hover:text-foreground disabled:opacity-100',
+                          isPressed &&
+                            'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
+                        )}
+                        // Tie and none judge every answer, so they wait for the whole run.
+                        disabled={!canVote || isRunning}
+                        aria-pressed={isPressed}
+                        aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
+                        onClick={() => handleVote(choice)}>
+                        {choice === 'tie' ? 'Tie' : 'None'}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-px-3 gap-3 overflow-x-auto overscroll-x-contain px-3 py-3 [scrollbar-width:thin] sm:scroll-px-5 sm:px-5 xl:overflow-x-hidden">
+                {run.columns.map((column, index) => {
+                  const cost = getColumnCost(column);
                   return (
-                    <Button
-                      key={choice}
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className={cn(
-                        'h-8 rounded-full px-3.5 text-muted-foreground hover:bg-background/60 hover:text-foreground disabled:opacity-100',
-                        isPressed &&
-                          'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
-                      )}
-                      // Tie and none judge every answer, so they wait for the whole run.
-                      disabled={!canVote || isRunning}
-                      aria-pressed={isPressed}
-                      aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
-                      onClick={() => handleVote(choice)}>
-                      {choice === 'tie' ? 'Tie' : 'None'}
-                    </Button>
+                    <CompareColumn
+                      key={column.id}
+                      index={index}
+                      column={column}
+                      canVote={canVote}
+                      isWinner={
+                        run.winnerColumnId
+                          ? run.winnerColumnId === column.id
+                          : run.winner === column.model
+                      }
+                      startedAt={column.startedAt ?? run.startedAt}
+                      isBestTtft={bests.ttft === column.id}
+                      isBestTotal={bests.total === column.id}
+                      isBestSpeed={bests.speed === column.id}
+                      isCheapest={bests.cost === column.id}
+                      costUsd={cost?.usd}
+                      isCostEstimate={Boolean(cost?.isEstimate)}
+                      blindLetter={run.blind ? blindLetters[index] : undefined}
+                      isIdentityHidden={isIdentityHidden}
+                      canRate={canVote}
+                      onRate={rate}
+                      onVote={handleVote}
+                      onStop={stopColumn}
+                      onRetry={canRetryColumns ? retryColumn : undefined}
+                      onVideoChange={updateColumnVideo}
+                      outputType={run.outputType ?? 'text'}
+                      isMediaPruned={Boolean(run.isMediaPruned)}
+                      currentPrompt={column.history?.length ? run.prompt : undefined}
+                      className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
+                    />
                   );
                 })}
               </div>
-            </div>
-            <div className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-px-3 gap-3 overflow-x-auto overscroll-x-contain px-3 py-3 [scrollbar-width:thin] sm:scroll-px-5 sm:px-5 xl:overflow-x-hidden">
-              {run.columns.map((column, index) => {
-                const cost = getColumnCost(column);
-                return (
-                  <CompareColumn
-                    key={column.id}
-                    index={index}
-                    column={column}
-                    canVote={canVote}
-                    isWinner={
-                      run.winnerColumnId
-                        ? run.winnerColumnId === column.id
-                        : run.winner === column.model
-                    }
-                    startedAt={column.startedAt ?? run.startedAt}
-                    isBestTtft={bests.ttft === column.id}
-                    isBestTotal={bests.total === column.id}
-                    isBestSpeed={bests.speed === column.id}
-                    isCheapest={bests.cost === column.id}
-                    costUsd={cost?.usd}
-                    isCostEstimate={Boolean(cost?.isEstimate)}
-                    blindLetter={run.blind ? blindLetters[index] : undefined}
-                    isIdentityHidden={isIdentityHidden}
-                    canRate={canVote}
-                    onRate={rate}
-                    onVote={handleVote}
-                    onStop={stopColumn}
-                    onRetry={canRetryColumns ? retryColumn : undefined}
-                    onVideoChange={updateColumnVideo}
-                    outputType={run.outputType ?? 'text'}
-                    isMediaPruned={Boolean(run.isMediaPruned)}
-                    currentPrompt={column.history?.length ? run.prompt : undefined}
-                    className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
-                  />
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <div className="flex min-h-0 flex-1 overflow-y-auto px-4 py-6">
-            <div className="m-auto flex max-w-lg flex-col items-center gap-3 text-center">
-              <span className="flex size-12 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+            </>
+          ) : (
+            <div className="flex min-h-0 flex-1 overflow-y-auto px-4 py-6">
+              <div className="m-auto flex max-w-lg flex-col items-center gap-3 text-center">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+                  {hasEnoughModels ? (
+                    <Columns3Icon className="size-6" aria-hidden="true" />
+                  ) : (
+                    <KeyRoundIcon className="size-6" aria-hidden="true" />
+                  )}
+                </span>
                 {hasEnoughModels ? (
-                  <Columns3Icon className="size-6" aria-hidden="true" />
+                  <>
+                    <h3 className="text-lg font-semibold tracking-tight text-balance text-foreground">
+                      Ask once, compare every answer
+                    </h3>
+                    <p className="text-sm text-pretty text-muted-foreground">
+                      Pick two to four chat, image or video models below and send one prompt.
+                      Answers appear side by side with timing, token usage and cost. Then vote for
+                      the best one to build your own leaderboard.
+                    </p>
+                    <ul className="mt-1 flex flex-col items-stretch gap-2 sm:items-center">
+                      {suggestions.map((suggestion, index) => (
+                        <li
+                          key={suggestion}
+                          className="empty-hint-entry"
+                          style={{ animationDelay: `${index * 50}ms` }}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-auto min-h-9 w-full rounded-full px-4 py-2 text-left whitespace-normal text-muted-foreground hover:text-foreground sm:w-auto"
+                            onClick={() => setPrompt(suggestion)}>
+                            {suggestion}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 ) : (
-                  <KeyRoundIcon className="size-6" aria-hidden="true" />
-                )}
-              </span>
-              {hasEnoughModels ? (
-                <>
-                  <h3 className="text-lg font-semibold tracking-tight text-balance text-foreground">
-                    Ask once, compare every answer
-                  </h3>
-                  <p className="text-sm text-pretty text-muted-foreground">
-                    Pick two to four chat, image or video models below and send one prompt. Answers
-                    appear side by side with timing, token usage and cost. Then vote for the best
-                    one to build your own leaderboard.
-                  </p>
-                  <ul className="mt-1 flex flex-col items-stretch gap-2 sm:items-center">
-                    {suggestions.map((suggestion, index) => (
-                      <li
-                        key={suggestion}
-                        className="empty-hint-entry"
-                        style={{ animationDelay: `${index * 50}ms` }}>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-auto min-h-9 w-full rounded-full px-4 py-2 text-left whitespace-normal text-muted-foreground hover:text-foreground sm:w-auto"
-                          onClick={() => setPrompt(suggestion)}>
-                          {suggestion}
+                  <>
+                    <h3 className="text-lg font-semibold tracking-tight text-balance text-foreground">
+                      {!isSignedIn
+                        ? 'Sign in or add a key to compare models'
+                        : 'Compare needs at least two models'}
+                    </h3>
+                    <p className="text-sm text-pretty text-muted-foreground">
+                      {!isSignedIn
+                        ? 'The shared models need an account. You can also add your own provider key (BYOK) in Settings to compare the models it unlocks.'
+                        : 'Add or unlock a provider key (BYOK) in Settings to unlock more models.'}
+                    </p>
+                    <div className="mt-1 flex flex-wrap justify-center gap-2">
+                      {!isSignedIn && (
+                        <Button type="button" onClick={() => void clerk.redirectToSignIn()}>
+                          Sign in
+                          <ArrowRightIcon />
                         </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-lg font-semibold tracking-tight text-balance text-foreground">
-                    {!isSignedIn
-                      ? 'Sign in or add a key to compare models'
-                      : 'Compare needs at least two models'}
-                  </h3>
-                  <p className="text-sm text-pretty text-muted-foreground">
-                    {!isSignedIn
-                      ? 'The shared models need an account. You can also add your own provider key (BYOK) in Settings to compare the models it unlocks.'
-                      : 'Add or unlock a provider key (BYOK) in Settings to unlock more models.'}
-                  </p>
-                  <div className="mt-1 flex flex-wrap justify-center gap-2">
-                    {!isSignedIn && (
-                      <Button type="button" onClick={() => void clerk.redirectToSignIn()}>
-                        Sign in
-                        <ArrowRightIcon />
+                      )}
+                      <Button type="button" variant="outline" onClick={openByokSettings}>
+                        <KeyRoundIcon />
+                        Open BYOK settings
                       </Button>
-                    )}
-                    <Button type="button" variant="outline" onClick={openByokSettings}>
-                      <KeyRoundIcon />
-                      Open BYOK settings
-                    </Button>
-                  </div>
-                </>
-              )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
 
-      {/* Keep the setup (and Stop) mounted while a run exists, even if models become unavailable. */}
-      {(hasEnoughModels || run) && (
-        <section
-          aria-label="Compare setup"
-          className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5">
-          <div className="mx-auto w-full max-w-5xl min-w-0">
-            {!hasEnoughModels && (
-              <p role="status" className="mb-2 px-1 text-xs text-muted-foreground">
-                Fewer than two models are available right now. Sign in or unlock a provider key to
-                compare again.
-              </p>
-            )}
-            {/* The one place slot problems are explained (the slots only get a red border). It
+        {/* Keep the setup (and Stop) mounted while a run exists, even if models become unavailable. */}
+        {(hasEnoughModels || run) && (
+          <section
+            aria-label="Compare setup"
+            className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5">
+            <div className="mx-auto w-full max-w-5xl min-w-0">
+              {!hasEnoughModels && (
+                <p role="status" className="mb-2 px-1 text-xs text-muted-foreground">
+                  Fewer than two models are available right now. Sign in or unlock a provider key to
+                  compare again.
+                </p>
+              )}
+              {/* The one place slot problems are explained (the slots only get a red border). It
                 sits above the composer, so it stays in view however far the slot row scrolls,
                 grows out of the composer and leaves the same way; reduced motion only fades it. */}
-            <AnimatePresence initial={false}>
-              {slotProblem && !isFollowingUp && (
-                <motion.div
-                  key="slot-problem"
-                  className="flex origin-bottom justify-center overflow-hidden"
-                  initial={
-                    shouldReduceMotion
-                      ? { opacity: 0 }
-                      : { opacity: 0, height: 0, marginBottom: 0, y: 6, scale: 0.96 }
-                  }
-                  animate={{ opacity: 1, height: 'auto', marginBottom: 8, y: 0, scale: 1 }}
-                  exit={
-                    shouldReduceMotion
-                      ? { opacity: 0 }
-                      : { opacity: 0, height: 0, marginBottom: 0, y: 6, scale: 0.96 }
-                  }
-                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}>
-                  <Alert
-                    role="status"
-                    variant="destructive"
-                    className="flex w-auto max-w-full items-center gap-2 rounded-[1.25rem] border-destructive/25 bg-destructive/10 px-3 py-1.5 text-xs text-foreground dark:border-destructive/50 [&>svg]:static [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg+div]:translate-y-0 [&>svg~*]:pl-0">
-                    <SlotProblemIcon aria-hidden="true" />
-                    <AlertDescription className="text-xs text-pretty">
-                      <span className="font-medium">{slotProblem.title}</span>{' '}
-                      <span className="text-muted-foreground">{slotProblem.hint}</span>
-                    </AlertDescription>
-                  </Alert>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <CompareComposer
-              value={prompt}
-              onChange={setPrompt}
-              onSubmit={submit}
-              onStop={stopAll}
-              isRunning={isRunning}
-              canSubmit={canSubmit}
-              disabledReason={disabledReason}
-              images={images}
-              canAttachImages={canAttachImages}
-              attachImagesHint={attachImagesHint}
-              onAddImages={(files) => void addImages(files)}
-              onRemoveImage={(id) =>
-                setImages((current) => current.filter((image) => image.id !== id))
-              }
-              followUp={
-                run && canFollowUpShown
-                  ? {
-                      isActive: isFollowingUp,
-                      parentPrompt: run.prompt,
-                      onToggle: () => setIsFollowUpMode((current) => !current),
+              <AnimatePresence initial={false}>
+                {slotProblem && !isFollowingUp && (
+                  <motion.div
+                    key="slot-problem"
+                    className="flex origin-bottom justify-center overflow-hidden"
+                    initial={
+                      shouldReduceMotion
+                        ? { opacity: 0 }
+                        : { opacity: 0, height: 0, marginBottom: 0, y: 6, scale: 0.96 }
                     }
-                  : undefined
-              }>
-              <div className="flex min-w-0 items-start gap-1.5">
-                <div className="min-w-0 flex-1">
-                  <ComparePickers
-                    models={models}
-                    runnableModels={runnableModels}
-                    slots={slots}
-                    findModel={findModel}
-                    onChange={setSlots}
-                    onAddProviderKey={openByokSettings}
-                    disabled={isFollowingUp}
+                    animate={{ opacity: 1, height: 'auto', marginBottom: 8, y: 0, scale: 1 }}
+                    exit={
+                      shouldReduceMotion
+                        ? { opacity: 0 }
+                        : { opacity: 0, height: 0, marginBottom: 0, y: 6, scale: 0.96 }
+                    }
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}>
+                    <Alert
+                      role="status"
+                      variant="destructive"
+                      className="flex w-auto max-w-full items-center gap-2 rounded-[1.25rem] border-destructive/25 bg-destructive/10 px-3 py-1.5 text-xs text-foreground dark:border-destructive/50 [&>svg]:static [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg+div]:translate-y-0 [&>svg~*]:pl-0">
+                      <SlotProblemIcon aria-hidden="true" />
+                      <AlertDescription className="text-xs text-pretty">
+                        <span className="font-medium">{slotProblem.title}</span>{' '}
+                        <span className="text-muted-foreground">{slotProblem.hint}</span>
+                      </AlertDescription>
+                    </Alert>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <CompareComposer
+                value={prompt}
+                onChange={setPrompt}
+                onSubmit={submit}
+                onStop={stopAll}
+                isRunning={isRunning}
+                canSubmit={canSubmit}
+                disabledReason={disabledReason}
+                images={images}
+                canAttachImages={canAttachImages}
+                attachImagesHint={attachImagesHint}
+                onAddImages={(files) => void addImages(files)}
+                onRemoveImage={(id) =>
+                  setImages((current) => current.filter((image) => image.id !== id))
+                }
+                followUp={
+                  run && canFollowUp
+                    ? {
+                        isActive: isFollowingUp,
+                        parentPrompt: run.prompt,
+                        onToggle: () => setIsFollowUpMode((current) => !current),
+                      }
+                    : undefined
+                }>
+                <div className="flex min-w-0 items-start gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <ComparePickers
+                      models={models}
+                      runnableModels={runnableModels}
+                      slots={slots}
+                      findModel={findModel}
+                      onChange={setSlots}
+                      onAddProviderKey={openByokSettings}
+                      disabled={isFollowingUp}
+                    />
+                  </div>
+                  <CompareSuites
+                    suites={suites.suites}
+                    isLoading={suites.isLoading}
+                    canRun={hasValidSelection && !isRunning}
+                    runDisabledReason={
+                      isRunning ? 'Wait for the current run to finish.' : selectionReason
+                    }
+                    disabled={isRunning}
+                    onSave={suites.save}
+                    onDelete={suites.remove}
+                    onRun={runSuite}
                   />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-pressed={isBlind}
+                    title={
+                      isBlind
+                        ? 'Blind mode on: new runs are shuffled, and names stay hidden until you vote'
+                        : 'Blind mode off: model names are shown while you judge'
+                    }
+                    className={cn(
+                      'mt-0.5 h-9 shrink-0 gap-1.5 rounded-full px-3 text-muted-foreground hover:text-foreground',
+                      isBlind &&
+                        'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                    onClick={toggleBlind}>
+                    {isBlind ? <EyeOffIcon /> : <EyeIcon />}
+                    <span className="hidden sm:inline">Blind</span>
+                    <span className="sr-only sm:hidden">Blind mode</span>
+                  </Button>
                 </div>
-                <CompareSuites
-                  suites={suites.suites}
-                  isLoading={suites.isLoading}
-                  canRun={hasValidSelection && !isRunning}
-                  runDisabledReason={
-                    isRunning ? 'Wait for the current run to finish.' : selectionReason
-                  }
-                  disabled={isRunning}
-                  onSave={suites.save}
-                  onDelete={suites.remove}
-                  onRun={runSuite}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-pressed={isBlind}
-                  title={
-                    isBlind
-                      ? 'Blind mode on: new runs are shuffled, and names stay hidden until you vote'
-                      : 'Blind mode off: model names are shown while you judge'
-                  }
-                  className={cn(
-                    'mt-0.5 h-9 shrink-0 gap-1.5 rounded-full px-3 text-muted-foreground hover:text-foreground',
-                    isBlind &&
-                      'bg-accent text-accent-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                  onClick={toggleBlind}>
-                  {isBlind ? <EyeOffIcon /> : <EyeIcon />}
-                  <span className="hidden sm:inline">Blind</span>
-                  <span className="sr-only sm:hidden">Blind mode</span>
-                </Button>
-              </div>
-            </CompareComposer>
-          </div>
-        </section>
-      )}
+              </CompareComposer>
+            </div>
+          </section>
+        )}
+      </div>
+      <SuiteReportPanel open={Boolean(suiteView)} onClose={() => setSuiteView(null)}>
+        <SuiteReport
+          key={suiteView}
+          report={suiteReport}
+          isLoading={history.isLoading}
+          isRunning={isRunning}
+          getModelLabel={getModelLabel}
+          getColumnCost={getColumnCost}
+          runAgainBlocker={runAgainBlocker}
+          onRunAgain={runSuiteAgain}
+          onOpenRun={openRun}
+          onClose={() => setSuiteView(null)}
+        />
+      </SuiteReportPanel>
     </div>
   );
 };

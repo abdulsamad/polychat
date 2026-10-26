@@ -114,7 +114,7 @@ const SuiteReport = ({
 
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <div className="chat-message-entry mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-5 px-3 py-4 sm:px-5">
+      <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-5 px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
         <header className="flex min-w-0 flex-col gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
@@ -148,9 +148,15 @@ const SuiteReport = ({
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" size="sm" className="h-9 rounded-full px-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-full px-3"
+                  title="Export">
                   <DownloadIcon />
-                  Export
+                  {/* Secondary actions go icon-only on phones so all three fit on one row. */}
+                  <span className="sr-only sm:not-sr-only">Export</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
@@ -171,7 +177,7 @@ const SuiteReport = ({
               title={runAgainBlocker ?? 'Run every prompt again with the same models'}
               onClick={onRunAgain}>
               <RotateCcwIcon />
-              Run again
+              <span className="sr-only sm:not-sr-only">Run again</span>
             </Button>
           </div>
           {isIncomplete && (

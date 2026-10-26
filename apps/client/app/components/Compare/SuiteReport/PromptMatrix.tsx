@@ -65,9 +65,10 @@ const Cell = ({ cell }: { cell: SuiteCell }) => {
 /** One row per prompt with each model's outcome; a row opens that run. */
 const PromptMatrix = ({ report, getModelLabel, disabled, onOpenRun }: PromptMatrixProps) => (
   <Table className="text-sm">
-    <TableHeader className="bg-muted/60">
+    <TableHeader className="bg-muted">
       <TableRow>
-        <TableHead className="h-9 min-w-48 px-3">Prompt</TableHead>
+        {/* Pinned so the prompt stays readable while the model columns scroll on phones. */}
+        <TableHead className="sticky left-0 z-10 h-9 min-w-40 bg-muted px-3">Prompt</TableHead>
         {!report.isHidden &&
           report.models.map((model) => {
             const label = getModelLabel(model.model);
@@ -95,8 +96,8 @@ const PromptMatrix = ({ report, getModelLabel, disabled, onOpenRun }: PromptMatr
             : undefined
           : getVerdict(run, getModelLabel);
         return (
-          <TableRow key={run.id}>
-            <TableCell className="max-w-80 min-w-48 px-1 py-1">
+          <TableRow key={run.id} className="hover:bg-transparent">
+            <TableCell className="sticky left-0 z-10 max-w-80 min-w-40 bg-card px-1 py-1">
               <button
                 type="button"
                 disabled={disabled}
