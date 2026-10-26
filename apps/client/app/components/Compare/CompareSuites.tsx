@@ -188,7 +188,7 @@ const CompareSuites = ({
           </form>
         ) : (
           <>
-            <ScrollArea className="min-h-0 flex-1">
+            <ScrollArea className="min-h-0 flex-1 [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:w-full [&_[data-radix-scroll-area-viewport]>div]:min-w-0">
               {isLoading ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">Loading suites...</p>
               ) : suites.length === 0 ? (
