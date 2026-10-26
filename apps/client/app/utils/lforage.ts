@@ -363,16 +363,17 @@ const pruneRunMedia = (run: ICompareRun): ICompareRun => ({
 });
 
 /**
- * Insert or replace a run by id, keeping the newest MAX_COMPARE_RUNS records. Only the newest
+ * Insert or replace runs by id, keeping the newest MAX_COMPARE_RUNS records. Only the newest
  * MAX_COMPARE_MEDIA_RUNS image and video runs keep their media.
  */
-export const saveCompareRun = async (run: ICompareRun) => {
+export const saveCompareRuns = async (saved: readonly ICompareRun[]) => {
   const key = scopedKey(compareRunsKey);
   if (!key) return false;
 
   const runs = await getCompareRuns();
+  const savedIds = new Set(saved.map(({ id }) => id));
   let mediaRuns = 0;
-  const nextRuns = [run, ...runs.filter(({ id }) => id !== run.id)]
+  const nextRuns = [...saved, ...runs.filter(({ id }) => !savedIds.has(id))]
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, MAX_COMPARE_RUNS)
     .map((stored) => {
@@ -384,14 +385,16 @@ export const saveCompareRun = async (run: ICompareRun) => {
   return true;
 };
 
-export const deleteCompareRun = async (runId: string) => {
+export const saveCompareRun = (run: ICompareRun) => saveCompareRuns([run]);
+
+export const deleteCompareRuns = async (runIds: readonly string[]) => {
   const key = scopedKey(compareRunsKey);
   if (!key) return;
 
   const runs = await getCompareRuns();
   await lforage.setItem(
     key,
-    runs.filter(({ id }) => id !== runId)
+    runs.filter(({ id }) => !runIds.includes(id))
   );
 };
 

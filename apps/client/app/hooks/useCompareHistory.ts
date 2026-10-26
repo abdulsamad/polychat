@@ -3,10 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { enqueuePersistence } from '@/store';
 import {
   clearCompareRuns,
-  deleteCompareRun,
+  deleteCompareRuns,
   getActiveWorkspaceAccount,
   getCompareRuns,
-  saveCompareRun,
+  saveCompareRuns,
   type ICompareRun,
 } from '@/utils/lforage';
 
@@ -57,17 +57,17 @@ const useCompareHistory = (isWorkspaceReady: boolean) => {
   }, [isWorkspaceReady, refresh]);
 
   const remove = useCallback(
-    async (runId: string) => {
-      await enqueuePersistence(() => deleteCompareRun(runId));
+    async (runIds: readonly string[]) => {
+      await enqueuePersistence(() => deleteCompareRuns(runIds));
       await refresh();
     },
     [refresh]
   );
 
-  /** Puts a deleted run back (undo). */
+  /** Puts deleted runs back (undo). */
   const restore = useCallback(
-    async (run: ICompareRun) => {
-      await enqueuePersistence(() => saveCompareRun(run));
+    async (runs: readonly ICompareRun[]) => {
+      await enqueuePersistence(() => saveCompareRuns(runs));
       await refresh();
     },
     [refresh]
