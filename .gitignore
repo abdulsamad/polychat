@@ -58,8 +58,8 @@ next-env.d.ts
 jspm_packages
 .serverless
 
-# React Router
-/.react-router/
+# React Router (generated route types live in apps/client/.react-router)
+.react-router/
 /build/
 
 # AWS SAM
