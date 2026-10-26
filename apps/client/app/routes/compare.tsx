@@ -4,8 +4,8 @@ import { useAuth, useClerk } from '@clerk/react-router';
 import {
   AlertCircleIcon,
   ArrowRightIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  ChartColumnIcon,
+  CircleStopIcon,
   Columns3Icon,
   CopyIcon,
   EyeIcon,
@@ -13,7 +13,6 @@ import {
   CornerDownRightIcon,
   HistoryIcon,
   KeyRoundIcon,
-  ListChecksIcon,
   ShapesIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -65,6 +64,8 @@ import ComparePickers, {
   type CompareSlot,
 } from '@/components/Compare/ComparePickers';
 import CompareSuites from '@/components/Compare/CompareSuites';
+import ExpandablePrompt from '@/components/Compare/ExpandablePrompt';
+import SuiteStepper from '@/components/Compare/SuiteStepper';
 import SuiteReport from '@/components/Compare/SuiteReport';
 import SuiteReportPanel from '@/components/Compare/SuiteReport/SuiteReportPanel';
 import CompareTally from '@/components/Compare/CompareTally';
@@ -189,6 +190,8 @@ const Compare = () => {
   const [prompt, setPrompt] = useState('');
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [isFollowUpMode, setIsFollowUpMode] = useState(false);
+  /** The run reached by stepping through a suite, and which way the step went. */
+  const [steppedRun, setSteppedRun] = useState<{ id: string; direction: -1 | 1 }>();
 
   // Hosted models need a Clerk session; BYOK models need an unlocked key for their provider.
   const runnableModels = useMemo(
@@ -308,6 +311,7 @@ const Compare = () => {
     ? suiteExecutions.find(({ suiteRunId }) => suiteRunId === run.suite?.suiteRunId)
     : undefined;
   const runPosition = runExecution?.runs.findIndex(({ id }) => id === run?.id) ?? -1;
+  const stepDirection = steppedRun && steppedRun.id === run?.id ? steppedRun.direction : 0;
 
   // Runs a suite again with the configurations it ran with; the pickers follow.
   const suiteToRunAgain = shownExecution
@@ -360,6 +364,12 @@ const Compare = () => {
     setSuiteView(null);
     setIsFollowUpMode(false);
     open(stored);
+  };
+  const stepSuite = (direction: -1 | 1) => {
+    const target = runExecution?.runs[runPosition + direction];
+    if (!target) return;
+    setSteppedRun({ id: target.id, direction });
+    openRun(target);
   };
   const openSuite = (suiteRunId: string) => {
     setIsFollowUpMode(false);
@@ -494,6 +504,13 @@ const Compare = () => {
   }));
   const isSettled = Boolean(run) && !isRunning;
   const isIdentityHidden = Boolean(run?.blind && !run.winner);
+  const isActiveSuiteRun = Boolean(run?.suite && activeSuite?.suiteRunId === run.suite.suiteRunId);
+  // A finished suite can be stepped through once it has more than one saved prompt.
+  const canStepSuite =
+    !isActiveSuiteRun &&
+    runExecution !== undefined &&
+    runPosition >= 0 &&
+    runExecution.runs.length > 1;
   // Saved runs have no live request to repeat, and a suite has already moved on to its next prompt.
   const canRetryColumns = Boolean(run && !run.isFromHistory && !activeSuite);
   const totalCost = run && isSettled ? runCost(run.columns, getColumnCost) : undefined;
@@ -548,11 +565,66 @@ const Compare = () => {
         <section aria-label="Answers" className="flex min-h-0 min-w-0 flex-1 flex-col">
           {run ? (
             <>
-              <div className="flex min-w-0 shrink-0 items-center gap-3 px-3 pt-3 sm:px-5">
-                {/* Keyed by run so a new prompt settles in instead of swapping text in place. */}
-                <div key={run.id} className="chat-message-entry min-w-0 flex-1">
+              <div className="flex min-w-0 shrink-0 flex-col gap-2 px-3 pt-3 sm:px-5 lg:gap-3 lg:px-8 lg:pt-5">
+                {run.suite && (
+                  <SuiteStepper
+                    suiteName={run.suite.suiteName}
+                    index={run.suite.index}
+                    total={run.suite.total}
+                    direction={stepDirection}
+                    className="sm:w-fit sm:max-w-full sm:min-w-96"
+                    {...(canStepSuite && {
+                      onPrevious: () => stepSuite(-1),
+                      onNext: () => stepSuite(1),
+                      canPrevious: !isRunning && runPosition > 0,
+                      canNext: !isRunning && runPosition < runExecution.runs.length - 1,
+                    })}
+                    action={
+                      isActiveSuiteRun ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-10 shrink-0 rounded-full px-3 sm:h-9"
+                          aria-label="Stop the suite after this prompt"
+                          onClick={stopSuite}>
+                          <CircleStopIcon />
+                          Stop after this
+                        </Button>
+                      ) : (
+                        runExecution && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-10 shrink-0 rounded-full px-3 sm:h-9"
+                            disabled={isRunning}
+                            onClick={() => openSuite(runExecution.suiteRunId)}>
+                            <ChartColumnIcon />
+                            Results
+                          </Button>
+                        )
+                      )
+                    }
+                  />
+                )}
+                {/* Keyed by run so a new prompt settles in instead of swapping text in place.
+                  Stepping through a suite slides it in from the side the user moved toward. */}
+                <motion.div
+                  key={run.id}
+                  className="flex min-w-0 flex-col gap-0.5"
+                  initial={
+                    shouldReduceMotion
+                      ? { opacity: 0 }
+                      : {
+                          opacity: 0,
+                          transform: `translate(${stepDirection * 16}px, ${stepDirection ? 0 : 4}px)`,
+                        }
+                  }
+                  animate={{ opacity: 1, transform: 'translate(0px, 0px)' }}
+                  transition={{ duration: stepDirection ? 0.2 : 0.16, ease: [0.23, 1, 0.32, 1] }}>
                   {run.isFromHistory && (
-                    <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
                       <HistoryIcon className="size-3.5 shrink-0" aria-hidden="true" />
                       <span className="truncate">
                         Saved run - {savedRunDate.format(run.timestamp)}
@@ -567,130 +639,69 @@ const Compare = () => {
                       </Button>
                     </p>
                   )}
-                  {(run.suite || run.parentRunId) && (
-                    <p className="mb-0.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-                      {run.suite ? (
-                        <>
-                          <ListChecksIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                          <span className="truncate">
-                            {run.suite.suiteName} - prompt {run.suite.index + 1} of{' '}
-                            {run.suite.total}
-                          </span>
-                          {activeSuite?.suiteRunId === run.suite.suiteRunId ? (
-                            <Button
-                              type="button"
-                              variant="link"
-                              size="sm"
-                              className="h-auto shrink-0 p-0 text-xs"
-                              onClick={stopSuite}>
-                              Stop after this prompt
-                            </Button>
-                          ) : (
-                            runExecution && (
-                              <span className="flex shrink-0 items-center gap-0.5">
-                                {runPosition >= 0 && runExecution.runs.length > 1 && (
-                                  <>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="-my-2 size-9 rounded-full"
-                                      aria-label="Previous prompt in suite"
-                                      title="Previous prompt"
-                                      disabled={isRunning || runPosition === 0}
-                                      onClick={() => openRun(runExecution.runs[runPosition - 1])}>
-                                      <ChevronLeftIcon />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="-my-2 size-9 rounded-full"
-                                      aria-label="Next prompt in suite"
-                                      title="Next prompt"
-                                      disabled={
-                                        isRunning || runPosition === runExecution.runs.length - 1
-                                      }
-                                      onClick={() => openRun(runExecution.runs[runPosition + 1])}>
-                                      <ChevronRightIcon />
-                                    </Button>
-                                  </>
-                                )}
-                                <Button
-                                  type="button"
-                                  variant="link"
-                                  size="sm"
-                                  className="h-auto shrink-0 p-0 pl-1 text-xs"
-                                  disabled={isRunning}
-                                  onClick={() => openSuite(runExecution.suiteRunId)}>
-                                  Suite results
-                                </Button>
-                              </span>
-                            )
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <CornerDownRightIcon className="size-3.5 shrink-0" aria-hidden="true" />
-                          <span className="truncate">Follow-up turn</span>
-                        </>
-                      )}
+                  {run.parentRunId && !run.suite && (
+                    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <CornerDownRightIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">Follow-up turn</span>
                     </p>
                   )}
-                  <p className="truncate text-sm font-medium text-foreground" title={run.prompt}>
-                    {run.prompt}
-                  </p>
-                  <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                    <span role="status" aria-live="polite" className="truncate">
+                  <ExpandablePrompt prompt={run.prompt} />
+                </motion.div>
+                <div className="flex min-w-0 items-center gap-3">
+                  {/* Stacked on phones so the status can wrap instead of being cut short. */}
+                  <p className="flex min-w-0 flex-1 flex-col text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
+                    <span role="status" aria-live="polite" className="line-clamp-2 sm:truncate">
                       {getRunStatus(run, getModelLabel)}
                     </span>
-                    {totalCost && !isIdentityHidden && (
+                    {isSettled && !isIdentityHidden && (
                       <span
                         className="shrink-0 font-mono tabular-nums duration-200 ease-[var(--ease-out)] animate-in fade-in-0"
                         title={
-                          totalCost.isEstimate
-                            ? 'Includes estimates from OpenRouter list prices'
-                            : 'Reported by the providers'
+                          !totalCost
+                            ? 'Unknown: at least one model has no published price'
+                            : totalCost.isEstimate
+                              ? 'Includes estimates from OpenRouter list prices'
+                              : 'Reported by the providers'
                         }>
                         Run cost {formatCost(totalCost)}
                       </span>
                     )}
                   </p>
-                </div>
-                {/* A segmented group keeps the run-level verdicts visually apart from the per-answer
-                  Best buttons; the pressed segment lifts onto the background like a thumb. */}
-                <div
-                  role="group"
-                  aria-label="Other votes"
-                  className={cn(
-                    'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
-                    (!canVote || isRunning) && 'opacity-60'
-                  )}>
-                  {(['tie', 'none'] as const).map((choice) => {
-                    const isPressed = run.winner === choice;
-                    return (
-                      <Button
-                        key={choice}
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className={cn(
-                          'h-8 rounded-full px-3.5 text-muted-foreground hover:bg-background/60 hover:text-foreground disabled:opacity-100',
-                          isPressed &&
-                            'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
-                        )}
-                        // Tie and none judge every answer, so they wait for the whole run.
-                        disabled={!canVote || isRunning}
-                        aria-pressed={isPressed}
-                        aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
-                        onClick={() => handleVote(choice)}>
-                        {choice === 'tie' ? 'Tie' : 'None'}
-                      </Button>
-                    );
-                  })}
+                  {/* A segmented group keeps the run-level verdicts visually apart from the per-answer
+                    Best buttons; the pressed segment lifts onto the background like a thumb. */}
+                  <div
+                    role="group"
+                    aria-label="Other votes"
+                    className={cn(
+                      'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
+                      (!canVote || isRunning) && 'opacity-60'
+                    )}>
+                    {(['tie', 'none'] as const).map((choice) => {
+                      const isPressed = run.winner === choice;
+                      return (
+                        <Button
+                          key={choice}
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className={cn(
+                            'h-8 rounded-full px-3.5 text-muted-foreground hover:bg-background/60 hover:text-foreground disabled:opacity-100',
+                            isPressed &&
+                              'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
+                          )}
+                          // Tie and none judge every answer, so they wait for the whole run.
+                          disabled={!canVote || isRunning}
+                          aria-pressed={isPressed}
+                          aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
+                          onClick={() => handleVote(choice)}>
+                          {choice === 'tie' ? 'Tie' : 'None'}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
-              <div className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-px-3 gap-3 overflow-x-auto overscroll-x-contain px-3 py-3 [scrollbar-width:thin] sm:scroll-px-5 sm:px-5 xl:overflow-x-hidden">
+              <div className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-px-3 gap-3 overflow-x-auto overscroll-x-contain px-3 py-3 [scrollbar-width:thin] sm:scroll-px-5 sm:px-5 lg:scroll-px-8 lg:gap-4 lg:px-8 lg:py-5 xl:overflow-x-hidden">
                 {run.columns.map((column, index) => {
                   const cost = getColumnCost(column);
                   return (
@@ -722,7 +733,7 @@ const Compare = () => {
                       outputType={run.outputType ?? 'text'}
                       isMediaPruned={Boolean(run.isMediaPruned)}
                       currentPrompt={column.history?.length ? run.prompt : undefined}
-                      className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] xl:w-0 xl:flex-1"
+                      className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] lg:w-[calc(50%-0.5rem)] xl:w-0 xl:flex-1"
                     />
                   );
                 })}
@@ -801,7 +812,7 @@ const Compare = () => {
         {(hasEnoughModels || run) && (
           <section
             aria-label="Compare setup"
-            className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5">
+            className="shrink-0 border-t border-border/70 bg-background/95 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-5 lg:px-8 lg:pt-4 lg:pb-[max(1.25rem,env(safe-area-inset-bottom))]">
             <div className="mx-auto w-full max-w-5xl min-w-0">
               {!hasEnoughModels && (
                 <p role="status" className="mb-2 px-1 text-xs text-muted-foreground">

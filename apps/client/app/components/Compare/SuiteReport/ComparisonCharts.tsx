@@ -55,7 +55,7 @@ interface ComparisonChartsProps {
 /** Horizontal bars per metric; the ranking table carries the same numbers for screen readers. */
 const ComparisonCharts = ({ report, getModelLabel }: ComparisonChartsProps) => {
   return (
-    <div className="grid min-w-0 gap-3 md:grid-cols-3">
+    <div className="grid min-w-0 gap-3 md:grid-cols-3 lg:gap-4">
       {charts.map((chart) => {
         const data = report.models.flatMap((model) => {
           const value = chart.value(model);

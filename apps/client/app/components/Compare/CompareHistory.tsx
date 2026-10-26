@@ -184,7 +184,6 @@ const CompareHistory = ({
     const isActive = run.id === activeRunId;
     // An unvoted blind run keeps its models hidden here as well as on screen.
     const isHidden = Boolean(run.blind && !run.winner);
-    const cost = isHidden ? undefined : getRunCost(run);
     return (
       <div
         className={cn(
@@ -245,7 +244,8 @@ const CompareHistory = ({
           </span>
           <span className="text-xs text-muted-foreground tabular-nums">
             {dateFormat.format(run.timestamp)} - {getWinnerLabel(run, getModelLabel)}
-            {cost && ` - ${formatCost(cost)}`}
+            {/* Unknown cost reads as "-"; an unvoted blind run keeps it hidden. */}
+            {!isHidden && ` - Cost ${formatCost(getRunCost(run))}`}
           </span>
         </button>
         <div className="flex shrink-0 flex-col py-1 pr-1">
@@ -285,7 +285,7 @@ const CompareHistory = ({
     const summary = [
       `${execution.runs.length} of ${execution.total} prompts`,
       `${report.voted} voted`,
-      !report.isHidden && report.totalCost && formatCost(report.totalCost),
+      !report.isHidden && `Cost ${formatCost(report.totalCost)}`,
     ]
       .filter(Boolean)
       .join(' - ');

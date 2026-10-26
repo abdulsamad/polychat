@@ -5,6 +5,7 @@ import { cn } from '@/utils';
 import { formatCost, formatSpeed } from '@/utils/compare-metrics';
 import type { SuiteBestMetric, SuiteReport } from '@/utils/compare-suite-report';
 import { formatDuration } from '@/components/Compare/CompareColumn';
+import ModelName from '@/components/Compare/SuiteReport/ModelName';
 import {
   Table,
   TableBody,
@@ -39,7 +40,7 @@ const columns: Array<{ label: string; title: string; className?: string }> = [
   { label: 'Failed', title: 'Prompts that failed or were stopped', className: 'text-right' },
 ];
 
-const cellClass = 'px-3 py-2 text-right tabular-nums whitespace-nowrap';
+const cellClass = 'px-3 py-2 text-right tabular-nums whitespace-nowrap lg:px-4 lg:py-3';
 
 interface ModelRankingProps {
   report: SuiteReport;
@@ -66,7 +67,7 @@ const ModelRanking = ({ report, getModelLabel }: ModelRankingProps) => {
             <TableHead
               key={label}
               title={title}
-              className={cn('h-9 px-3 whitespace-nowrap', className)}>
+              className={cn('h-9 px-3 whitespace-nowrap lg:h-10 lg:px-4', className)}>
               {label}
             </TableHead>
           ))}
@@ -77,29 +78,24 @@ const ModelRanking = ({ report, getModelLabel }: ModelRankingProps) => {
           const label = getModelLabel(model.model);
           return (
             <TableRow key={model.key} className="hover:bg-transparent">
-              <TableCell className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="w-4 shrink-0 text-xs text-muted-foreground tabular-nums">
+              {/* Wide enough for two lines of a short name on phones; tap shows the full one. */}
+              <TableCell className="sticky left-0 z-10 w-36 max-w-36 min-w-36 bg-card px-2 py-1.5 sm:w-auto sm:max-w-56">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="w-4 shrink-0 text-center text-xs text-muted-foreground tabular-nums">
                     {rank + 1}
                   </span>
-                  <span className="min-w-0">
-                    <span className="flex min-w-0 items-center gap-1">
-                      <span className="truncate font-medium" title={label}>
-                        {label}
-                      </span>
-                      {report.bests.wins === model.key && (
-                        <TrophyIcon
-                          className="size-3.5 shrink-0 fill-current text-primary"
-                          aria-label="Most wins"
-                        />
-                      )}
-                    </span>
-                    {model.variant && (
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {model.variant}
-                      </span>
-                    )}
-                  </span>
+                  <ModelName
+                    model={model.model}
+                    label={label}
+                    variant={model.variant}
+                    className="flex-1 px-1 py-0.5"
+                  />
+                  {report.bests.wins === model.key && (
+                    <TrophyIcon
+                      className="size-3.5 shrink-0 fill-current text-primary"
+                      aria-label="Most wins"
+                    />
+                  )}
                 </span>
               </TableCell>
               <TableCell className={cellClass}>

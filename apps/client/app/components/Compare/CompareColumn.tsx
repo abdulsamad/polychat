@@ -362,7 +362,7 @@ const CompareColumn = ({
         isWinner && 'border-primary/70 shadow-[0_0_0_1px_hsl(var(--primary)/0.45)]',
         className
       )}>
-      <header className="flex min-w-0 items-center gap-2 border-b border-border/70 px-3 py-2">
+      <header className="flex min-w-0 items-center gap-2 border-b border-border/70 px-3 py-2 lg:gap-3 lg:px-4 lg:py-3">
         {blindLetter && (
           <span
             aria-hidden="true"
@@ -430,7 +430,7 @@ const CompareColumn = ({
       </header>
 
       <ScrollArea className="min-h-0 flex-1 [&_[data-radix-scroll-area-viewport]]:[overflow-anchor:none] [&_[data-radix-scroll-area-viewport]>div]:!block [&_[data-radix-scroll-area-viewport]>div]:w-full [&_[data-radix-scroll-area-viewport]>div]:min-w-0">
-        <div className="flex min-w-0 flex-col gap-3 p-1.5 sm:p-2">
+        <div className="flex min-w-0 flex-col gap-3 p-1.5 sm:p-2 lg:gap-4 lg:p-3">
           {earlierTurns}
           {currentPrompt && (
             <p className="mx-2 self-end rounded-2xl rounded-br-md bg-muted px-3 py-1.5 text-sm text-foreground [overflow-wrap:anywhere]">
@@ -501,14 +501,14 @@ const CompareColumn = ({
         </div>
       </ScrollArea>
 
-      <footer className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5">
+      <footer className="flex min-w-0 flex-col gap-2 border-t border-border/70 px-3 py-2.5 lg:gap-3 lg:px-4 lg:py-3">
         {finishNotice && (
           <p className="flex min-w-0 items-start gap-1.5 rounded-lg bg-muted px-2.5 py-1.5 text-xs text-muted-foreground duration-200 ease-[var(--ease-out)] animate-in fade-in-0 motion-safe:slide-in-from-bottom-1">
             <TriangleAlertIcon className="mt-px size-3.5 shrink-0" aria-hidden="true" />
             <span className="min-w-0">{finishNotice}</span>
           </p>
         )}
-        <dl className="grid min-w-0 grid-cols-3 gap-x-2 gap-y-1.5">
+        <dl className="grid min-w-0 grid-cols-3 gap-x-2 gap-y-1.5 lg:gap-x-3 lg:gap-y-2">
           {metrics.map(({ label, value, title, isLive, best, bestIcon: BestIcon = ZapIcon }) => (
             <div key={label} className="flex min-w-0 flex-col" title={best ?? title}>
               <dt className="truncate text-[0.6875rem] leading-4 tracking-wide text-muted-foreground">

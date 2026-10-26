@@ -44,7 +44,7 @@ interface SuiteReportProps {
 }
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section aria-label={title} className="flex min-w-0 flex-col gap-2">
+  <section aria-label={title} className="flex min-w-0 flex-col gap-2 lg:gap-3">
     <h4 className="px-1 text-sm font-semibold tracking-tight text-foreground">{title}</h4>
     {children}
   </section>
@@ -109,12 +109,12 @@ const SuiteReport = ({
     `${report.voted} voted`,
     dateFormat.format(execution.timestamp),
     report.totalMs !== undefined && formatDuration(Math.round(report.totalMs)),
-    report.totalCost && !report.isHidden && formatCost(report.totalCost),
+    !report.isHidden && `Cost ${formatCost(report.totalCost)}`,
   ].filter(Boolean);
 
   return (
     <div className="flex min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-5 px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
+      <div className="mx-auto flex w-full max-w-5xl min-w-0 flex-col gap-5 px-3 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 lg:gap-8 lg:px-8 lg:pt-4 lg:pb-8">
         <header className="flex min-w-0 flex-col gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground">
@@ -202,7 +202,7 @@ const SuiteReport = ({
             </Section>
             <Suspense
               fallback={
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-3 lg:gap-4">
                   {[0, 1, 2].map((item) => (
                     <Skeleton key={item} className="h-40 rounded-xl" />
                   ))}

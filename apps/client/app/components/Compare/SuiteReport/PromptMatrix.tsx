@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import ModelName, { shortModelLabel } from '@/components/Compare/SuiteReport/ModelName';
 
 interface PromptMatrixProps {
   report: SuiteReport;
@@ -23,7 +24,7 @@ interface PromptMatrixProps {
 const getVerdict = (run: ICompareRun, getModelLabel: (model: string) => string) => {
   if (run.winner === 'tie') return 'Tie';
   if (run.winner === 'none') return 'None';
-  if (run.winner) return getModelLabel(run.winner);
+  if (run.winner) return shortModelLabel(getModelLabel(run.winner));
   return undefined;
 };
 
@@ -74,13 +75,16 @@ const PromptMatrix = ({ report, getModelLabel, disabled, onOpenRun }: PromptMatr
             const label = getModelLabel(model.model);
             const title = model.variant ? `${label} ${model.variant}` : label;
             return (
-              <TableHead key={model.key} title={title} className="h-9 max-w-28 px-3 text-center">
-                <span className="block truncate">{label}</span>
-                {model.variant && (
-                  <span className="block truncate text-[0.6875rem] font-normal">
-                    {model.variant}
-                  </span>
-                )}
+              <TableHead
+                key={model.key}
+                title={title}
+                className="h-auto w-24 max-w-28 min-w-24 px-1 py-1 text-center align-bottom">
+                <ModelName
+                  model={model.model}
+                  label={label}
+                  variant={model.variant}
+                  className="w-full px-1.5 py-1 text-center text-xs"
+                />
               </TableHead>
             );
           })}

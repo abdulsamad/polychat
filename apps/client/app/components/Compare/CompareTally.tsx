@@ -58,7 +58,7 @@ const CompareTally = ({
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="shrink-0 border-b border-border/70">
-      <div className="flex min-w-0 items-center gap-1 px-3 py-2 sm:px-5">
+      <div className="flex min-w-0 items-center gap-1.5 px-3 py-2 sm:gap-1 sm:px-5 lg:gap-2 lg:px-8 lg:py-3">
         {children}
         {actions}
         <CollapsibleTrigger asChild>
@@ -85,7 +85,7 @@ const CompareTally = ({
           </Button>
         </CollapsibleTrigger>
       </div>
-      <CollapsibleContent className="min-w-0 px-3 pb-3 duration-150 ease-[var(--ease-out)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:px-5 motion-safe:data-[state=closed]:slide-out-to-top-1 motion-safe:data-[state=open]:slide-in-from-top-1">
+      <CollapsibleContent className="min-w-0 px-3 pb-3 duration-150 lg:px-8 lg:pb-4 ease-[var(--ease-out)] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:px-5 motion-safe:data-[state=closed]:slide-out-to-top-1 motion-safe:data-[state=open]:slide-in-from-top-1">
         {!isLoading && total > 0 && (
           <div
             role="tablist"
