@@ -23,7 +23,7 @@
   "devDependencies": {
     "kill-port": "^2.0.1",
     "prettier": "3.9.10",
-    "turbo": "^2.11.7"
+    "turbo": "^2.11.9"
   },
   "engines": {
     "node": ">=22.12.0"
