@@ -92,7 +92,8 @@ export default defineConfig({
     // mkcert(),
   ],
   optimizeDeps: {
-    include: ['react-syntax-highlighter/dist/cjs/styles/prism'],
+    // recharts is only imported lazily (suite reports), so pre-bundle it to avoid a dev reload.
+    include: ['react-syntax-highlighter/dist/cjs/styles/prism', 'recharts'],
   },
   server: {
     proxy: {

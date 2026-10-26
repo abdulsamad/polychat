@@ -4,6 +4,8 @@ import { useAuth, useClerk } from '@clerk/react-router';
 import {
   AlertCircleIcon,
   ArrowRightIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   Columns3Icon,
   CopyIcon,
   EyeIcon,
@@ -33,6 +35,7 @@ import useCompareRun, {
 } from '@/hooks/useCompareRun';
 import { useCompareSuites, useSuiteRunner } from '@/hooks/useCompareSuites';
 import { configurationKey } from '@/utils/compare-settings';
+import { buildSuiteReport, getSuiteExecutions } from '@/utils/compare-suite-report';
 import useCompareHistory from '@/hooks/useCompareHistory';
 import useCompareVotes from '@/hooks/useCompareVotes';
 import useCompareWorkspace from '@/hooks/useCompareWorkspace';
@@ -62,6 +65,7 @@ import ComparePickers, {
   type CompareSlot,
 } from '@/components/Compare/ComparePickers';
 import CompareSuites from '@/components/Compare/CompareSuites';
+import SuiteReport from '@/components/Compare/SuiteReport';
 import CompareTally from '@/components/Compare/CompareTally';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -177,7 +181,9 @@ const Compare = () => {
     onRunSaved: history.refresh,
   });
   const suites = useCompareSuites(isReady);
-  const { activeSuite, startSuite, stopSuite } = useSuiteRunner(run, isRunning);
+  /** The suite execution whose results replace the answer columns, by suiteRunId. */
+  const [suiteView, setSuiteView] = useState<string | null>(null);
+  const { activeSuite, startSuite, stopSuite } = useSuiteRunner(run, isRunning, setSuiteView);
   const [slots, setSlots] = useState<CompareSlot[]>([]);
   const [prompt, setPrompt] = useState('');
   const [images, setImages] = useState<ImageAttachment[]>([]);
@@ -240,8 +246,9 @@ const Compare = () => {
       ? 'Choose at least two columns to compare.'
       : undefined;
   const SlotProblemIcon = slotProblem ? slotProblemIcons[slotProblem.kind] : AlertCircleIcon;
-  // Follow-up mode applies only while the shown run can still be continued.
-  const isFollowingUp = isFollowUpMode && canFollowUp;
+  // Follow-up mode applies only while the shown run can still be continued (and is on screen).
+  const canFollowUpShown = canFollowUp && !suiteView;
+  const isFollowingUp = isFollowUpMode && canFollowUpShown;
   const followUpModels = isFollowingUp && run ? run.columns.filter(hasOutput) : [];
   const trimmedPrompt = prompt.trim();
   const canSubmit =
@@ -288,10 +295,47 @@ const Compare = () => {
     (stored: ICompareRun) => runCost(stored.columns, getColumnCost),
     [getColumnCost]
   );
+  const suiteExecutions = useMemo(() => getSuiteExecutions(history.runs), [history.runs]);
+  const shownExecution = suiteView
+    ? suiteExecutions.find(({ suiteRunId }) => suiteRunId === suiteView)
+    : undefined;
+  const suiteReport = useMemo(
+    () => (shownExecution ? buildSuiteReport(shownExecution, getColumnCost) : undefined),
+    [getColumnCost, shownExecution]
+  );
+  // The shown run's place among its suite's saved runs, for stepping through them.
+  const runExecution = run?.suite
+    ? suiteExecutions.find(({ suiteRunId }) => suiteRunId === run.suite?.suiteRunId)
+    : undefined;
+  const runPosition = runExecution?.runs.findIndex(({ id }) => id === run?.id) ?? -1;
+
+  // Runs a suite again with the configurations it ran with; the pickers follow.
+  const suiteToRunAgain = shownExecution
+    ? suites.suites.find(({ id }) => id === shownExecution.suiteId)
+    : undefined;
+  const runAgainColumns = shownExecution?.runs[0]?.columns ?? [];
+  const runAgainEntries = runAgainColumns.flatMap(({ model, settings, sample }) => {
+    const option = runnableModels.find(({ name }) => name === model);
+    return option ? [{ model: option, settings, sample }] : [];
+  });
+  const runAgainBlocker = !suiteToRunAgain
+    ? 'This suite was deleted.'
+    : isRunning
+      ? 'Wait for the current run to finish.'
+      : runAgainEntries.length < runAgainColumns.length ||
+          runAgainEntries.length < MIN_COMPARE_MODELS
+        ? 'Some models from this suite are unavailable.'
+        : undefined;
+  const runSuiteAgain = () => {
+    if (!suiteToRunAgain || runAgainBlocker || !shownExecution) return;
+    setSlots(slotsFromColumns(runAgainColumns));
+    runSuite(suiteToRunAgain, runAgainEntries, Boolean(shownExecution.runs[0]?.blind));
+  };
   // Rerun a saved prompt with the same configurations (and conversation, for follow-ups).
   // Unavailable models are left in the pickers for the user to replace.
   const rerun = (stored: ICompareRun) => {
     stopSuite();
+    setSuiteView(null);
     setIsFollowUpMode(false);
     setImages([]);
     const rerunEntries = stored.columns.flatMap(({ model, settings, sample, history }) => {
@@ -314,12 +358,18 @@ const Compare = () => {
   };
   const openRun = (stored: ICompareRun) => {
     stopSuite();
+    setSuiteView(null);
     setIsFollowUpMode(false);
     open(stored);
+  };
+  const openSuite = (suiteRunId: string) => {
+    setIsFollowUpMode(false);
+    setSuiteView(suiteRunId);
   };
   const submit = () => {
     if (!canSubmit) return;
     stopSuite();
+    setSuiteView(null);
     const started = isFollowingUp
       ? followUp(trimmedPrompt, images)
       : start(trimmedPrompt, entries, { blind: isBlind, imageAttachments: images });
@@ -333,11 +383,12 @@ const Compare = () => {
     stopSuite();
     stop();
   };
-  const runSuite = (suite: ICompareSuite) => {
+  const runSuite = (suite: ICompareSuite, suiteEntries = entries, blind = isBlind) => {
+    setSuiteView(null);
     setIsFollowUpMode(false);
     setImages([]);
     startSuite(suite, (suitePrompt, tag) =>
-      start(suitePrompt, entries, { blind: isBlind, suite: tag })
+      start(suitePrompt, suiteEntries, { blind, suite: tag })
     );
   };
   const addImages = async (files: FileList) => {
@@ -376,17 +427,19 @@ const Compare = () => {
   };
   const closeRun = () => {
     stopSuite();
+    setSuiteView(null);
     setIsFollowUpMode(false);
     close();
   };
-  const deleteRun = async (runId: string) => {
-    await history.remove(runId);
+  const deleteRuns = async (runIds: readonly string[]) => {
+    await history.remove(runIds);
     // A deleted run that stays open would be saved again by its next vote.
-    if (run?.id === runId && !isRunning) closeRun();
+    if (run && runIds.includes(run.id) && !isRunning) closeRun();
   };
   const clearHistory = async () => {
     try {
       await history.clear();
+      setSuiteView(null);
       if (run?.isFromHistory) closeRun();
       toast.success('History cleared');
     } catch (error) {
@@ -475,8 +528,9 @@ const Compare = () => {
             getColumnCost={getColumnCost}
             getRunCost={getRunCost}
             onOpenRun={openRun}
+            onOpenSuite={openSuite}
             onRerun={rerun}
-            onDelete={deleteRun}
+            onDelete={deleteRuns}
             onRestore={history.restore}
             onRetry={() => void history.refresh()}
             onClear={clearHistory}
@@ -493,7 +547,20 @@ const Compare = () => {
       </CompareTally>
 
       <section aria-label="Answers" className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {run ? (
+        {suiteView ? (
+          <SuiteReport
+            key={suiteView}
+            report={suiteReport}
+            isLoading={history.isLoading}
+            isRunning={isRunning}
+            getModelLabel={getModelLabel}
+            getColumnCost={getColumnCost}
+            runAgainBlocker={runAgainBlocker}
+            onRunAgain={runSuiteAgain}
+            onOpenRun={openRun}
+            onClose={() => setSuiteView(null)}
+          />
+        ) : run ? (
           <>
             <div className="flex min-w-0 shrink-0 items-center gap-3 px-3 pt-3 sm:px-5">
               {/* Keyed by run so a new prompt settles in instead of swapping text in place. */}
@@ -522,7 +589,7 @@ const Compare = () => {
                         <span className="truncate">
                           {run.suite.suiteName} - prompt {run.suite.index + 1} of {run.suite.total}
                         </span>
-                        {activeSuite?.suiteRunId === run.suite.suiteRunId && (
+                        {activeSuite?.suiteRunId === run.suite.suiteRunId ? (
                           <Button
                             type="button"
                             variant="link"
@@ -531,6 +598,48 @@ const Compare = () => {
                             onClick={stopSuite}>
                             Stop after this prompt
                           </Button>
+                        ) : (
+                          runExecution && (
+                            <span className="flex shrink-0 items-center gap-0.5">
+                              {runPosition >= 0 && runExecution.runs.length > 1 && (
+                                <>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="-my-2 size-9 rounded-full"
+                                    aria-label="Previous prompt in suite"
+                                    title="Previous prompt"
+                                    disabled={isRunning || runPosition === 0}
+                                    onClick={() => openRun(runExecution.runs[runPosition - 1])}>
+                                    <ChevronLeftIcon />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="-my-2 size-9 rounded-full"
+                                    aria-label="Next prompt in suite"
+                                    title="Next prompt"
+                                    disabled={
+                                      isRunning || runPosition === runExecution.runs.length - 1
+                                    }
+                                    onClick={() => openRun(runExecution.runs[runPosition + 1])}>
+                                    <ChevronRightIcon />
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                className="h-auto shrink-0 p-0 pl-1 text-xs"
+                                disabled={isRunning}
+                                onClick={() => openSuite(runExecution.suiteRunId)}>
+                                Suite results
+                              </Button>
+                            </span>
+                          )
                         )}
                       </>
                     ) : (
@@ -762,7 +871,7 @@ const Compare = () => {
                 setImages((current) => current.filter((image) => image.id !== id))
               }
               followUp={
-                run && canFollowUp
+                run && canFollowUpShown
                   ? {
                       isActive: isFollowingUp,
                       parentPrompt: run.prompt,

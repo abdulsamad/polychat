@@ -48,6 +48,10 @@
     --sidebar-accent-foreground: 247 48% 38%;
     --sidebar-border: 218 25% 86%;
     --sidebar-ring: 247 64% 59%;
+
+    --chart-1: 247 64% 59%;
+    --chart-2: 173 58% 36%;
+    --chart-3: 32 90% 46%;
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
     --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   }
@@ -95,6 +99,10 @@
     --sidebar-accent-foreground: 247 100% 88%;
     --sidebar-border: 219 29% 18%;
     --sidebar-ring: 247 100% 74%;
+
+    --chart-1: 247 100% 74%;
+    --chart-2: 170 55% 52%;
+    --chart-3: 36 92% 60%;
   }
 
   * {

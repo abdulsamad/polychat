@@ -86,9 +86,16 @@ type LaunchPrompt = (prompt: string, tag: CompareSuiteTag) => boolean;
  * Runs a suite's prompts one after another. The next prompt starts as soon as the previous run
  * settles; stopping (or a prompt that cannot start) ends the suite and keeps finished runs.
  */
-export const useSuiteRunner = (run: CompareRunState | null, isRunning: boolean) => {
+export const useSuiteRunner = (
+  run: CompareRunState | null,
+  isRunning: boolean,
+  /** Called once when every prompt of a suite has run (not when it is stopped). */
+  onFinished?: (suiteRunId: string) => void
+) => {
   const [active, setActive] = useState<ActiveSuite | null>(null);
   const launchRef = useRef<LaunchPrompt | null>(null);
+  const onFinishedRef = useRef(onFinished);
+  onFinishedRef.current = onFinished;
 
   const launch = useCallback((next: ActiveSuite) => {
     const tag: CompareSuiteTag = {
@@ -132,6 +139,7 @@ export const useSuiteRunner = (run: CompareRunState | null, isRunning: boolean) 
       toast.success(
         `Suite "${active.suite.name}" finished: ${active.suite.prompts.length} runs saved to History.`
       );
+      onFinishedRef.current?.(active.suiteRunId);
       return;
     }
     launch({ ...active, index: nextIndex });
