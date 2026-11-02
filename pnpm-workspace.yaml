@@ -2,13 +2,13 @@ packages:
   - "apps/*"
   - "packages/*"
 catalog:
-  '@ai-sdk/anthropic': ^4.0.88
-  '@ai-sdk/deepseek': ^3.0.73
-  '@ai-sdk/google': ^4.0.105
-  '@ai-sdk/mistral': ^4.0.72
-  '@ai-sdk/openai': ^4.0.102
+  '@ai-sdk/anthropic': ^4.0.89
+  '@ai-sdk/deepseek': ^3.0.74
+  '@ai-sdk/google': ^4.0.106
+  '@ai-sdk/mistral': ^4.0.73
+  '@ai-sdk/openai': ^4.0.103
   '@openrouter/ai-sdk-provider': ^3.1.0
-  ai: ^7.0.153
+  ai: ^7.0.154
 allowBuilds:
   '@clerk/shared': false
   esbuild: false
