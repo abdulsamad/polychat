@@ -14,6 +14,9 @@ updates:
       # Lambda runs nodejs22.x; keep @types/node on the 22 line
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # shadcn's chart registry pins recharts@3.8.0; move only when it does
+      - dependency-name: "recharts"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       # Security fixes skip cooldown and land in one PR of their own
       security-updates:
