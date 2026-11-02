@@ -67,6 +67,8 @@ import CompareSuites from '@/components/Compare/CompareSuites';
 import ExpandablePrompt from '@/components/Compare/ExpandablePrompt';
 import SuiteStepper from '@/components/Compare/SuiteStepper';
 import SuiteReport from '@/components/Compare/SuiteReport';
+import CompareMediaViewer from '@/components/Compare/CompareMediaViewer';
+import CompareRunVerdicts from '@/components/Compare/CompareRunVerdicts';
 import SuiteReportPanel from '@/components/Compare/SuiteReport/SuiteReportPanel';
 import CompareTally from '@/components/Compare/CompareTally';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -279,6 +281,18 @@ const Compare = () => {
     (model: string) => findModel(model)?.text ?? model,
     [findModel]
   );
+  const [viewerColumnId, setViewerColumnId] = useState<string | null>(null);
+  const [videoPlaybackUrls, setVideoPlaybackUrls] = useState<Record<string, string>>({});
+  const handleVideoPlaybackChange = useCallback((columnId: string, url: string | undefined) => {
+    setVideoPlaybackUrls((current) => {
+      const { [columnId]: previous, ...rest } = current;
+      if (previous === url) return current;
+      return url ? { ...rest, [columnId]: url } : rest;
+    });
+  }, []);
+  // Derived from the run, so a new run or the next suite prompt closes the viewer by itself.
+  const isViewerOpen = Boolean(run?.columns.some(({ id }) => id === viewerColumnId));
+
   const handleVote = useCallback(
     (winner: Parameters<typeof vote>[0], winnerColumnId?: string) => {
       void vote(winner, winnerColumnId);
@@ -667,38 +681,12 @@ const Compare = () => {
                       </span>
                     )}
                   </p>
-                  {/* A segmented group keeps the run-level verdicts visually apart from the per-answer
-                    Best buttons; the pressed segment lifts onto the background like a thumb. */}
-                  <div
-                    role="group"
-                    aria-label="Other votes"
-                    className={cn(
-                      'flex shrink-0 items-center gap-0.5 rounded-full bg-muted p-0.5 transition-opacity duration-200',
-                      (!canVote || isRunning) && 'opacity-60'
-                    )}>
-                    {(['tie', 'none'] as const).map((choice) => {
-                      const isPressed = run.winner === choice;
-                      return (
-                        <Button
-                          key={choice}
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className={cn(
-                            'h-8 rounded-full px-3.5 text-muted-foreground hover:bg-background/60 hover:text-foreground disabled:opacity-100',
-                            isPressed &&
-                              'bg-background text-foreground shadow-sm hover:bg-background dark:bg-accent dark:text-accent-foreground dark:hover:bg-accent'
-                          )}
-                          // Tie and none judge every answer, so they wait for the whole run.
-                          disabled={!canVote || isRunning}
-                          aria-pressed={isPressed}
-                          aria-label={choice === 'tie' ? 'Vote tie' : 'Vote none of the answers'}
-                          onClick={() => handleVote(choice)}>
-                          {choice === 'tie' ? 'Tie' : 'None'}
-                        </Button>
-                      );
-                    })}
-                  </div>
+                  <CompareRunVerdicts
+                    winner={run.winner}
+                    canVote={canVote}
+                    isRunning={isRunning}
+                    onVote={handleVote}
+                  />
                 </div>
               </div>
               <div className="flex min-h-0 min-w-0 flex-1 snap-x snap-mandatory scroll-px-3 gap-3 overflow-x-auto overscroll-x-contain px-3 py-3 [scrollbar-width:thin] sm:scroll-px-5 sm:px-5 lg:scroll-px-8 lg:gap-4 lg:px-8 lg:py-5 xl:overflow-x-hidden">
@@ -733,6 +721,9 @@ const Compare = () => {
                       outputType={run.outputType ?? 'text'}
                       isMediaPruned={Boolean(run.isMediaPruned)}
                       currentPrompt={column.history?.length ? run.prompt : undefined}
+                      onExpand={setViewerColumnId}
+                      onVideoPlaybackChange={handleVideoPlaybackChange}
+                      isViewerOpen={isViewerOpen}
                       className="w-[86%] shrink-0 snap-start sm:w-[calc(50%-0.375rem)] lg:w-[calc(50%-0.5rem)] xl:w-0 xl:flex-1"
                     />
                   );
@@ -927,6 +918,21 @@ const Compare = () => {
           </section>
         )}
       </div>
+      {run && viewerColumnId && isViewerOpen && (
+        <CompareMediaViewer
+          columns={run.columns}
+          initialColumnId={viewerColumnId}
+          blindLetters={run.blind ? blindLetters : undefined}
+          isIdentityHidden={isIdentityHidden}
+          winner={run.winner}
+          winnerColumnId={run.winnerColumnId}
+          canVote={canVote}
+          isRunning={isRunning}
+          videoPlaybackUrls={videoPlaybackUrls}
+          onVote={handleVote}
+          onClose={() => setViewerColumnId(null)}
+        />
+      )}
       <SuiteReportPanel open={Boolean(suiteView)} onClose={() => setSuiteView(null)}>
         <SuiteReport
           key={suiteView}

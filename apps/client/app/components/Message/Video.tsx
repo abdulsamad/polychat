@@ -19,9 +19,13 @@ interface VideoProps {
   model: string;
   /** Persists a status change (resumed, expired, failed) wherever the video is stored. */
   onChange: (next: IVideoMessage['video_url']) => void;
+  /** Reports the playable blob URL, so a second player can reuse it instead of downloading again. */
+  onPlaybackUrlChange?: (url: string | undefined) => void;
+  /** Pauses this player while another one takes over, such as the compare viewer. */
+  isPaused?: boolean;
 }
 
-const Video = ({ id, video, onChange: save }: VideoProps) => {
+const Video = ({ id, video, onChange: save, onPlaybackUrlChange, isPaused }: VideoProps) => {
   const { user } = useUser();
   const accountId = user?.id ?? getAnonymousWorkspaceAccount();
   const apiKey = useSyncExternalStore(
@@ -36,6 +40,7 @@ const Video = ({ id, video, onChange: save }: VideoProps) => {
   const [checking, setChecking] = useState(false);
   const [reload, setReload] = useState(0);
   const resumeController = useRef<AbortController | null>(null);
+  const playerRef = useRef<HTMLVideoElement>(null);
 
   const openSettings = () => {
     setSettingsTarget('byok');
@@ -87,6 +92,15 @@ const Video = ({ id, video, onChange: save }: VideoProps) => {
       if (localUrl) URL.revokeObjectURL(localUrl);
     };
   }, [video.url, video.sourceUrl, video.status, apiKey, reload, accountId, id]);
+
+  useEffect(() => {
+    onPlaybackUrlChange?.(playbackUrl ?? undefined);
+    return () => onPlaybackUrlChange?.(undefined);
+  }, [playbackUrl, onPlaybackUrlChange]);
+
+  useEffect(() => {
+    if (isPaused) playerRef.current?.pause();
+  }, [isPaused]);
 
   const resume = async () => {
     if (!video.jobId || checking || isVideoJobActive(video.jobId)) return;
@@ -203,6 +217,7 @@ const Video = ({ id, video, onChange: save }: VideoProps) => {
       aria-label="Generated video">
       {playbackUrl ? (
         <video
+          ref={playerRef}
           className="video-playback-entry max-h-[min(70vh,40rem)] w-full rounded-xl border border-border bg-muted object-contain"
           src={playbackUrl}
           controls

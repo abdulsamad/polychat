@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertCircleIcon,
   BrainCircuitIcon,
@@ -8,6 +8,7 @@ import {
   CircleStopIcon,
   CoinsIcon,
   ImageOffIcon,
+  Maximize2Icon,
   RotateCcwIcon,
   TriangleAlertIcon,
   TrophyIcon,
@@ -32,6 +33,7 @@ import {
 } from '@/hooks/useCompareRun';
 import type { IVideoMessage } from '@/store';
 import type { CompareOutputType, CompareRubricCriterion } from '@/utils/lforage';
+import CompareVoteButton from '@/components/Compare/CompareVoteButton';
 import RubricPopover from '@/components/Compare/RubricPopover';
 import Image from '@/components/Message/Image';
 import Text from '@/components/Message/Text';
@@ -179,6 +181,12 @@ interface CompareColumnProps {
   isMediaPruned: boolean;
   /** The prompt this answer responds to; set only for follow-up turns, where it adds context. */
   currentPrompt?: string;
+  /** Opens the full screen viewer on this column. */
+  onExpand: (columnId: string) => void;
+  /** Shares the inline video's blob URL with the viewer, so it never downloads twice. */
+  onVideoPlaybackChange: (columnId: string, url: string | undefined) => void;
+  /** Pauses the inline video while the viewer is on top of it. */
+  isViewerOpen: boolean;
   /** Position in the run, used to stagger the entrance by 40ms per column. */
   index: number;
   className?: string;
@@ -206,6 +214,9 @@ const CompareColumn = ({
   outputType,
   isMediaPruned,
   currentPrompt,
+  onExpand,
+  onVideoPlaybackChange,
+  isViewerOpen,
   index,
   className,
 }: CompareColumnProps) => {
@@ -274,10 +285,21 @@ const CompareColumn = ({
   );
   // The image editor keeps its own transform state, so it is keyed by the image it shows. A
   // pruned run has no media left to load, only the note below.
+  const handlePlaybackChange = useCallback(
+    (url: string | undefined) => onVideoPlaybackChange(id, url),
+    [id, onVideoPlaybackChange]
+  );
   const media = isMediaPruned ? null : image?.url ? (
-    <Image key={image.url} image={image} model={displayLabel} />
+    <Image key={image.url} image={image} model={displayLabel} onOpen={() => onExpand(id)} />
   ) : video ? (
-    <Video id={id} video={video} model={model} onChange={(next) => onVideoChange(id, next)} />
+    <Video
+      id={id}
+      video={video}
+      model={model}
+      onChange={(next) => onVideoChange(id, next)}
+      onPlaybackUrlChange={handlePlaybackChange}
+      isPaused={isViewerOpen}
+    />
   ) : null;
   const isPrunedOutput = isMediaPruned && Boolean(image || video);
   const isActive = status === 'waiting' || status === 'streaming';
@@ -542,6 +564,18 @@ const CompareColumn = ({
               {new Intl.NumberFormat().format(words)} {words === 1 ? 'word' : 'words'}
             </p>
           )}
+          {media && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="mr-auto size-9 rounded-full text-muted-foreground hover:text-foreground"
+              title="View full screen"
+              aria-label={`View ${displayLabel} full screen`}
+              onClick={() => onExpand(id)}>
+              <Maximize2Icon />
+            </Button>
+          )}
           {hasContent && !isActive && (
             <CopyButton
               text={content}
@@ -557,18 +591,12 @@ const CompareColumn = ({
               onRate={(criterion, score) => onRate(id, criterion, score)}
             />
           )}
-          <Button
-            type="button"
-            size="sm"
-            variant={isWinner ? 'default' : 'outline'}
-            className="h-9 rounded-full px-3.5"
+          <CompareVoteButton
+            label={displayLabel}
+            isWinner={isWinner}
             disabled={!canVote || !hasAnswer || isActive}
-            aria-pressed={isWinner}
-            aria-label={`Vote ${displayLabel} as the best answer`}
-            onClick={() => onVote(column.model, id)}>
-            <TrophyIcon className={cn('size-3.5', isWinner && 'fill-current')} />
-            {isWinner ? 'Best answer' : 'Best'}
-          </Button>
+            onVote={() => onVote(column.model, id)}
+          />
         </div>
       </footer>
     </Card>
