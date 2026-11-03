@@ -2,17 +2,9 @@
 
 PolyChat is a model evaluation app for focused conversations and creative work.
 
-![Compare mode: one prompt streamed to three models side by side, with per-model latency and token metrics](docs/screenshots/compare-light.png)
+[![PolyChat launch video: chat with any model, generate images and video, then compare models in a blind vote](docs/media/polychat-launch.jpg)](docs/media/polychat-launch.mp4)
 
-## Screenshots
-
-| Chat with reasoning and rich Markdown                                                                                               | Vision analysis                                                                                |
-| ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| ![Chat thread with a collapsible reasoning section, formatted Markdown and syntax-highlighted code](docs/screenshots/chat-dark.png) | ![Image attachment with a model's description of the image](docs/screenshots/vision-light.png) |
-
-| Compare leaderboard                                                                                                         | Compare on mobile                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| ![Leaderboard of wins, runs and win rate per model above a voted comparison](docs/screenshots/compare-leaderboard-dark.png) | <img src="docs/screenshots/compare-mobile-dark.png" alt="Compare mode on a phone, with answer columns that scroll horizontally" width="260"> |
+**[Watch the launch video (30s)](docs/media/polychat-launch.mp4)** - try it at [polychat.abdulsamad.dev](https://polychat.abdulsamad.dev).
 
 ## Features
 

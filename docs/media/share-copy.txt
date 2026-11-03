@@ -1,0 +1,1 @@
+Every AI says it's the best, so I built a way to make them prove it. PolyChat lets you chat with Claude, GPT, Gemini and more, generate images and video, then run them head to head with names hidden until you vote. polychat.abdulsamad.dev
