@@ -4,7 +4,7 @@ PolyChat is a model evaluation app for focused conversations and creative work.
 
 [![PolyChat launch video: chat with any model, generate images and video, then compare models in a blind vote](docs/media/polychat-launch.jpg)](docs/media/polychat-launch.mp4)
 
-**[Watch the launch video (30s)](docs/media/polychat-launch.mp4)** - try it at [polychat.abdulsamad.dev](https://polychat.abdulsamad.dev).
+**[Watch the launch video (30s)](docs/media/polychat-launch.mp4)**
 
 ## Features
 
