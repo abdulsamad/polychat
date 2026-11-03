@@ -4,8 +4,6 @@ PolyChat is a model evaluation app for focused conversations and creative work.
 
 ![PolyChat in 30 seconds: chat with any model, generate images and video, then compare models in a blind vote](docs/media/polychat-launch.gif)
 
-Silent preview. [Download the full video with sound (MP4, 30s)](https://github.com/abdulsamad/polychat/raw/main/docs/media/polychat-launch.mp4), or try it at [polychat.abdulsamad.dev](https://polychat.abdulsamad.dev).
-
 ## Features
 
 - **Compare models side by side** - Send one prompt to two to four text models at once and watch the answers stream in parallel. Each answer shows time to first token, total time, input/output tokens, and cost. Vote for the best answer (or call a tie) to build a local leaderboard of wins, runs, and win rate per model.
